@@ -42,23 +42,30 @@ class MyMapPaths : Object, IPeersMapPaths
         assert_not_reached();
     }
 
-    public int i_peers_get_nodes_in_group(int level, int pos)
-    {
-        assert_not_reached();
-    }
-
-    public IAddressManagerRootDispatcher i_peers_gateway(int level, int pos)
+    public IAddressManagerRootDispatcher i_peers_gateway
+        (int level, int pos, IAddressManagerRootDispatcher? failed=null)
+        throws PeersNonexistentDestinationError
     {
         assert_not_reached();
     }
 
 }
 
+class MyBackFactory : Object, IPeersBackStubFactory
+{
+    public IAddressManagerRootDispatcher i_peers_get_tcp_inside
+        (Gee.List<int> positions)
+    {
+        assert_not_reached();
+    }
+}
+
 int main(string[] args)
 {
     PeersManager.init();
     var m = new MyMapPaths();
-    PeersManager peers = new PeersManager(m);
+    var bf = new MyBackFactory();
+    PeersManager peers = new PeersManager(m, bf, new ArrayList<PeerService>());
 
     return 0;
 }
