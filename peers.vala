@@ -8,6 +8,10 @@ namespace Netsukuku
         GENERIC
     }
 
+    public errordomain PeersNoParticipantsInNetworkError {
+        GENERIC
+    }
+
     public interface IPeersMapPaths : Object
     {
         public abstract int i_peers_get_levels();
@@ -335,6 +339,161 @@ namespace Netsukuku
             return dist(x, x_macron);
         }
 
+        private HashMap<int, WaitingAnswers> waiting_answers
+            = new HashMap<int, WaitingAnswers>();
+        internal class WaitingAnswers : Object
+        {
+            public PeerTuple? min_reached;
+            public ISerializable? response;
+            public Channel ch;
+            public bool final;
+            public WaitingAnswers()
+            {
+                ch = new Channel();
+                min_reached = null;
+                response = null;
+                final = false;
+            }
+        }
+        internal ISerializable contact_peer
+        (PeerTuple x_macron, PeerService p, RemoteCall req)
+        throws PeersNoParticipantsInNetworkError
+        {
+            IValidityChecker? parent = null;
+            if (p is OptionalPeerService)
+            {
+                // TODO obtain from p a IValidityChecker parent which will check its own participant_map.
+                // parent = (p as OptionalPeerService).get_map_validity_checker();
+            }
+
+            ExcludedTupleContainer exclude_gnode_container = new ExcludedTupleContainer(levels);
+            IValidityChecker chkr =
+                new ExcludedTupleChecker
+                (levels,
+                 map_paths,
+                 exclude_gnode_container,
+                 parent);
+
+            while (true)
+            {
+                HCoord? next_dest = approximate(
+                    x_macron,
+                    (gnode) => {
+                        return chkr.i_validity_check(gnode);
+                    });
+                if (next_dest == null)
+                {
+                    throw new PeersNoParticipantsInNetworkError.GENERIC(@"No participants to $(p.pid)");
+                }
+                else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
+                {
+                    // TODO it's me.
+                }
+                else
+                {
+                    int msg_id = GLib.Random.int_range(0, int32.MAX);
+                    WaitingAnswers waiting = new WaitingAnswers();
+                    waiting_answers[msg_id] = waiting;
+                    // min_reached is first destination when we start
+                    ArrayList<int> dest_one_pos = new ArrayList<int>();
+                    dest_one_pos.add(next_dest.pos);
+                    waiting.min_reached = new PeerTuple(dest_one_pos);
+                    // produce mf
+                    PeerMessageForwarder mf = new PeerMessageForwarder();
+                    mf.msg_id = msg_id;
+                    ArrayList<int> n_pos = new ArrayList<int>();
+                    // from 0 to next_dest.lvl
+                    for (int l = 0; l <= next_dest.lvl; l++)
+                    {
+                        n_pos.add(pos[l]);
+                    }
+                    mf.n = new PeerTuple(n_pos);
+                    // from 0 to next_dest.lvl-1
+                    mf.x_macron = new PeerTuple(x_macron.tuple.slice(0, next_dest.lvl));
+                    mf.lvl = next_dest.lvl;
+                    mf.pos = next_dest.pos;
+                    mf.p_id = p.pid;
+                    if (next_dest.lvl != 0)
+                    {
+                        ArrayList<int> next_dest_pos = new ArrayList<int>();
+                        // from next_dest to levels-1
+                        next_dest_pos.add(next_dest.pos);
+                        for (int l = next_dest.lvl+1; l < levels; l++)
+                        {
+                            next_dest_pos.add(pos[l]);
+                        }
+                        PeerTuple tuple_next_dest = new PeerTuple(next_dest_pos);
+                        mf.exclude_gnode_list = exclude_gnode_container.make_for_gnode(tuple_next_dest);
+                    }
+                    // forward mf to next_dest
+                    IAddressManagerRootDispatcher? failed=null;
+                    IAddressManagerRootDispatcher stub;
+                    bool forwarded = false;
+                    while (true)
+                    {
+                        try
+                        {
+                            stub = map_paths.i_peers_gateway(mf.lvl, mf.pos, failed);
+                            stub.peers_manager.forward_peer_message(mf);
+                            forwarded = true;
+                            break;
+                        }
+                        catch (RPCError e)
+                        {
+                            // Since this should be a reliable stub the arc to the gateway should be removed
+                            // and a new gateway should be given to us.
+                            failed = stub;
+                        }
+                        catch (PeersNonexistentDestinationError e)
+                        {
+                            // restart from evaluation of next_dest = approximate(....)
+                            break;
+                        }
+                    }
+                    if (forwarded)
+                    {
+                        try
+                        {
+                            int64 timeout = 20000;
+                            int nodes_estimate = map_paths.i_peers_get_nodes_in_my_group(next_dest.lvl+1);
+                            if (nodes_estimate < 100) timeout = 5000;
+                            if (nodes_estimate < 10) timeout = 2000;
+                            while (true)
+                            {
+                                waiting.ch.recv_with_timeout(timeout);
+                                if (waiting.final) break;
+                                // else it was reporting a next_dest, so wait more.
+                            }
+                            if (waiting.response != null)
+                            {
+                                // success
+                                waiting_answers.unset(msg_id);
+                                return waiting.response;
+                            }
+                            else
+                            {
+                                // failure signaled from a g-node.
+                            }
+                        }
+                        catch (ChannelError e)
+                        {
+                            // timeout waiting for next signal.
+                        }
+                        // remove this destination
+                        ArrayList<int> exclude_gnode_pos = new ArrayList<int>();
+                        exclude_gnode_pos.add_all(waiting.min_reached.tuple);
+                        for (int l = next_dest.lvl+1; l < levels; l++)
+                        {
+                            exclude_gnode_pos.add(pos[l]);
+                        }
+                        exclude_gnode_container.add_tuple(new PeerTuple(exclude_gnode_pos));
+                        // then restart from evaluation of next_dest = approximate(....)
+                    }
+                    waiting_answers.unset(msg_id);
+                }
+            }
+        }
+
         // Helper: given a HCoord (lvl,pos) and a level j:
         //   * a node n that shares with this node the level j+1 has sent a
         //     message to find x
@@ -347,8 +506,58 @@ namespace Netsukuku
             Gee.List<int> ret = new ArrayList<int>();
             ret.add(gnode.pos);
             for (int i = gnode.lvl+1; i <= j ; i++)
-                ret.add(map_paths.i_peers_get_my_pos(i));
+                ret.add(pos[i]);
             return ret;
+        }
+
+        // The final destination of a message arrives here:
+        private void final_destination(PeerMessageForwarder mf)
+        {
+            bool participating = false;
+            if (services.has_key(mf.p_id))
+            {
+                PeerService p = services[mf.p_id];
+                participating = true;
+                if (p is OptionalPeerService)
+                {
+                    participating = (p as OptionalPeerService).participating;
+                }
+            }
+
+            if (! participating)
+            {
+                // I don't participate to this service. Report failure to n.
+                int msgid = mf.msg_id;
+                Gee.List<int> n_positions =
+                    make_positions_inside(
+                    mf.n.tuple.size, new HCoord(0, pos[0]));
+                PeerTuple failed = new PeerTuple(n_positions);
+                IAddressManagerRootDispatcher stub =
+                    back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
+                try
+                {
+                    stub.peers_manager.set_failure(msgid, failed);
+                }
+                catch (RPCError e)
+                {
+                    // nothing to be done
+                }
+                return;
+            }
+
+            PeerService p = services[mf.p_id];
+
+            // Contact n
+            try
+            {
+                IAddressManagerRootDispatcher stub =
+                    back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
+                RemoteCall req = stub.peers_manager.get_request(mf.msg_id);
+                ISerializable resp = p.exec(req);
+                stub.peers_manager.set_response(mf.msg_id, resp);
+            }
+            catch (PeersUnknownMessage e) {}
+            catch (RPCError e) {}
         }
 
         private bool check_valid_message(PeerMessageForwarder mf)
@@ -378,7 +587,8 @@ namespace Netsukuku
 		        if (mf.lvl == 0)
 		        {
 		            // my final destination
-		            // TODO
+		            final_destination(mf);
+		            return;
 		        }
 		        else
 		        {
@@ -425,19 +635,33 @@ namespace Netsukuku
 		                    mf.reverse);
 		                if (next_dest == null)
 		                {
-		                    // nobody remains
-		                    // TODO
-		                    break;
+		                    // nobody remains. Report failure to n.
+		                    int msgid = mf.msg_id;
+		                    Gee.List<int> n_positions =
+		                        make_positions_inside(
+		                        mf.n.tuple.size, new HCoord(mf.lvl, mf.pos));
+		                    PeerTuple failed = new PeerTuple(n_positions);
+		                    IAddressManagerRootDispatcher stub =
+		                        back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
+		                    try
+		                    {
+		                        stub.peers_manager.set_failure(msgid, failed);
+		                    }
+		                    catch (RPCError e)
+		                    {
+		                        // nothing to be done
+		                    }
+		                    return;
 		                }
 		                else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
 		                {
 		                    // I am the destination
-		                    // TODO
-		                    break;
+		                    final_destination(mf);
+		                    return;
 		                }
 		                else
 		                {
-		                    // found next destination
+		                    // Forward to next destination.
 		                    // duplicate mf in mf2.
 		                    PeerMessageForwarder mf2;
 		                    try
@@ -462,7 +686,7 @@ namespace Netsukuku
                                 next_dest_pos.add(next_dest.pos);
                                 for (int l = next_dest.lvl+1; l < mf.lvl; l++)
                                 {
-                                    next_dest_pos.add(map_paths.i_peers_get_my_pos(l));
+                                    next_dest_pos.add(pos[l]);
                                 }
                                 PeerTuple tuple_next_dest = new PeerTuple(next_dest_pos);
 		                        mf2.exclude_gnode_list = cont.make_for_gnode(tuple_next_dest);
@@ -575,6 +799,12 @@ namespace Netsukuku
         {
             return new PeerTuple(perfect_tuple(k));
         }
+
+        public ISerializable exec(RemoteCall req)
+        {
+            // TODO execution of a remotable peer-to-peer method
+            return new SerializableNone();
+        }
     }
 
     public abstract class OptionalPeerService : PeerService
@@ -583,6 +813,8 @@ namespace Netsukuku
         {
             base(pid, gsizes);
         }
+        // TODO
+        public bool participating = true;
     }
 
     internal class PeerTuple : Object, ISerializable, IPeerTuple
