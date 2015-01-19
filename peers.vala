@@ -384,64 +384,113 @@ namespace Netsukuku
 		        {
 		            if (! services.has_key(mf.p_id))
 		            {
-		                // No knowledge yet about this service.
-		                Gee.List<int> n_positions = 
-		                back_stub_factory.i_peers_get_tcp_inside(
-		                        make_positions_inside(
-		                        mf.n.tuple.size,
-		                        new HCoord()))
-		                .peers_manager.set_failure(
+		                // No knowledge yet about this service. Report failure to n.
+		                int msgid = mf.msg_id;
+		                Gee.List<int> n_positions =
+		                    make_positions_inside(
+		                    mf.n.tuple.size, new HCoord(mf.lvl, mf.pos));
+		                PeerTuple failed = new PeerTuple(n_positions);
+		                IAddressManagerRootDispatcher stub =
+		                    back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
+		                try
+		                {
+		                    stub.peers_manager.set_failure(msgid, failed);
+		                }
+		                catch (RPCError e)
+		                {
+		                    // nothing to be done
+		                }
+		                return;
 		            }
 		            PeerService p = services[mf.p_id];
+
 		            IValidityChecker? parent = null;
-		            
-		            // TODO if service mf.p_id is NOT in my registered services, then do as if
-		            //      service is optional and nobody participates inside my g-node.
-		            // TODO if service mf.p_id IS in my registered services, then look if it is
-		            //      an optional service and in that case obtain from the service handler
-		            //      a IValidityChecker parent which will check its own participant_map.
+		            if (p is OptionalPeerService)
+		            {
+		                // TODO obtain from p a IValidityChecker parent which will check its own participant_map.
+		                // parent = (p as OptionalPeerService).get_map_validity_checker();
+		            }
 
 		            ExcludedTupleContainer cont = new ExcludedTupleContainer(mf.lvl-1);
 		            foreach (PeerTuple t in mf.exclude_gnode_list) cont.add_tuple(t);
 		            IValidityChecker chkr = new ExcludedTupleChecker(mf.lvl-1, map_paths, cont, parent);
 
-		            HCoord? next_dest = approximate(
-		                mf.x_macron,
-		                (gnode) => {
-		                    return chkr.i_validity_check(gnode);
-		                },
-		                mf.reverse);
-		            if (next_dest == null)
+		            while (true)
 		            {
-		                // nobody remains
-		                // TODO
-		            }
-		            else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
-		            {
-		                // I am the destination
-		                // TODO
-		            }
-		            else
-		            {
-		                // found next destination
-		                int k = next_dest.lvl;
-		                if (k == 0)
+		                HCoord? next_dest = approximate(
+		                    mf.x_macron,
+		                    (gnode) => {
+		                        return chkr.i_validity_check(gnode);
+		                    },
+		                    mf.reverse);
+		                if (next_dest == null)
 		                {
-		                    mf.exclude_gnode_list.clear();
+		                    // nobody remains
+		                    // TODO
+		                    break;
+		                }
+		                else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
+		                {
+		                    // I am the destination
+		                    // TODO
+		                    break;
 		                }
 		                else
 		                {
-                            ArrayList<int> next_dest_pos = new ArrayList<int>();
-                            // from next_dest to current-1
-                            next_dest_pos.add(next_dest.pos);
-                            for (int l = next_dest.lvl+1; l < mf.lvl; l++)
-                            {
-                                next_dest_pos.add(map_paths.i_peers_get_my_pos(l));
-                            }
-                            PeerTuple tuple_next_dest = new PeerTuple(next_dest_pos);
-		                    mf.exclude_gnode_list = cont.make_for_gnode(tuple_next_dest);
-		                }
-		                // TODO
+		                    // found next destination
+		                    // duplicate mf in mf2.
+		                    PeerMessageForwarder mf2;
+		                    try
+		                    {
+		                        mf2 =
+		                        (PeerMessageForwarder)
+		                        ISerializable.deserialize(mf.serialize());
+		                    }
+		                    catch (SerializerError e) {assert_not_reached();}
+		                    mf2.lvl = next_dest.lvl;
+		                    mf2.pos = next_dest.pos;
+		                    mf2.x_macron = new PeerTuple(
+		                        mf.x_macron.tuple.slice(0, next_dest.lvl));
+		                    if (next_dest.lvl == 0)
+		                    {
+		                        mf2.exclude_gnode_list.clear();
+		                    }
+		                    else
+		                    {
+                                ArrayList<int> next_dest_pos = new ArrayList<int>();
+                                // from next_dest to current-1
+                                next_dest_pos.add(next_dest.pos);
+                                for (int l = next_dest.lvl+1; l < mf.lvl; l++)
+                                {
+                                    next_dest_pos.add(map_paths.i_peers_get_my_pos(l));
+                                }
+                                PeerTuple tuple_next_dest = new PeerTuple(next_dest_pos);
+		                        mf2.exclude_gnode_list = cont.make_for_gnode(tuple_next_dest);
+		                    }
+		                    // forward mf2 to next_dest
+		                    IAddressManagerRootDispatcher? failed=null;
+		                    IAddressManagerRootDispatcher stub;
+		                    while (true)
+		                    {
+		                        try
+		                        {
+		                            stub = map_paths.i_peers_gateway(mf2.lvl, mf2.pos, failed);
+		                            stub.peers_manager.forward_peer_message(mf2);
+		                            return;
+		                        }
+		                        catch (RPCError e)
+		                        {
+		                            // Since this should be a reliable stub the arc to the gateway should be removed
+		                            // and a new gateway should be given to us.
+		                            failed = stub;
+		                        }
+		                        catch (PeersNonexistentDestinationError e)
+		                        {
+		                            // restart from evaluation of next_dest = approximate(....)
+		                            break;
+		                        }
+		                    }
+                        }
 		            }
 		        }
 		    } 
