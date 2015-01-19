@@ -344,15 +344,19 @@ namespace Netsukuku
         internal class WaitingAnswers : Object
         {
             public PeerTuple? min_reached;
+            public RemoteCall request;
             public ISerializable? response;
             public Channel ch;
+            public bool processing;
             public bool final;
-            public WaitingAnswers()
+            public WaitingAnswers(RemoteCall request)
             {
                 ch = new Channel();
                 min_reached = null;
                 response = null;
+                processing = false;
                 final = false;
+                this.request = request;
             }
         }
         internal ISerializable contact_peer
@@ -387,12 +391,13 @@ namespace Netsukuku
                 }
                 else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
                 {
-                    // TODO it's me.
+                    // it's me.
+                    return p.exec(req);
                 }
                 else
                 {
                     int msg_id = GLib.Random.int_range(0, int32.MAX);
-                    WaitingAnswers waiting = new WaitingAnswers();
+                    WaitingAnswers waiting = new WaitingAnswers(req);
                     waiting_answers[msg_id] = waiting;
                     // min_reached is first destination when we start
                     ArrayList<int> dest_one_pos = new ArrayList<int>();
@@ -461,6 +466,11 @@ namespace Netsukuku
                             while (true)
                             {
                                 waiting.ch.recv_with_timeout(timeout);
+                                if (waiting.processing)
+                                {
+                                    // extra wait
+                                    waiting.ch.recv_with_timeout(20000);
+                                }
                                 if (waiting.final) break;
                                 // else it was reporting a next_dest, so wait more.
                             }
@@ -745,24 +755,55 @@ namespace Netsukuku
 		    }
 		}
 
-		public RemoteCall get_request (int id_msg) throws PeersUnknownMessage
+		public RemoteCall get_request (int msg_id) throws PeersUnknownMessage
         {
-            assert_not_reached(); // TODO
+            if (waiting_answers.has_key(msg_id))
+            {
+                WaitingAnswers w = waiting_answers[msg_id];
+                w.processing = true;
+                w.ch.send_async(0);
+                return w.request;
+            }
+            else
+                throw new PeersUnknownMessage.GENERIC(@"PeersManager: Not waiting for $(msg_id)");
         }
 
-		public void set_response (int id_msg, ISerializable resp)
+		public void set_response (int msg_id, ISerializable resp)
         {
-            assert_not_reached(); // TODO
+            if (waiting_answers.has_key(msg_id))
+            {
+                WaitingAnswers w = waiting_answers[msg_id];
+                w.response = resp;
+                w.processing = false;
+                w.final = true;
+                w.ch.send_async(0);
+            }
         }
 
-		public void set_next_destination (int id_msg, IPeerTuple tuple)
+		public void set_next_destination (int msg_id, IPeerTuple tuple)
         {
-            assert_not_reached(); // TODO
+            if (waiting_answers.has_key(msg_id) && tuple is PeerTuple)
+            {
+                WaitingAnswers w = waiting_answers[msg_id];
+                PeerTuple t = (PeerTuple)tuple;
+                if (t.tuple.size > w.min_reached.tuple.size)
+                {
+                    w.min_reached = t;
+                }
+                w.ch.send_async(0);
+            }
         }
 
-		public void set_failure (int id_msg, IPeerTuple tuple)
+		public void set_failure (int msg_id, IPeerTuple tuple)
         {
-            assert_not_reached(); // TODO
+            if (waiting_answers.has_key(msg_id) && tuple is PeerTuple)
+            {
+                WaitingAnswers w = waiting_answers[msg_id];
+                PeerTuple t = (PeerTuple)tuple;
+                w.min_reached = t;
+                w.final = true;
+                w.ch.send_async(0);
+            }
         }
     }
 
