@@ -366,8 +366,8 @@ namespace Netsukuku
             IValidityChecker? parent = null;
             if (p is OptionalPeerService)
             {
-                // TODO obtain from p a IValidityChecker parent which will check its own participant_map.
-                // parent = (p as OptionalPeerService).get_map_validity_checker();
+                // obtain from p a IValidityChecker parent which will check its own participant_map.
+                parent = (p as OptionalPeerService).get_map_validity_checker();
             }
 
             ExcludedTupleContainer exclude_gnode_container = new ExcludedTupleContainer(levels);
@@ -575,11 +575,20 @@ namespace Netsukuku
             if (mf.lvl < 0) return false;
             if (mf.lvl > levels) return false;
             if (mf.pos < 0) return false;
-            if (mf.pos > map_paths.i_peers_get_gsize(mf.lvl)) return false;
+            if (mf.pos > gsizes[mf.lvl]) return false;
             if (mf.x_macron.tuple.size != mf.lvl) return false;
             if (mf.n.tuple.size > levels) return false;
             if (mf.n.tuple.size <= mf.x_macron.tuple.size) return false;
-            // TODO finish checking
+            for (int i = 0; i < mf.n.tuple.size; i++)
+            {
+                if (mf.n.tuple[i] < 0) return false;
+                if (mf.n.tuple[i] > gsizes[i]) return false;
+            }
+            for (int i = 0; i < mf.x_macron.tuple.size; i++)
+            {
+                if (mf.x_macron.tuple[i] < 0) return false;
+                if (mf.x_macron.tuple[i] > gsizes[i]) return false;
+            }
             return true;
         }
 
@@ -627,8 +636,8 @@ namespace Netsukuku
 		            IValidityChecker? parent = null;
 		            if (p is OptionalPeerService)
 		            {
-		                // TODO obtain from p a IValidityChecker parent which will check its own participant_map.
-		                // parent = (p as OptionalPeerService).get_map_validity_checker();
+		                // obtain from p a IValidityChecker parent which will check its own participant_map.
+		                parent = (p as OptionalPeerService).get_map_validity_checker();
 		            }
 
 		            ExcludedTupleContainer cont = new ExcludedTupleContainer(mf.lvl-1);
@@ -811,6 +820,7 @@ namespace Netsukuku
     {
         protected ArrayList<int> gsizes;
         public int pid {get; private set;}
+        internal PeersManager peers_manager;
         public PeerService(int pid, Gee.List<int> gsizes)
         {
             this.gsizes = new ArrayList<int>();
@@ -841,11 +851,17 @@ namespace Netsukuku
             return new PeerTuple(perfect_tuple(k));
         }
 
-        public ISerializable exec(RemoteCall req)
+        public ISerializable call(Object k, RemoteCall req)
+        throws PeersNoParticipantsInNetworkError
         {
-            // TODO execution of a remotable peer-to-peer method
-            return new SerializableNone();
+            return
+            peers_manager.contact_peer
+                (internal_perfect_tuple(k),
+                 this,
+                 req);
         }
+
+        public abstract ISerializable exec(RemoteCall req);
     }
 
     public abstract class OptionalPeerService : PeerService
@@ -856,6 +872,13 @@ namespace Netsukuku
         }
         // TODO
         public bool participating = true;
+
+        internal IValidityChecker get_map_validity_checker()
+        {
+            IValidityChecker ret = // TODO remember to check if gnode is me then check if I participate
+                new NullChecker();
+            return ret;
+        }
     }
 
     internal class PeerTuple : Object, ISerializable, IPeerTuple
