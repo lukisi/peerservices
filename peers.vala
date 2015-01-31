@@ -20,7 +20,9 @@ namespace Netsukuku
         public abstract int i_peers_get_my_pos(int level);
         public abstract bool i_peers_exists(int level, int pos);
         public abstract IAddressManagerRootDispatcher i_peers_gateway
-            (int level, int pos, IAddressManagerRootDispatcher? failed=null)
+            (int level, int pos,
+             CallerInfo? received_from=null,
+             IAddressManagerRootDispatcher? failed=null)
             throws PeersNonexistentDestinationError;
     }
 
@@ -32,101 +34,108 @@ namespace Netsukuku
             (Gee.List<int> positions);
     }
 
-    // This delegate is used as a callback to tell whether a certain g-node in my map (or
-    //  myself) is valid as a result for Ht(hp(k)). It can be used to exclude some
-    //  gnodes because they failed to get reached. It can be used to exclude gnodes that
-    //  are not participating.
-    internal delegate bool ValidGnode(HCoord gnode);
-    internal interface IValidityChecker : Object
+    internal class PeerTupleNode : Object, ISerializable
     {
-        public abstract bool i_validity_check(HCoord gnode);
-    }
-    internal class NullChecker : Object, IValidityChecker
-    {
-        private IValidityChecker? parent; // decorator pattern
-        public NullChecker(IValidityChecker? parent=null)
-        {
-            this.parent = parent;
-        }
-
-        public bool i_validity_check(HCoord gnode)
-        {
-            // decorator pattern
-            if (parent != null && ! parent.i_validity_check(gnode)) return false;
-            // this checker implementation
-            return true;
-        }
-    }
-
-    internal class ExcludedTupleChecker : Object, IValidityChecker
-    {
-        private int toplevel;
-        private IPeersMapPaths map_paths;
-        private ExcludedTupleContainer excl;
-        private IValidityChecker? parent; // decorator pattern
-        public ExcludedTupleChecker
-        (int toplevel,
-         IPeersMapPaths map_paths,
-         ExcludedTupleContainer excl,
-         IValidityChecker? parent=null)
-        {
-            this.toplevel = toplevel;
-            this.map_paths = map_paths;
-            this.excl = excl;
-            this.parent = parent;
-        }
-
-        public bool i_validity_check(HCoord gnode)
-        {
-            // decorator pattern
-            if (parent != null && ! parent.i_validity_check(gnode)) return false;
-            // this checker implementation
-            ArrayList<int> gnode_pos = new ArrayList<int>();
-            for (int l = toplevel; l >= gnode.lvl; l--)
-            {
-                gnode_pos.add(map_paths.i_peers_get_my_pos(l));
+        private ArrayList<int> _tuple;
+        public Gee.List<int> tuple {
+            owned get {
+                return _tuple.read_only_view;
             }
-            gnode_pos.add(gnode.pos);
-            PeerTuple tuple_gnode = new PeerTuple(gnode_pos);
-            return ! excl.contains(tuple_gnode);
+        }
+        public PeerTupleNode(Gee.List<int> tuple)
+        {
+            this._tuple = new ArrayList<int>();
+            this._tuple.add_all(tuple);
+        }
+
+        public Variant serialize_to_variant()
+        {
+            Variant v0 = Serializer.int_array_to_variant(_tuple.to_array());
+            return v0;
+        }
+
+        public void deserialize_from_variant(Variant v) throws SerializerError
+        {
+            int[] my_tuple = Serializer.variant_to_int_array(v);
+            _tuple = new ArrayList<int>();
+            _tuple.add_all_array(my_tuple);
         }
     }
 
-    internal class ExcludedTupleContainer : Object
+    internal class PeerTupleGNode : Object, ISerializable, IPeerTupleGNode
     {
-        private int toplevel;
-        private ArrayList<PeerTuple> e_list;
-        public ExcludedTupleContainer(int toplevel)
-        {
-            this.toplevel = toplevel;
-            e_list = new ArrayList<PeerTuple>();
+        private ArrayList<int> _tuple;
+        public Gee.List<int> tuple {
+            owned get {
+                return _tuple.read_only_view;
+            }
         }
-        private int get_rev_pos(PeerTuple t, int j)
+        public int top {get; private set;}
+        public PeerTupleGNode(Gee.List<int> tuple, int top)
         {
-            // t has positions for levels from ε >= 0 to toplevel.
-            // get position for toplevel-j.
-            return t.tuple[t.tuple.size - j];
+            this._tuple = new ArrayList<int>();
+            this._tuple.add_all(tuple);
+            this.top = top;
         }
-        public void add_tuple(PeerTuple t)
+
+        public Variant serialize_to_variant()
         {
-            // t has positions for levels from ε >= 0 to toplevel.
-            // hence ε = toplevel+1 - t.tuple.size
-            // t.tuple[0] is for level ε, i-th is for ε+i, ...
-            assert(toplevel+1 - t.tuple.size >= 0);
-            // If t is already contained in the list, return.
-            if (contains(t)) return;
+            Variant v0 = Serializer.int_array_to_variant(_tuple.to_array());
+            Variant v1 = Serializer.int_to_variant(top);
+            Variant vret = Serializer.tuple_to_variant(v0, v1);
+            return vret;
+        }
+
+        public void deserialize_from_variant(Variant v) throws SerializerError
+        {
+            Variant v0;
+            Variant v1;
+            Serializer.variant_to_tuple(v, out v0, out v1);
+            int[] my_tuple = Serializer.variant_to_int_array(v0);
+            _tuple = new ArrayList<int>();
+            _tuple.add_all_array(my_tuple);
+            top = Serializer.variant_to_int(v1);
+        }
+    }
+
+    internal class PeerTupleGNodeContainer : Object
+    {
+        private ArrayList<PeerTupleGNode> _list;
+        public Gee.List<PeerTupleGNode> list {
+            owned get {
+                return _list.read_only_view;
+            }
+        }
+
+        public PeerTupleGNodeContainer()
+        {
+            _list = new ArrayList<PeerTupleGNode>();
+        }
+
+        private int get_rev_pos(PeerTupleGNode g, int j)
+        {
+            // g.tuple has positions for levels from ε >= 0 to g.top-1.
+            // get position for top-1-j.
+            return g.tuple[g.tuple.size - j];
+        }
+
+        public void add(PeerTupleGNode g)
+        {
+            // If g is already contained in the list, return.
+            if (contains(g)) return;
             // Cycle the list:
             int i = 0;
-            while (i < e_list.size)
+            while (i < _list.size)
             {
-                PeerTuple e = e_list[i];
-                if (e.tuple.size > t.tuple.size)
+                PeerTupleGNode e = _list[i];
+                assert(e.top == g.top);
+                if (e.tuple.size > g.tuple.size)
                 {
-                    // If a gnode which is inside t is in the list, remove it.
+                    // If a gnode which is inside g is in the list, remove it.
                     bool mismatch = false;
-                    for (int j = 0; j < t.tuple.size; j++)
+                    for (int j = 0; j < g.tuple.size; j++)
                     {
-                        if (get_rev_pos(e,j) != get_rev_pos(t,j))
+                        if (get_rev_pos(e,j) != get_rev_pos(g,j))
                         {
                             mismatch = true;
                             break;
@@ -134,31 +143,29 @@ namespace Netsukuku
                     }
                     if (!mismatch)
                     {
-                        e_list.remove_at(i);
+                        _list.remove_at(i);
                         i--;
                     }
                 }
                 i++;
             }
-            // Then add t.
-            e_list.add(t);
+            // Then add g.
+            _list.add(g);
         }
-        public bool contains(PeerTuple t)
+
+        private bool contains(PeerTupleGNode g)
         {
-            // t has positions for levels from ε >= 0 to toplevel.
-            // hence ε = toplevel+1 - t.tuple.size
-            // t.tuple[0] is for level ε, i-th is for ε+i, ...
-            assert(toplevel+1 - t.tuple.size >= 0);
             // Cycle the list:
-            foreach (PeerTuple e in e_list)
+            foreach (PeerTupleGNode e in _list)
             {
-                if (e.tuple.size <= t.tuple.size)
+                assert(e.top == g.top);
+                if (e.tuple.size <= g.tuple.size)
                 {
-                    // If t is already in the list, return true.
+                    // If g is already in the list, return true.
                     bool mismatch = false;
                     for (int j = 0; j < e.tuple.size; j++)
                     {
-                        if (get_rev_pos(e,j) != get_rev_pos(t,j))
+                        if (get_rev_pos(e,j) != get_rev_pos(g,j))
                         {
                             mismatch = true;
                             break;
@@ -172,39 +179,181 @@ namespace Netsukuku
             }
             return false;
         }
-        public ArrayList<PeerTuple> make_for_gnode(PeerTuple gnode)
+    }
+
+    internal class PeerMessageForwarder : Object, ISerializable, IPeerMessage
+    {
+        public PeerTupleNode n;
+        public PeerTupleNode x_macron;
+        public int lvl;
+        public int pos;
+        public int p_id;
+        public int msg_id;
+        public Gee.List<PeerTupleGNode> exclude_tuple_list;
+        public Gee.List<PeerTupleGNode> non_participant_tuple_list;
+        public bool reverse;
+
+        public PeerMessageForwarder()
         {
-            // gnode is a tuple that represents one of our sibling at a level
-            // and it must not be in this set.
-            assert(! contains(gnode));
-            int level_of_gnode = toplevel - gnode.tuple.size + 1;
-            assert(level_of_gnode > 0);
-            ArrayList<PeerTuple> ret = new ArrayList<PeerTuple>();
-            // Cycle my list:
-            foreach (PeerTuple e in e_list)
+            exclude_tuple_list = new ArrayList<PeerTupleGNode>();
+            non_participant_tuple_list = new ArrayList<PeerTupleGNode>();
+            reverse = false;
+        }
+
+        public Variant serialize_to_variant()
+        {
+            Variant v0 = n.serialize_to_variant();
+            Variant v1 = x_macron.serialize_to_variant();
+            Variant v2 = Serializer.int_to_variant(lvl);
+            Variant v3 = Serializer.int_to_variant(pos);
+            Variant v4 = Serializer.int_to_variant(p_id);
+            Variant v5 = Serializer.int_to_variant(msg_id);
+            Variant v6;
             {
-                if (e.tuple.size > gnode.tuple.size)
-                {
-                    // If e is inside gnode, add e to new container.
-                    bool mismatch = false;
-                    for (int j = 0; j < gnode.tuple.size; j++)
-                    {
-                        if (get_rev_pos(e,j) != get_rev_pos(gnode,j))
-                        {
-                            mismatch = true;
-                            break;
-                        }
-                    }
-                    if (!mismatch)
-                    {
-                        PeerTuple e_in_gnode =
-                            new PeerTuple(
-                            e.tuple.slice(0, e.tuple.size - gnode.tuple.size));
-                        ret.add(e_in_gnode);
-                    }
-                }
+                ListISerializable lst = new ListISerializable();
+                foreach (PeerTupleGNode o in exclude_tuple_list) lst.add(o);
+                v6 = lst.serialize_to_variant();
             }
-            return ret;
+            Variant v7;
+            {
+                ListISerializable lst = new ListISerializable();
+                foreach (PeerTupleGNode o in non_participant_tuple_list) lst.add(o);
+                v7 = lst.serialize_to_variant();
+            }
+            Variant v8 = Serializer.int_to_variant(reverse ? 1 : 0);
+            Variant vtemp = Serializer.tuple_to_variant_5(v0, v1, v2, v3, v4);
+            Variant vret = Serializer.tuple_to_variant_5(vtemp, v5, v6, v7, v8);
+            return vret;
+        }
+
+        public void deserialize_from_variant(Variant v) throws SerializerError
+        {
+            Variant v0;
+            Variant v1;
+            Variant v2;
+            Variant v3;
+            Variant v4;
+            Variant v5;
+            Variant v6;
+            Variant v7;
+            Variant v8;
+            Variant vtemp;
+            Serializer.variant_to_tuple_5(v, out vtemp, out v5, out v6, out v7, out v8);
+            Serializer.variant_to_tuple_5(vtemp, out v0, out v1, out v2, out v3, out v4);
+            n = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
+            n.deserialize_from_variant(v0);
+            x_macron = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
+            x_macron.deserialize_from_variant(v1);
+            lvl = Serializer.variant_to_int(v2);
+            pos = Serializer.variant_to_int(v3);
+            p_id = Serializer.variant_to_int(v4);
+            msg_id = Serializer.variant_to_int(v5);
+            exclude_tuple_list = new ArrayList<PeerTupleGNode>();
+            {
+                ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
+                lst.deserialize_from_variant(v6);
+                Gee.List<PeerTupleGNode> typed_lst = (Gee.List<PeerTupleGNode>)lst.backed;
+                exclude_tuple_list.add_all(typed_lst);
+            }
+            non_participant_tuple_list = new ArrayList<PeerTupleGNode>();
+            {
+                ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
+                lst.deserialize_from_variant(v7);
+                Gee.List<PeerTupleGNode> typed_lst = (Gee.List<PeerTupleGNode>)lst.backed;
+                non_participant_tuple_list.add_all(typed_lst);
+            }
+            reverse = Serializer.variant_to_int(v8) == 1;
+        }
+    }
+
+    internal class WaitingAnswers : Object
+    {
+        public Channel ch;
+        public RemoteCall request;
+        public PeerTupleGNode min_target;
+        public PeerTupleGNode? exclude_gnode;
+        public PeerTupleGNode? non_participating_gnode;
+        public bool message_delivered;
+        public ISerializable? response;
+        public WaitingAnswers(RemoteCall request, PeerTupleGNode min_target)
+        {
+            ch = new Channel();
+            this.request = request;
+            this.min_target = min_target;
+            exclude_gnode = null;
+            non_participating_gnode = null;
+            message_delivered = false;
+            response = null;
+        }
+    }
+
+    internal class PeerParticipatingMap : Object, ISerializable
+    {
+        private ArrayList<HCoord> _list;
+        public Gee.List<HCoord> participating_list {
+            owned get {
+                return _list;
+            }
+        }
+
+        public PeerParticipatingMap()
+        {
+            _list = new ArrayList<HCoord>();
+        }
+
+        public Variant serialize_to_variant()
+        {
+            Variant v;
+            {
+                ListISerializable lst = new ListISerializable();
+                foreach (HCoord o in participating_list) lst.add(o);
+                v = lst.serialize_to_variant();
+            }
+            return v;
+        }
+
+        public void deserialize_from_variant(Variant v) throws SerializerError
+        {
+            _list = new ArrayList<HCoord>();
+            {
+                ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
+                lst.deserialize_from_variant(v);
+                Gee.List<HCoord> typed_lst = (Gee.List<HCoord>)lst.backed;
+                participating_list.add_all(typed_lst);
+            }
+        }
+    }
+
+    internal class PeerParticipatingSet : Object, ISerializable, IPeerParticipatingSet
+    {
+        private HashMap<int, PeerParticipatingMap> _set;
+        public HashMap<int, PeerParticipatingMap> participating_set {
+            owned get {
+                return _set;
+            }
+        }
+
+        public PeerParticipatingSet()
+        {
+            _set = new HashMap<int, PeerParticipatingMap>();
+        }
+
+        public Variant serialize_to_variant()
+        {
+            Variant v0 = Serializer.int_array_to_variant(participating_set.keys.to_array());
+            Variant v1;
+            {
+                ListISerializable lv = new ListISerializable();
+                foreach (int k in participating_set.keys) lv.add(participating_set[k]);
+                v1 = lv.serialize_to_variant();
+            }
+            Variant vret = Serializer.tuple_to_variant(v0, v1);
+            return vret;
+        }
+
+        public void deserialize_from_variant(Variant v) throws SerializerError
+        {
+            // TODO
         }
     }
 
@@ -214,8 +363,11 @@ namespace Netsukuku
         public static void init()
         {
             // Register serializable types
-            typeof(PeerTuple).class_peek();
+            typeof(PeerTupleNode).class_peek();
+            typeof(PeerTupleGNode).class_peek();
             typeof(PeerMessageForwarder).class_peek();
+            typeof(PeerParticipatingMap).class_peek();
+            typeof(PeerParticipatingSet).class_peek();
         }
 
         private IPeersMapPaths map_paths;
@@ -226,8 +378,7 @@ namespace Netsukuku
         private HashMap<int, PeerService> services;
         public PeersManager
             (IPeersMapPaths map_paths,
-             IPeersBackStubFactory back_stub_factory,
-             Gee.List<PeerService> services)
+             IPeersBackStubFactory back_stub_factory)
         {
             this.map_paths = map_paths;
             levels = map_paths.i_peers_get_levels();
@@ -239,15 +390,20 @@ namespace Netsukuku
                 pos[i] = map_paths.i_peers_get_my_pos(i);
             }
             this.back_stub_factory = back_stub_factory;
-            this.services = new HashMap<int, PeerService>();
-            foreach (PeerService p in services)
-                this.services[p.pid] = p;
         }
 
-        internal HCoord? approximate(PeerTuple x_macron,
-                                     ValidGnode valid_gnode_callback=(a)=>{return true;},
+        public void register(PeerService p)
+        {
+            // TODO
+        }
+
+        internal HCoord? approximate(PeerTupleNode x_macron,
+                                     Gee.List<HCoord> _exclude_list,
                                      bool reverse=false)
         {
+            // Make sure that exclude_list is searchable
+            Gee.List<HCoord> exclude_list = new ArrayList<HCoord>((a, b) => {return a.equals(b);});
+            exclude_list.add_all(_exclude_list);
             // This function is x=Ht(x̄)
             // The search can be restricted to a certain g-node
             int valid_levels = x_macron.tuple.size;
@@ -261,9 +417,9 @@ namespace Netsukuku
                 if (map_paths.i_peers_exists(l, p))
             {
                 HCoord x = new HCoord(l, p);
-                if (valid_gnode_callback(x))
+                if (!(x in exclude_list))
                 {
-                    PeerTuple tuple_x = make_tuple(x, valid_levels);
+                    PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
                     int distance = reverse ?
                                    dist_rev(x_macron, tuple_x) :
                                    dist(x_macron, tuple_x);
@@ -276,9 +432,9 @@ namespace Netsukuku
             }
             // and then for me
             HCoord x = new HCoord(0, pos[0]);
-            if (valid_gnode_callback(x))
+            if (!(x in exclude_list))
             {
-                PeerTuple tuple_x = make_tuple(x, valid_levels);
+                PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
                 int distance = reverse ?
                                dist_rev(x_macron, tuple_x) :
                                dist(x_macron, tuple_x);
@@ -292,7 +448,7 @@ namespace Netsukuku
             return ret;
         }
 
-        private PeerTuple make_tuple(HCoord y, int valid_levels)
+        private PeerTupleNode make_tuple_node(HCoord y, int valid_levels)
         {
             ArrayList<int> tuple = new ArrayList<int>();
             for (int j = valid_levels-1; j > y.lvl; j--)
@@ -304,10 +460,10 @@ namespace Netsukuku
             {
                 tuple.insert(0, 0);
             }
-            return new PeerTuple(tuple);
+            return new PeerTupleNode(tuple);
         }
 
-        private int dist(PeerTuple x_macron, PeerTuple x)
+        private int dist(PeerTupleNode x_macron, PeerTupleNode x)
         {
             int valid_levels = x_macron.tuple.size;
             assert (valid_levels == x.tuple.size);
@@ -334,498 +490,101 @@ namespace Netsukuku
             return distance;
         }
 
-        private int dist_rev(PeerTuple x_macron, PeerTuple x)
+        private int dist_rev(PeerTupleNode x_macron, PeerTupleNode x)
         {
             return dist(x, x_macron);
         }
 
-        private HashMap<int, WaitingAnswers> waiting_answers
-            = new HashMap<int, WaitingAnswers>();
-        internal class WaitingAnswers : Object
-        {
-            public PeerTuple? min_reached;
-            public RemoteCall request;
-            public ISerializable? response;
-            public Channel ch;
-            public bool processing;
-            public bool final;
-            public WaitingAnswers(RemoteCall request)
-            {
-                ch = new Channel();
-                min_reached = null;
-                response = null;
-                processing = false;
-                final = false;
-                this.request = request;
-            }
-        }
         internal ISerializable contact_peer
-        (PeerTuple x_macron, PeerService p, RemoteCall req)
+        (int p_id, PeerTupleNode x_macron, RemoteCall req, long exec_timeout_msec)
         throws PeersNoParticipantsInNetworkError
         {
-            IValidityChecker? parent = null;
-            if (p is OptionalPeerService)
-            {
-                // obtain from p a IValidityChecker parent which will check its own participant_map.
-                parent = (p as OptionalPeerService).get_map_validity_checker();
-            }
-
-            ExcludedTupleContainer exclude_gnode_container = new ExcludedTupleContainer(levels);
-            IValidityChecker chkr =
-                new ExcludedTupleChecker
-                (levels,
-                 map_paths,
-                 exclude_gnode_container,
-                 parent);
-
-            while (true)
-            {
-                HCoord? next_dest = approximate(
-                    x_macron,
-                    (gnode) => {
-                        return chkr.i_validity_check(gnode);
-                    });
-                if (next_dest == null)
-                {
-                    throw new PeersNoParticipantsInNetworkError.GENERIC(@"No participants to $(p.pid)");
-                }
-                else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
-                {
-                    // it's me.
-                    return p.exec(req);
-                }
-                else
-                {
-                    int msg_id = GLib.Random.int_range(0, int32.MAX);
-                    WaitingAnswers waiting = new WaitingAnswers(req);
-                    waiting_answers[msg_id] = waiting;
-                    // min_reached is first destination when we start
-                    ArrayList<int> dest_one_pos = new ArrayList<int>();
-                    dest_one_pos.add(next_dest.pos);
-                    waiting.min_reached = new PeerTuple(dest_one_pos);
-                    // produce mf
-                    PeerMessageForwarder mf = new PeerMessageForwarder();
-                    mf.msg_id = msg_id;
-                    ArrayList<int> n_pos = new ArrayList<int>();
-                    // from 0 to next_dest.lvl
-                    for (int l = 0; l <= next_dest.lvl; l++)
-                    {
-                        n_pos.add(pos[l]);
-                    }
-                    mf.n = new PeerTuple(n_pos);
-                    // from 0 to next_dest.lvl-1
-                    mf.x_macron = new PeerTuple(x_macron.tuple.slice(0, next_dest.lvl));
-                    mf.lvl = next_dest.lvl;
-                    mf.pos = next_dest.pos;
-                    mf.p_id = p.pid;
-                    if (next_dest.lvl != 0)
-                    {
-                        ArrayList<int> next_dest_pos = new ArrayList<int>();
-                        // from next_dest to levels-1
-                        next_dest_pos.add(next_dest.pos);
-                        for (int l = next_dest.lvl+1; l < levels; l++)
-                        {
-                            next_dest_pos.add(pos[l]);
-                        }
-                        PeerTuple tuple_next_dest = new PeerTuple(next_dest_pos);
-                        mf.exclude_gnode_list = exclude_gnode_container.make_for_gnode(tuple_next_dest);
-                    }
-                    // forward mf to next_dest
-                    IAddressManagerRootDispatcher? failed=null;
-                    IAddressManagerRootDispatcher stub;
-                    bool forwarded = false;
-                    while (true)
-                    {
-                        try
-                        {
-                            stub = map_paths.i_peers_gateway(mf.lvl, mf.pos, failed);
-                            stub.peers_manager.forward_peer_message(mf);
-                            forwarded = true;
-                            break;
-                        }
-                        catch (RPCError e)
-                        {
-                            // Since this should be a reliable stub the arc to the gateway should be removed
-                            // and a new gateway should be given to us.
-                            failed = stub;
-                        }
-                        catch (PeersNonexistentDestinationError e)
-                        {
-                            // restart from evaluation of next_dest = approximate(....)
-                            break;
-                        }
-                    }
-                    if (forwarded)
-                    {
-                        try
-                        {
-                            int64 timeout = 20000;
-                            int nodes_estimate = map_paths.i_peers_get_nodes_in_my_group(next_dest.lvl+1);
-                            if (nodes_estimate < 100) timeout = 5000;
-                            if (nodes_estimate < 10) timeout = 2000;
-                            while (true)
-                            {
-                                waiting.ch.recv_with_timeout(timeout);
-                                if (waiting.processing)
-                                {
-                                    // extra wait
-                                    waiting.ch.recv_with_timeout(20000);
-                                }
-                                if (waiting.final) break;
-                                // else it was reporting a next_dest, so wait more.
-                            }
-                            if (waiting.response != null)
-                            {
-                                // success
-                                waiting_answers.unset(msg_id);
-                                return waiting.response;
-                            }
-                            else
-                            {
-                                // failure signaled from a g-node.
-                            }
-                        }
-                        catch (ChannelError e)
-                        {
-                            // timeout waiting for next signal.
-                        }
-                        // remove this destination
-                        ArrayList<int> exclude_gnode_pos = new ArrayList<int>();
-                        exclude_gnode_pos.add_all(waiting.min_reached.tuple);
-                        for (int l = next_dest.lvl+1; l < levels; l++)
-                        {
-                            exclude_gnode_pos.add(pos[l]);
-                        }
-                        exclude_gnode_container.add_tuple(new PeerTuple(exclude_gnode_pos));
-                        // then restart from evaluation of next_dest = approximate(....)
-                    }
-                    waiting_answers.unset(msg_id);
-                }
-            }
-        }
-
-        // Helper: given a HCoord (lvl,pos) and a level j:
-        //   * a node n that shares with this node the level j+1 has sent a
-        //     message to find x
-        //   * this node is going to send a message to report failure or
-        //     to report next destination
-        //   * produce a tuple xε·xε+1·...·xj-1·xj
-        private Gee.List<int> make_positions_inside(int j, HCoord gnode)
-        {
-            assert(j >= gnode.lvl);
-            Gee.List<int> ret = new ArrayList<int>();
-            ret.add(gnode.pos);
-            for (int i = gnode.lvl+1; i <= j ; i++)
-                ret.add(pos[i]);
-            return ret;
-        }
-
-        // The final destination of a message arrives here:
-        private void final_destination(PeerMessageForwarder mf)
-        {
-            bool participating = false;
-            if (services.has_key(mf.p_id))
-            {
-                PeerService p = services[mf.p_id];
-                participating = true;
-                if (p is OptionalPeerService)
-                {
-                    participating = (p as OptionalPeerService).participating;
-                }
-            }
-
-            if (! participating)
-            {
-                // I don't participate to this service. Report failure to n.
-                int msgid = mf.msg_id;
-                Gee.List<int> n_positions =
-                    make_positions_inside(
-                    mf.n.tuple.size, new HCoord(0, pos[0]));
-                PeerTuple failed = new PeerTuple(n_positions);
-                IAddressManagerRootDispatcher stub =
-                    back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                try
-                {
-                    stub.peers_manager.set_failure(msgid, failed);
-                }
-                catch (RPCError e)
-                {
-                    // nothing to be done
-                }
-                return;
-            }
-
-            PeerService p = services[mf.p_id];
-
-            // Contact n
-            try
-            {
-                IAddressManagerRootDispatcher stub =
-                    back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                RemoteCall req = stub.peers_manager.get_request(mf.msg_id);
-                ISerializable resp = p.exec(req);
-                stub.peers_manager.set_response(mf.msg_id, resp);
-            }
-            catch (PeersUnknownMessage e) {}
-            catch (RPCError e) {}
+            // TODO
+            assert_not_reached();
         }
 
         private bool check_valid_message(PeerMessageForwarder mf)
         {
-            if (mf.lvl < 0) return false;
-            if (mf.lvl > levels) return false;
-            if (mf.pos < 0) return false;
-            if (mf.pos > gsizes[mf.lvl]) return false;
-            if (mf.x_macron.tuple.size != mf.lvl) return false;
-            if (mf.n.tuple.size > levels) return false;
-            if (mf.n.tuple.size <= mf.x_macron.tuple.size) return false;
-            for (int i = 0; i < mf.n.tuple.size; i++)
-            {
-                if (mf.n.tuple[i] < 0) return false;
-                if (mf.n.tuple[i] > gsizes[i]) return false;
-            }
-            for (int i = 0; i < mf.x_macron.tuple.size; i++)
-            {
-                if (mf.x_macron.tuple[i] < 0) return false;
-                if (mf.x_macron.tuple[i] > gsizes[i]) return false;
-            }
-            return true;
+            // TODO
+            assert_not_reached();
+        }
+
+        private bool check_valid_tuple_node(PeerTupleNode mf)
+        {
+            // TODO
+            assert_not_reached();
+        }
+
+        private bool check_valid_tuple_gnode(PeerTupleGNode mf)
+        {
+            // TODO
+            assert_not_reached();
         }
 
         /* Remotable methods
          */
 
-		public void forward_peer_message(IPeerMessage peer_message)
+		public IPeerParticipatingSet get_participating_set()
 		{
-		    if (! (peer_message is PeerMessageForwarder)) return;
-		    PeerMessageForwarder mf = (PeerMessageForwarder)peer_message;
-		    if (! check_valid_message(mf)) return; // ignore invalid input from untrusted source.
-		    if (pos[mf.lvl] == mf.pos)
-		    {
-		        // for my g-node
-		        if (mf.lvl == 0)
-		        {
-		            // my final destination
-		            final_destination(mf);
-		            return;
-		        }
-		        else
-		        {
-		            if (! services.has_key(mf.p_id))
-		            {
-		                // No knowledge yet about this service. Report failure to n.
-		                int msgid = mf.msg_id;
-		                Gee.List<int> n_positions =
-		                    make_positions_inside(
-		                    mf.n.tuple.size, new HCoord(mf.lvl, mf.pos));
-		                PeerTuple failed = new PeerTuple(n_positions);
-		                IAddressManagerRootDispatcher stub =
-		                    back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-		                try
-		                {
-		                    stub.peers_manager.set_failure(msgid, failed);
-		                }
-		                catch (RPCError e)
-		                {
-		                    // nothing to be done
-		                }
-		                return;
-		            }
-		            PeerService p = services[mf.p_id];
-
-		            IValidityChecker? parent = null;
-		            if (p is OptionalPeerService)
-		            {
-		                // obtain from p a IValidityChecker parent which will check its own participant_map.
-		                parent = (p as OptionalPeerService).get_map_validity_checker();
-		            }
-
-		            ExcludedTupleContainer cont = new ExcludedTupleContainer(mf.lvl-1);
-		            foreach (PeerTuple t in mf.exclude_gnode_list) cont.add_tuple(t);
-		            IValidityChecker chkr = new ExcludedTupleChecker(mf.lvl-1, map_paths, cont, parent);
-
-		            while (true)
-		            {
-		                HCoord? next_dest = approximate(
-		                    mf.x_macron,
-		                    (gnode) => {
-		                        return chkr.i_validity_check(gnode);
-		                    },
-		                    mf.reverse);
-		                if (next_dest == null)
-		                {
-		                    // nobody remains. Report failure to n.
-		                    int msgid = mf.msg_id;
-		                    Gee.List<int> n_positions =
-		                        make_positions_inside(
-		                        mf.n.tuple.size, new HCoord(mf.lvl, mf.pos));
-		                    PeerTuple failed = new PeerTuple(n_positions);
-		                    IAddressManagerRootDispatcher stub =
-		                        back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-		                    try
-		                    {
-		                        stub.peers_manager.set_failure(msgid, failed);
-		                    }
-		                    catch (RPCError e)
-		                    {
-		                        // nothing to be done
-		                    }
-		                    return;
-		                }
-		                else if (next_dest.lvl == 0 && next_dest.pos == pos[0])
-		                {
-		                    // I am the destination
-		                    final_destination(mf);
-		                    return;
-		                }
-		                else
-		                {
-		                    // Forward to next destination.
-		                    // duplicate mf in mf2.
-		                    PeerMessageForwarder mf2;
-		                    try
-		                    {
-		                        mf2 =
-		                        (PeerMessageForwarder)
-		                        ISerializable.deserialize(mf.serialize());
-		                    }
-		                    catch (SerializerError e) {assert_not_reached();}
-		                    mf2.lvl = next_dest.lvl;
-		                    mf2.pos = next_dest.pos;
-		                    mf2.x_macron = new PeerTuple(
-		                        mf.x_macron.tuple.slice(0, next_dest.lvl));
-		                    if (next_dest.lvl == 0)
-		                    {
-		                        mf2.exclude_gnode_list.clear();
-		                    }
-		                    else
-		                    {
-                                ArrayList<int> next_dest_pos = new ArrayList<int>();
-                                // from next_dest to current-1
-                                next_dest_pos.add(next_dest.pos);
-                                for (int l = next_dest.lvl+1; l < mf.lvl; l++)
-                                {
-                                    next_dest_pos.add(pos[l]);
-                                }
-                                PeerTuple tuple_next_dest = new PeerTuple(next_dest_pos);
-		                        mf2.exclude_gnode_list = cont.make_for_gnode(tuple_next_dest);
-		                    }
-		                    // forward mf2 to next_dest
-		                    IAddressManagerRootDispatcher? failed=null;
-		                    IAddressManagerRootDispatcher stub;
-		                    while (true)
-		                    {
-		                        try
-		                        {
-		                            stub = map_paths.i_peers_gateway(mf2.lvl, mf2.pos, failed);
-		                            stub.peers_manager.forward_peer_message(mf2);
-		                            return;
-		                        }
-		                        catch (RPCError e)
-		                        {
-		                            // Since this should be a reliable stub the arc to the gateway should be removed
-		                            // and a new gateway should be given to us.
-		                            failed = stub;
-		                        }
-		                        catch (PeersNonexistentDestinationError e)
-		                        {
-		                            // restart from evaluation of next_dest = approximate(....)
-		                            break;
-		                        }
-		                    }
-                        }
-		            }
-		        }
-		    } 
-		    else
-		    {
-		        IAddressManagerRootDispatcher? failed=null;
-		        IAddressManagerRootDispatcher stub;
-		        while (true)
-		        {
-		            try
-		            {
-		                stub = map_paths.i_peers_gateway(mf.lvl, mf.pos, failed);
-		                stub.peers_manager.forward_peer_message(peer_message);
-		                return;
-		            }
-		            catch (RPCError e)
-		            {
-		                // Since this should be a reliable stub the arc to the gateway should be removed
-		                // and a new gateway should be given to us.
-		                failed = stub;
-		            }
-		            catch (PeersNonexistentDestinationError e)
-		            {
-		                // give up
-		                return;
-		            }
-		        }
-		    }
+		    // TODO
+            assert_not_reached();
 		}
 
-		public RemoteCall get_request (int msg_id) throws PeersUnknownMessage
+		public void forward_peer_message(IPeerMessage peer_message)
+		{
+		    // TODO
+            assert_not_reached();
+		}
+
+		public RemoteCall get_request (int msg_id) throws PeersUnknownMessageError
         {
-            if (waiting_answers.has_key(msg_id))
-            {
-                WaitingAnswers w = waiting_answers[msg_id];
-                w.processing = true;
-                w.ch.send_async(0);
-                return w.request;
-            }
-            else
-                throw new PeersUnknownMessage.GENERIC(@"PeersManager: Not waiting for $(msg_id)");
+		    // TODO
+            assert_not_reached();
         }
 
 		public void set_response (int msg_id, ISerializable resp)
         {
-            if (waiting_answers.has_key(msg_id))
-            {
-                WaitingAnswers w = waiting_answers[msg_id];
-                w.response = resp;
-                w.processing = false;
-                w.final = true;
-                w.ch.send_async(0);
-            }
+		    // TODO
+            assert_not_reached();
         }
 
-		public void set_next_destination (int msg_id, IPeerTuple tuple)
+		public void set_next_destination (int msg_id, IPeerTupleGNode tuple)
         {
-            if (waiting_answers.has_key(msg_id) && tuple is PeerTuple)
-            {
-                WaitingAnswers w = waiting_answers[msg_id];
-                PeerTuple t = (PeerTuple)tuple;
-                if (t.tuple.size > w.min_reached.tuple.size)
-                {
-                    w.min_reached = t;
-                }
-                w.ch.send_async(0);
-            }
+		    // TODO
+            assert_not_reached();
         }
 
-		public void set_failure (int msg_id, IPeerTuple tuple)
+		public void set_failure (int msg_id, IPeerTupleGNode tuple)
         {
-            if (waiting_answers.has_key(msg_id) && tuple is PeerTuple)
-            {
-                WaitingAnswers w = waiting_answers[msg_id];
-                PeerTuple t = (PeerTuple)tuple;
-                w.min_reached = t;
-                w.final = true;
-                w.ch.send_async(0);
-            }
+		    // TODO
+            assert_not_reached();
         }
     }
 
     public abstract class PeerService : Object
     {
+        public int p_id {get; private set;}
+        public bool p_is_optional {get; private set;}
+        public PeerService(int p_id, bool p_is_optional)
+        {
+            this.p_id = p_id;
+            this.p_is_optional = p_is_optional;
+        }
+
+        public abstract ISerializable exec(RemoteCall req);
+    }
+
+    public abstract class PeerClient : Object
+    {
         protected ArrayList<int> gsizes;
-        public int pid {get; private set;}
-        internal PeersManager peers_manager;
-        public PeerService(int pid, Gee.List<int> gsizes)
+        private int p_id;
+        private PeersManager peers_manager;
+        public PeerClient(int p_id, Gee.List<int> gsizes, PeersManager peers_manager)
         {
             this.gsizes = new ArrayList<int>();
             this.gsizes.add_all(gsizes);
-            this.pid = pid;
+            this.p_id = p_id;
+            this.peers_manager = peers_manager;
         }
 
         protected abstract uint64 hash_from_key(Object k, uint64 top);
@@ -846,132 +605,20 @@ namespace Netsukuku
             return tuple;
         }
 
-        internal PeerTuple internal_perfect_tuple(Object k)
+        internal PeerTupleNode internal_perfect_tuple(Object k)
         {
-            return new PeerTuple(perfect_tuple(k));
+            return new PeerTupleNode(perfect_tuple(k));
         }
 
-        public ISerializable call(Object k, RemoteCall req)
+        public ISerializable call(Object k, RemoteCall req, long exec_timeout_msec)
         throws PeersNoParticipantsInNetworkError
         {
             return
             peers_manager.contact_peer
-                (internal_perfect_tuple(k),
-                 this,
-                 req);
-        }
-
-        public abstract ISerializable exec(RemoteCall req);
-    }
-
-    public abstract class OptionalPeerService : PeerService
-    {
-        public OptionalPeerService(int pid, Gee.List<int> gsizes)
-        {
-            base(pid, gsizes);
-        }
-        // TODO
-        public bool participating = true;
-
-        internal IValidityChecker get_map_validity_checker()
-        {
-            IValidityChecker ret = // TODO remember to check if gnode is me then check if I participate
-                new NullChecker();
-            return ret;
-        }
-    }
-
-    internal class PeerTuple : Object, ISerializable, IPeerTuple
-    {
-        private ArrayList<int> _tuple;
-        public Gee.List<int> tuple {
-            owned get {
-                return _tuple.read_only_view;
-            }
-        }
-        public PeerTuple(Gee.List<int> tuple)
-        {
-            this._tuple = new ArrayList<int>();
-            this._tuple.add_all(tuple);
-        }
-
-        public Variant serialize_to_variant()
-        {
-            Variant v0 = Serializer.int_array_to_variant(_tuple.to_array());
-            return v0;
-        }
-
-        public void deserialize_from_variant(Variant v) throws SerializerError
-        {
-            int[] my_tuple = Serializer.variant_to_int_array(v);
-            _tuple = new ArrayList<int>();
-            _tuple.add_all_array(my_tuple);
-        }
-    }
-
-    internal class PeerMessageForwarder : Object, ISerializable, IPeerMessage
-    {
-        public PeerTuple n;
-        public PeerTuple x_macron;
-        public int lvl;
-        public int pos;
-        public int p_id;
-        public int msg_id;
-        public Gee.List<PeerTuple> exclude_gnode_list;
-        public bool reverse;
-        public PeerMessageForwarder()
-        {
-            _reset();
-        }
-
-        private void _reset()
-        {
-            exclude_gnode_list = new ArrayList<PeerTuple>();
-            reverse = false;
-        }
-
-        public Variant serialize_to_variant()
-        {
-            Variant v0 = n.serialize_to_variant();
-            Variant v1 = x_macron.serialize_to_variant();
-            Variant v2 = Serializer.int_to_variant(lvl);
-            Variant v3 = Serializer.int_to_variant(pos);
-            Variant v4 = Serializer.int_to_variant(p_id);
-            Variant v5 = Serializer.int_to_variant(msg_id);
-            ListISerializable lst = new ListISerializable.with_backer(exclude_gnode_list);
-            Variant v6 = lst.serialize_to_variant();
-            Variant v7 = Serializer.int_to_variant(reverse ? 1 : 0);
-            Variant vtemp = Serializer.tuple_to_variant_5(v0, v1, v2, v3, v4);
-            Variant vret = Serializer.tuple_to_variant_4(vtemp, v5, v6, v7);
-            return vret;
-        }
-
-        public void deserialize_from_variant(Variant v) throws SerializerError
-        {
-            _reset();
-            Variant v0;
-            Variant v1;
-            Variant v2;
-            Variant v3;
-            Variant v4;
-            Variant v5;
-            Variant v6;
-            Variant v7;
-            Variant vtemp;
-            Serializer.variant_to_tuple_4(v, out vtemp, out v5, out v6, out v7);
-            Serializer.variant_to_tuple_5(vtemp, out v0, out v1, out v2, out v3, out v4);
-            n = (PeerTuple)Object.new(typeof(PeerTuple));
-            n.deserialize_from_variant(v0);
-            x_macron = (PeerTuple)Object.new(typeof(PeerTuple));
-            x_macron.deserialize_from_variant(v1);
-            lvl = Serializer.variant_to_int(v2);
-            pos = Serializer.variant_to_int(v3);
-            p_id = Serializer.variant_to_int(v4);
-            msg_id = Serializer.variant_to_int(v5);
-            ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
-            lst.deserialize_from_variant(v6);
-            exclude_gnode_list = (Gee.List<PeerTuple>)lst.backed;
-            reverse = Serializer.variant_to_int(v7) == 1;
+                (p_id,
+                 internal_perfect_tuple(k),
+                 req,
+                 exec_timeout_msec);
         }
     }
 }

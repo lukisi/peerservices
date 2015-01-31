@@ -43,7 +43,9 @@ class MyMapPaths : Object, IPeersMapPaths
     }
 
     public IAddressManagerRootDispatcher i_peers_gateway
-        (int level, int pos, IAddressManagerRootDispatcher? failed=null)
+        (int level, int pos,
+         CallerInfo? received_from=null,
+         IAddressManagerRootDispatcher? failed=null)
         throws PeersNonexistentDestinationError
     {
         assert_not_reached();
@@ -65,7 +67,8 @@ int main(string[] args)
     PeersManager.init();
     var m = new MyMapPaths();
     var bf = new MyBackFactory();
-    PeersManager peers = new PeersManager(m, bf, new ArrayList<PeerService>());
+    PeersManager peers = new PeersManager(m, bf);
+    //peers.register(p);
 
     return 0;
 }
