@@ -371,7 +371,20 @@ namespace Netsukuku
 
         public void deserialize_from_variant(Variant v) throws SerializerError
         {
-            // TODO
+            Variant v0;
+            Variant v1;
+            Serializer.variant_to_tuple(v, out v0, out v1);
+            {
+                int[] keys = Serializer.variant_to_int_array(v0);
+                ListISerializable lv = (ListISerializable)Object.new(typeof(ListISerializable));
+                lv.deserialize_from_variant(v1);
+                Gee.List<PeerParticipatingMap> typed_lv = (Gee.List<PeerParticipatingMap>)lv.backed;
+                if (keys.length != typed_lv.size)
+                    throw new SerializerError.GENERIC("Mismatch in hashmap keys and values numbers.");
+                _set = new HashMap<int, PeerParticipatingMap>();
+                for (int i = 0; i < typed_lv.size; i++)
+                    _set[keys[i]] = typed_lv[i];
+            }
         }
     }
 

@@ -17,11 +17,15 @@ check_PROGRAMS = \
 	test_peers \
 	$(NULL)
 
+# test_peers does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
 test_peers_SOURCES = \
 	testsuites/test_peers/test_peers.vala \
 	testsuites/test_peers/generic_naddr.vala \
 	testsuites/test_peers/base_dispatcher.vala \
-	peers.vapi \
+	testsuites/test_peers/peers.vala \
+	testsuites/test_peers/interfaces.vala \
 	$(NULL)
 
 test_peers_VALAFLAGS = \
@@ -48,7 +52,6 @@ test_peers_LDADD = \
 	$(TASKLET_LIBS) \
 	$(ZCD_LIBS) \
 	$(NTKDRPC_LIBS) \
-	$(builddir)/libpeers.la \
 	$(NULL)
 
 peersclient_SOURCES =  \

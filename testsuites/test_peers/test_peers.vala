@@ -16,4 +16,58 @@
  *  along with Netsukuku.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-void main() {}
+using Tasklets;
+using Gee;
+using zcd;
+using Netsukuku;
+
+class PeersTester : Object
+{
+    string logger;
+    const bool output = false;
+
+    public void set_up ()
+    {
+        logger = "";
+    }
+
+    public void tear_down ()
+    {
+        logger = "";
+    }
+
+    public void test_ser ()
+    {
+        PeerTupleNode n0;
+        {
+            uchar[] orig;
+            {
+                Gee.List<int> nums = new ArrayList<int>();
+                nums.add_all_array({1, 2, 3, 4});
+                PeerTupleNode n = new PeerTupleNode(nums);
+                orig = n.serialize();
+            }
+            uchar []dest = new uchar[orig.length];
+            for (int i = 0; i < orig.length; i++) dest[i] = orig[i];
+            n0 = (PeerTupleNode)ISerializable.deserialize(dest);
+        }
+        assert(n0.tuple.size == 4);
+        assert(n0.tuple[2] == 3);
+    }
+
+    public static int main(string[] args)
+    {
+        GLib.Test.init(ref args);
+        Tasklet.init();
+        GLib.Test.add_func ("/Peers/Serializables", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_ser();
+            x.tear_down();
+        });
+        GLib.Test.run();
+        Tasklet.kill();
+        return 0;
+    }
+}
+
