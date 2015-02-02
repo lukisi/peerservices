@@ -569,20 +569,63 @@ namespace Netsukuku
 
         private bool check_valid_message(PeerMessageForwarder mf)
         {
-            // TODO
-            assert_not_reached();
+            if (! check_valid_tuple_node(mf.n)) return false;
+            if (! check_valid_tuple_node(mf.x_macron)) return false;
+            if (mf.lvl < 0) return false;
+            if (mf.lvl >= levels) return false;
+            if (mf.pos < 0) return false;
+            if (mf.pos >= gsizes[mf.lvl]) return false;
+            if (mf.x_macron.tuple.size != mf.lvl) return false;
+            if (mf.n.tuple.size <= mf.lvl) return false;
+            if (! mf.exclude_tuple_list.is_empty)
+            {
+                foreach (PeerTupleGNode gn in mf.exclude_tuple_list)
+                {
+                    if (! check_valid_tuple_gnode(gn)) return false;
+                    if (gn.top != mf.lvl) return false;
+                }
+            }
+            if (! mf.non_participant_tuple_list.is_empty)
+            {
+                PeerTupleGNode gn;
+                gn = mf.non_participant_tuple_list[0];
+                if (! check_valid_tuple_gnode(gn)) return false;
+                if (gn.top <= mf.lvl) return false;
+                int first_top = gn.top;
+                for (int i = 1; i < mf.non_participant_tuple_list.size; i++)
+                {
+                    gn = mf.non_participant_tuple_list[i];
+                    if (! check_valid_tuple_gnode(gn)) return false;
+                    if (gn.top != first_top) return false;
+                }
+            }
+            return true;
         }
 
-        private bool check_valid_tuple_node(PeerTupleNode mf)
+        private bool check_valid_tuple_node(PeerTupleNode n)
         {
-            // TODO
-            assert_not_reached();
+            if (n.tuple.size == 0) return false;
+            if (n.tuple.size > levels) return false;
+            for (int i = 0; i < n.tuple.size; i++)
+            {
+                if (n.tuple[i] < 0) return false;
+                if (n.tuple[i] >= gsizes[i]) return false;
+            }
+            return true;
         }
 
-        private bool check_valid_tuple_gnode(PeerTupleGNode mf)
+        private bool check_valid_tuple_gnode(PeerTupleGNode gn)
         {
-            // TODO
-            assert_not_reached();
+            if (gn.tuple.size == 0) return false;
+            if (gn.top > levels) return false;
+            if (gn.tuple.size > gn.top) return false;
+            for (int i = 0; i < gn.tuple.size; i++)
+            {
+                int eps = gn.top - gn.tuple.size;
+                if (gn.tuple[i] < 0) return false;
+                if (gn.tuple[i] >= gsizes[eps+i]) return false;
+            }
+            return true;
         }
 
         /* Remotable methods
