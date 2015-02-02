@@ -133,8 +133,15 @@ namespace Netsukuku
         private int get_rev_pos(PeerTupleGNode g, int j)
         {
             // g.tuple has positions for levels from ε >= 0 to g.top-1.
+            //  e.g.:
+            //     g.top = 5
+            //       that is, the g-node h that we live inside is at level 5.
+            //     g.tuple.size = 3
+            //     g.tuple = [2,1,3]
+            //       that is g is g-node 3.1.2 inside h
+            //       epsilon is 2, position for 2 is 2, position for 3 is 1, position for 4 is 3
             // get position for top-1-j.
-            return g.tuple[g.tuple.size - j];
+            return g.tuple[g.tuple.size-1 - j];
         }
 
         public void add(PeerTupleGNode g)
@@ -316,7 +323,7 @@ namespace Netsukuku
 
         public PeerParticipatingMap()
         {
-            _list = new ArrayList<HCoord>();
+            _list = new ArrayList<HCoord>((a,b) => {return a.equals(b);});
         }
 
         public Variant serialize_to_variant()
@@ -332,7 +339,7 @@ namespace Netsukuku
 
         public void deserialize_from_variant(Variant v) throws SerializerError
         {
-            _list = new ArrayList<HCoord>();
+            _list = new ArrayList<HCoord>((a,b) => {return a.equals(b);});
             {
                 ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
                 lst.deserialize_from_variant(v);
@@ -407,6 +414,7 @@ namespace Netsukuku
         private int[] pos;
         private IPeersBackStubFactory back_stub_factory;
         private HashMap<int, PeerService> services;
+        private HashMap<int, PeerParticipatingMap> participating_maps;
         public PeersManager
             (IPeersMapPaths map_paths,
              IPeersBackStubFactory back_stub_factory)
@@ -421,11 +429,36 @@ namespace Netsukuku
                 pos[i] = map_paths.i_peers_get_my_pos(i);
             }
             this.back_stub_factory = back_stub_factory;
+            services = new HashMap<int, PeerService>();
+            participating_maps = new HashMap<int, PeerParticipatingMap>();
         }
 
         public void register(PeerService p)
         {
             // TODO
+            if (services.has_key(p.p_id))
+            {
+                critical("PeersManager.register: Two services with same ID?");
+                return;
+            }
+            services[p.p_id] = p;
+            // ...
+            if (p.p_is_optional)
+            {
+                // TODO start tasklet to publish periodically my participation
+            }
+            // ...
+            // TODO start tasklet to retrieve records for my cache of DHT
+            // ...
+            if (p.p_is_optional)
+            {
+                if (!participating_maps.has_key(p.p_id))
+                    participating_maps[p.p_id] = new PeerParticipatingMap();
+                // save my position
+                PeerParticipatingMap map = participating_maps[p.p_id];
+                map.participating_list.add(new HCoord(0, pos[0]));
+            }
+            // ...
         }
 
         internal HCoord? approximate(PeerTupleNode x_macron,
@@ -555,10 +588,23 @@ namespace Netsukuku
         /* Remotable methods
          */
 
-		public IPeerParticipatingSet get_participating_set()
+		public IPeerParticipatingSet get_participating_set(int lvl)
 		{
-		    // TODO
-            assert_not_reached();
+		    PeerParticipatingSet ret = new PeerParticipatingSet();
+		    foreach (int p_id in participating_maps.keys)
+		    {
+		        PeerParticipatingMap map = new PeerParticipatingMap();
+		        PeerParticipatingMap my_map = participating_maps[p_id];
+	            bool participation_at_lvl = false;
+		        foreach (HCoord hc in my_map.participating_list)
+		        {
+		            if (hc.lvl >= lvl) map.participating_list.add(hc);
+		            else participation_at_lvl = true;
+		        }
+		        if (participation_at_lvl) map.participating_list.add(new HCoord(lvl, pos[lvl]));
+		        ret.participating_set[p_id] = map;
+		    }
+		    return ret;
 		}
 
 		public void forward_peer_message(IPeerMessage peer_message)
@@ -641,7 +687,7 @@ namespace Netsukuku
             return new PeerTupleNode(perfect_tuple(k));
         }
 
-        public ISerializable call(Object k, RemoteCall req, long exec_timeout_msec)
+        protected ISerializable call(Object k, RemoteCall req, long exec_timeout_msec)
         throws PeersNoParticipantsInNetworkError
         {
             return
