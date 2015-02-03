@@ -209,7 +209,7 @@ namespace Netsukuku
     internal class PeerMessageForwarder : Object, ISerializable, IPeerMessage
     {
         public PeerTupleNode n;
-        public PeerTupleNode x_macron;
+        public PeerTupleNode? x_macron;
         public int lvl;
         public int pos;
         public int p_id;
@@ -228,7 +228,15 @@ namespace Netsukuku
         public Variant serialize_to_variant()
         {
             Variant v0 = n.serialize_to_variant();
-            Variant v1 = x_macron.serialize_to_variant();
+            Variant v1;
+            if (x_macron == null)
+            {
+                v1 = Serializer.int_to_variant(0);
+            }
+            else
+            {
+                v1 = x_macron.serialize_to_variant();
+            }
             Variant v2 = Serializer.int_to_variant(lvl);
             Variant v3 = Serializer.int_to_variant(pos);
             Variant v4 = Serializer.int_to_variant(p_id);
@@ -267,8 +275,15 @@ namespace Netsukuku
             Serializer.variant_to_tuple_5(vtemp, out v0, out v1, out v2, out v3, out v4);
             n = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
             n.deserialize_from_variant(v0);
-            x_macron = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
-            x_macron.deserialize_from_variant(v1);
+            if (v1.get_type_string() == "i")
+            {
+                x_macron = null;
+            }
+            else
+            {
+                x_macron = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
+                x_macron.deserialize_from_variant(v1);
+            }
             lvl = Serializer.variant_to_int(v2);
             pos = Serializer.variant_to_int(v3);
             p_id = Serializer.variant_to_int(v4);
@@ -570,13 +585,16 @@ namespace Netsukuku
         private bool check_valid_message(PeerMessageForwarder mf)
         {
             if (! check_valid_tuple_node(mf.n)) return false;
-            if (! check_valid_tuple_node(mf.x_macron)) return false;
             if (mf.lvl < 0) return false;
             if (mf.lvl >= levels) return false;
             if (mf.pos < 0) return false;
             if (mf.pos >= gsizes[mf.lvl]) return false;
-            if (mf.x_macron.tuple.size != mf.lvl) return false;
             if (mf.n.tuple.size <= mf.lvl) return false;
+            if (mf.x_macron != null)
+            {
+                if (! check_valid_tuple_node(mf.x_macron)) return false;
+                if (mf.x_macron.tuple.size != mf.lvl) return false;
+            }
             if (! mf.exclude_tuple_list.is_empty)
             {
                 foreach (PeerTupleGNode gn in mf.exclude_tuple_list)
