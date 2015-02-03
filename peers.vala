@@ -306,37 +306,37 @@ namespace Netsukuku
         }
     }
 
-    internal class WaitingAnswers : Object
+    internal class WaitingAnswer : Object
     {
         public Channel ch;
         public RemoteCall request;
         public PeerTupleGNode min_target;
         public PeerTupleGNode? exclude_gnode;
-        public PeerTupleGNode? non_participating_gnode;
+        public PeerTupleGNode? non_participant_gnode;
         public bool message_delivered;
         public ISerializable? response;
-        public WaitingAnswers(RemoteCall request, PeerTupleGNode min_target)
+        public WaitingAnswer(RemoteCall request, PeerTupleGNode min_target)
         {
             ch = new Channel();
             this.request = request;
             this.min_target = min_target;
             exclude_gnode = null;
-            non_participating_gnode = null;
+            non_participant_gnode = null;
             message_delivered = false;
             response = null;
         }
     }
 
-    internal class PeerParticipatingMap : Object, ISerializable
+    internal class PeerParticipantMap : Object, ISerializable
     {
         private ArrayList<HCoord> _list;
-        public Gee.List<HCoord> participating_list {
+        public Gee.List<HCoord> participant_list {
             owned get {
                 return _list;
             }
         }
 
-        public PeerParticipatingMap()
+        public PeerParticipantMap()
         {
             _list = new ArrayList<HCoord>((a,b) => {return a.equals(b);});
         }
@@ -346,7 +346,7 @@ namespace Netsukuku
             Variant v;
             {
                 ListISerializable lst = new ListISerializable();
-                foreach (HCoord o in participating_list) lst.add(o);
+                foreach (HCoord o in participant_list) lst.add(o);
                 v = lst.serialize_to_variant();
             }
             return v;
@@ -359,32 +359,32 @@ namespace Netsukuku
                 ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
                 lst.deserialize_from_variant(v);
                 Gee.List<HCoord> typed_lst = (Gee.List<HCoord>)lst.backed;
-                participating_list.add_all(typed_lst);
+                participant_list.add_all(typed_lst);
             }
         }
     }
 
-    internal class PeerParticipatingSet : Object, ISerializable, IPeerParticipatingSet
+    internal class PeerParticipantSet : Object, ISerializable, IPeerParticipantSet
     {
-        private HashMap<int, PeerParticipatingMap> _set;
-        public HashMap<int, PeerParticipatingMap> participating_set {
+        private HashMap<int, PeerParticipantMap> _set;
+        public HashMap<int, PeerParticipantMap> participant_set {
             owned get {
                 return _set;
             }
         }
 
-        public PeerParticipatingSet()
+        public PeerParticipantSet()
         {
-            _set = new HashMap<int, PeerParticipatingMap>();
+            _set = new HashMap<int, PeerParticipantMap>();
         }
 
         public Variant serialize_to_variant()
         {
-            Variant v0 = Serializer.int_array_to_variant(participating_set.keys.to_array());
+            Variant v0 = Serializer.int_array_to_variant(participant_set.keys.to_array());
             Variant v1;
             {
                 ListISerializable lv = new ListISerializable();
-                foreach (int k in participating_set.keys) lv.add(participating_set[k]);
+                foreach (int k in participant_set.keys) lv.add(participant_set[k]);
                 v1 = lv.serialize_to_variant();
             }
             Variant vret = Serializer.tuple_to_variant(v0, v1);
@@ -400,10 +400,10 @@ namespace Netsukuku
                 int[] keys = Serializer.variant_to_int_array(v0);
                 ListISerializable lv = (ListISerializable)Object.new(typeof(ListISerializable));
                 lv.deserialize_from_variant(v1);
-                Gee.List<PeerParticipatingMap> typed_lv = (Gee.List<PeerParticipatingMap>)lv.backed;
+                Gee.List<PeerParticipantMap> typed_lv = (Gee.List<PeerParticipantMap>)lv.backed;
                 if (keys.length != typed_lv.size)
                     throw new SerializerError.GENERIC("Mismatch in hashmap keys and values numbers.");
-                _set = new HashMap<int, PeerParticipatingMap>();
+                _set = new HashMap<int, PeerParticipantMap>();
                 for (int i = 0; i < typed_lv.size; i++)
                     _set[keys[i]] = typed_lv[i];
             }
@@ -419,8 +419,8 @@ namespace Netsukuku
             typeof(PeerTupleNode).class_peek();
             typeof(PeerTupleGNode).class_peek();
             typeof(PeerMessageForwarder).class_peek();
-            typeof(PeerParticipatingMap).class_peek();
-            typeof(PeerParticipatingSet).class_peek();
+            typeof(PeerParticipantMap).class_peek();
+            typeof(PeerParticipantSet).class_peek();
         }
 
         private IPeersMapPaths map_paths;
@@ -429,7 +429,7 @@ namespace Netsukuku
         private int[] pos;
         private IPeersBackStubFactory back_stub_factory;
         private HashMap<int, PeerService> services;
-        private HashMap<int, PeerParticipatingMap> participating_maps;
+        private HashMap<int, PeerParticipantMap> participant_maps;
         public PeersManager
             (IPeersMapPaths map_paths,
              IPeersBackStubFactory back_stub_factory)
@@ -445,7 +445,7 @@ namespace Netsukuku
             }
             this.back_stub_factory = back_stub_factory;
             services = new HashMap<int, PeerService>();
-            participating_maps = new HashMap<int, PeerParticipatingMap>();
+            participant_maps = new HashMap<int, PeerParticipantMap>();
         }
 
         public void register(PeerService p)
@@ -467,11 +467,11 @@ namespace Netsukuku
             // ...
             if (p.p_is_optional)
             {
-                if (!participating_maps.has_key(p.p_id))
-                    participating_maps[p.p_id] = new PeerParticipatingMap();
+                if (!participant_maps.has_key(p.p_id))
+                    participant_maps[p.p_id] = new PeerParticipantMap();
                 // save my position
-                PeerParticipatingMap map = participating_maps[p.p_id];
-                map.participating_list.add(new HCoord(0, pos[0]));
+                PeerParticipantMap map = participant_maps[p.p_id];
+                map.participant_list.add(new HCoord(0, pos[0]));
             }
             // ...
         }
@@ -649,21 +649,21 @@ namespace Netsukuku
         /* Remotable methods
          */
 
-		public IPeerParticipatingSet get_participating_set(int lvl)
+		public IPeerParticipantSet get_participant_set(int lvl)
 		{
-		    PeerParticipatingSet ret = new PeerParticipatingSet();
-		    foreach (int p_id in participating_maps.keys)
+		    PeerParticipantSet ret = new PeerParticipantSet();
+		    foreach (int p_id in participant_maps.keys)
 		    {
-		        PeerParticipatingMap map = new PeerParticipatingMap();
-		        PeerParticipatingMap my_map = participating_maps[p_id];
+		        PeerParticipantMap map = new PeerParticipantMap();
+		        PeerParticipantMap my_map = participant_maps[p_id];
 	            bool participation_at_lvl = false;
-		        foreach (HCoord hc in my_map.participating_list)
+		        foreach (HCoord hc in my_map.participant_list)
 		        {
-		            if (hc.lvl >= lvl) map.participating_list.add(hc);
+		            if (hc.lvl >= lvl) map.participant_list.add(hc);
 		            else participation_at_lvl = true;
 		        }
-		        if (participation_at_lvl) map.participating_list.add(new HCoord(lvl, pos[lvl]));
-		        ret.participating_set[p_id] = map;
+		        if (participation_at_lvl) map.participant_list.add(new HCoord(lvl, pos[lvl]));
+		        ret.participant_set[p_id] = map;
 		    }
 		    return ret;
 		}
