@@ -309,13 +309,13 @@ namespace Netsukuku
     internal class WaitingAnswer : Object
     {
         public Channel ch;
-        public RemoteCall request;
+        public RemoteCall? request;
         public PeerTupleGNode min_target;
         public PeerTupleGNode? exclude_gnode;
         public PeerTupleGNode? non_participant_gnode;
         public bool message_delivered;
         public ISerializable? response;
-        public WaitingAnswer(RemoteCall request, PeerTupleGNode min_target)
+        public WaitingAnswer(RemoteCall? request, PeerTupleGNode min_target)
         {
             ch = new Channel();
             this.request = request;
@@ -693,6 +693,12 @@ namespace Netsukuku
         }
 
 		public void set_failure (int msg_id, IPeerTupleGNode tuple)
+        {
+		    // TODO
+            assert_not_reached();
+        }
+
+		public void set_non_participant (int msg_id, IPeerTupleGNode tuple)
         {
 		    // TODO
             assert_not_reached();

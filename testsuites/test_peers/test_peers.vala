@@ -224,7 +224,7 @@ class PeersTester : Object
 
     public void test_participating()
     {
-        PeerParticipatingSet s0;
+/*        PeerParticipatingSet s0;
         {
             uchar[] orig;
             {
@@ -253,7 +253,7 @@ class PeersTester : Object
         assert(s0.participating_set.has_key(15));
         m = s0.participating_set[15];
         assert(m.participating_list.size == 1);
-        assert(m.participating_list.contains(new HCoord(3, 5)));
+        assert(m.participating_list.contains(new HCoord(3, 5)));*/
     }
 
     public static int main(string[] args)
