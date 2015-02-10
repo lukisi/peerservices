@@ -52,7 +52,28 @@ namespace Netsukuku
             (Gee.List<int> positions);
     }
 
-    internal class PeerTupleNode : Object, ISerializable
+    public interface IPeersNeighborsFactory : Object
+    {
+        public abstract IAddressManagerRootDispatcher i_peers_get_broadcast(
+                            IPeersMissingArcHandler missing_handler);
+        public abstract IAddressManagerRootDispatcher i_peers_get_tcp(
+                            IPeersArc arc);
+    }
+
+    public interface IPeersMissingArcHandler : Object
+    {
+        public abstract void i_peers_missing(IPeersArc missing_arc);
+    }
+
+    public interface IPeersArc : Object
+    {
+    }
+
+    public interface IPeersContinuation : Object
+    {
+    }
+
+    internal class PeerTupleNode : Object, ISerializable, IPeerTupleNode
     {
         private ArrayList<int> _tuple;
         public Gee.List<int> tuple {
@@ -313,7 +334,7 @@ namespace Netsukuku
         public PeerTupleGNode min_target;
         public PeerTupleGNode? exclude_gnode;
         public PeerTupleGNode? non_participant_gnode;
-        public bool message_delivered;
+        public PeerTupleNode? respondant_node;
         public ISerializable? response;
         public WaitingAnswer(RemoteCall? request, PeerTupleGNode min_target)
         {
@@ -322,7 +343,7 @@ namespace Netsukuku
             this.min_target = min_target;
             exclude_gnode = null;
             non_participant_gnode = null;
-            message_delivered = false;
+            respondant_node = null;
             response = null;
         }
     }
@@ -428,11 +449,13 @@ namespace Netsukuku
         private int[] gsizes;
         private int[] pos;
         private IPeersBackStubFactory back_stub_factory;
+        private IPeersNeighborsFactory neighbors_factory;
         private HashMap<int, PeerService> services;
         private HashMap<int, PeerParticipantMap> participant_maps;
         public PeersManager
             (IPeersMapPaths map_paths,
-             IPeersBackStubFactory back_stub_factory)
+             IPeersBackStubFactory back_stub_factory,
+             IPeersNeighborsFactory neighbors_factory)
         {
             this.map_paths = map_paths;
             levels = map_paths.i_peers_get_levels();
@@ -444,6 +467,7 @@ namespace Netsukuku
                 pos[i] = map_paths.i_peers_get_my_pos(i);
             }
             this.back_stub_factory = back_stub_factory;
+            this.neighbors_factory = neighbors_factory;
             services = new HashMap<int, PeerService>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
         }
@@ -476,111 +500,7 @@ namespace Netsukuku
             // ...
         }
 
-        internal HCoord? approximate(PeerTupleNode x_macron,
-                                     Gee.List<HCoord> _exclude_list,
-                                     bool reverse=false)
-        {
-            // Make sure that exclude_list is searchable
-            Gee.List<HCoord> exclude_list = new ArrayList<HCoord>((a, b) => {return a.equals(b);});
-            exclude_list.add_all(_exclude_list);
-            // This function is x=Ht(x̄)
-            // The search can be restricted to a certain g-node
-            int valid_levels = x_macron.tuple.size;
-            assert (valid_levels <= levels);
-            HCoord? ret = null;
-            int min_distance = -1;
-            // for each known g-node other than me
-            for (int l = 0; l < valid_levels; l++)
-                for (int p = 0; p < gsizes[l]; p++)
-                if (pos[l] != p)
-                if (map_paths.i_peers_exists(l, p))
-            {
-                HCoord x = new HCoord(l, p);
-                if (!(x in exclude_list))
-                {
-                    PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
-                    int distance = reverse ?
-                                   dist_rev(x_macron, tuple_x) :
-                                   dist(x_macron, tuple_x);
-                    if (min_distance == -1 || distance < min_distance)
-                    {
-                        ret = x;
-                        min_distance = distance;
-                    }
-                }
-            }
-            // and then for me
-            HCoord x = new HCoord(0, pos[0]);
-            if (!(x in exclude_list))
-            {
-                PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
-                int distance = reverse ?
-                               dist_rev(x_macron, tuple_x) :
-                               dist(x_macron, tuple_x);
-                if (min_distance == -1 || distance < min_distance)
-                {
-                    ret = x;
-                    min_distance = distance;
-                }
-            }
-            // If null yet, then nobody participates.
-            return ret;
-        }
-
-        private PeerTupleNode make_tuple_node(HCoord y, int valid_levels)
-        {
-            ArrayList<int> tuple = new ArrayList<int>();
-            for (int j = valid_levels-1; j > y.lvl; j--)
-            {
-                tuple.insert(0, pos[j]);
-            }
-            tuple.insert(0, y.pos);
-            for (int j = y.lvl-1; j >= 0; j--)
-            {
-                tuple.insert(0, 0);
-            }
-            return new PeerTupleNode(tuple);
-        }
-
-        private int dist(PeerTupleNode x_macron, PeerTupleNode x)
-        {
-            int valid_levels = x_macron.tuple.size;
-            assert (valid_levels == x.tuple.size);
-            int distance = 0;
-            for (int j = valid_levels-1; j >= 0; j--)
-            {
-                if (x_macron.tuple[j] == x.tuple[j])
-                {
-                    distance += 0;
-                }
-                else if (x.tuple[j] > x_macron.tuple[j])
-                {
-                    distance += x.tuple[j] - x_macron.tuple[j];
-                }
-                else
-                {
-                    distance += x.tuple[j] - x_macron.tuple[j] + gsizes[j];
-                }
-                if (j > 0)
-                {
-                    distance *= gsizes[j-1];
-                }
-            }
-            return distance;
-        }
-
-        private int dist_rev(PeerTupleNode x_macron, PeerTupleNode x)
-        {
-            return dist(x, x_macron);
-        }
-
-        internal ISerializable contact_peer
-        (int p_id, PeerTupleNode x_macron, RemoteCall req, long exec_timeout_msec)
-        throws PeersNoParticipantsInNetworkError
-        {
-            // TODO
-            assert_not_reached();
-        }
+        /* Helpers */
 
         private bool check_valid_message(PeerMessageForwarder mf)
         {
@@ -646,6 +566,305 @@ namespace Netsukuku
             return true;
         }
 
+        private bool my_gnode_participates(int p_id, int lvl)
+        {
+            // Tell whether my g-node at level lvl participates to service p_id.
+            if (services.has_key(p_id))
+                return true;
+            if (! participant_maps.has_key(p_id))
+                return false;
+            PeerParticipantMap map = participant_maps[p_id];
+            foreach (HCoord g in map.participant_list)
+            {
+                if (g.lvl < lvl)
+                    return true;
+            }
+            return false;
+        }
+
+        private Gee.List<HCoord> get_non_participant_gnodes(int p_id)
+        {
+            // Returns a list of HCoord representing each gnode visible in my topology which, to my
+            //  knowledge, do not participate to service p_id
+            ArrayList<HCoord> ret = new ArrayList<HCoord>();
+            bool optional = false;
+            if (services.has_key(p_id))
+                optional = services[p_id].p_is_optional;
+            else
+                optional = true;
+            if (optional)
+            {
+                PeerParticipantMap? map = null;
+                if (participant_maps.has_key(p_id))
+                    map = participant_maps[p_id];
+                foreach (HCoord lp in get_all_gnodes_up_to_lvl(levels))
+                {
+                    if (map == null)
+                        ret.add(lp);
+                    else
+                        if (! (lp in map.participant_list))
+                            ret.add(lp);
+                }
+            }
+            return ret;
+        }
+
+        private Gee.List<HCoord> get_all_gnodes_up_to_lvl(int lvl)
+        {
+            // Returns a list of HCoord representing each gnode visible in my topology which are inside
+            //  my g-node at level lvl. Including single nodes, including myself as single node (0, pos[0]).
+            ArrayList<HCoord> ret = new ArrayList<HCoord>();
+            for (int l = 0; l < lvl; l++)
+            {
+                for (int p = 0; p < gsizes[l]; p++)
+                {
+                    if (pos[l] != p)
+                        ret.add(new HCoord(l, p));
+                }
+            }
+            ret.add(new HCoord(0, pos[0]));
+            return ret;
+        }
+
+        private void convert_tuple_gnode(PeerTupleGNode t, out int @case, out HCoord ret)
+        {
+            /*
+            Given t which represents a g-node h of level ε which lives inside one of my g-nodes,
+            where ε = t.top - t.tuple.size,
+            this methods returns the following informations:
+
+            * int @case
+               * Is 1 iff t represents one of my g-nodes.
+               * Is 2 iff t represents a g-node visible in my topology.
+               * Is 3 iff t represents a g-node not visible in my topology.
+            * HCoord ret
+               * The g-node that I have in common with h.
+               * In case 1  ret.lvl = ε. Also, pos[ret.lvl] = ret.pos.
+               * In case 2  ret.lvl = ε. Also, pos[ret.lvl] ≠ ret.pos.
+               * In case 3  ret.lvl > ε.
+            */
+            int lvl = t.top;
+            int i = t.tuple.size;
+            assert(i > 0);
+            assert(i <= lvl);
+            bool trovato = false;
+            while (true)
+            {
+                lvl--;
+                i--;
+                if (pos[lvl] != t.tuple[i])
+                {
+                    ret = new HCoord(lvl, t.tuple[i]);
+                    trovato = true;
+                    if (i == 0)
+                        @case = 2;
+                    else
+                        @case = 3;
+                    break;
+                }
+                if (i == 0)
+                {
+                    ret = new HCoord(lvl, t.tuple[i]);
+                    @case = 1;
+                    break;
+                }
+            }
+        }
+
+        private PeerTupleGNode make_tuple_gnode(HCoord h, int top)
+        {
+            // Returns a PeerTupleGNode that represents h inside our g-node of level top. 
+            assert(top > h.lvl);
+            ArrayList<int> tuple = new ArrayList<int>();
+            int i = top;
+            while (true)
+            {
+                i--;
+                if (i == h.lvl)
+                {
+                    tuple.insert(0, h.pos);
+                    break;
+                }
+                else
+                {
+                    tuple.insert(0, pos[i]);
+                }
+            }
+            return new PeerTupleGNode(tuple, top);
+        }
+
+        private PeerTupleNode make_tuple_node(HCoord h, int top)
+        {
+            // Returns a PeerTupleNode that represents h inside our g-node of level top. Actually h could be a g-node
+            //  but the resulting PeerTupleNode is to be used in method 'dist'. Values of positions for indexes less than
+            //  h.lvl are not important, they just have to be in ranges, so we set to 0. 
+            assert(top > h.lvl);
+            ArrayList<int> tuple = new ArrayList<int>();
+            int i = top;
+            while (i > 0)
+            {
+                i--;
+                if (i > h.lvl)
+                    tuple.insert(0, pos[i]);
+                else if (i == h.lvl)
+                    tuple.insert(0, h.pos);
+                else
+                    tuple.insert(0, 0);
+            }
+            return new PeerTupleNode(tuple);
+        }
+
+        private bool visible_by_someone_inside_my_gnode(PeerTupleGNode t, int lvl)
+        {
+            // TODO
+            error("");
+        }
+
+        /* Routing algorithm */
+
+        private int dist(PeerTupleNode x_macron, PeerTupleNode x, bool reverse=false)
+        {
+            if (reverse) return dist(x, x_macron);
+            assert(x_macron.tuple.size == x.tuple.size);
+            int distance = 0;
+            for (int j = x.tuple.size-1; j >= 0; j--)
+            {
+                distance *= gsizes[j];
+                distance += x.tuple[j] - x_macron.tuple[j];
+                if (x_macron.tuple[j] > x.tuple[j])
+                    distance += gsizes[j];
+            }
+            return distance;
+        }
+
+        internal HCoord? approximate(PeerTupleNode x_macron,
+                                     Gee.List<HCoord> _exclude_list,
+                                     bool reverse=false)
+        {
+            // Make sure that exclude_list is searchable
+            Gee.List<HCoord> exclude_list = new ArrayList<HCoord>((a, b) => {return a.equals(b);});
+            exclude_list.add_all(_exclude_list);
+            // This function is x=Ht(x̄)
+            // The search can be restricted to a certain g-node
+            int valid_levels = x_macron.tuple.size;
+            assert (valid_levels <= levels);
+            HCoord? ret = null;
+            int min_distance = -1;
+            // for each known g-node other than me
+            for (int l = 0; l < valid_levels; l++)
+                for (int p = 0; p < gsizes[l]; p++)
+                if (pos[l] != p)
+                if (map_paths.i_peers_exists(l, p))
+            {
+                HCoord x = new HCoord(l, p);
+                if (!(x in exclude_list))
+                {
+                    PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
+                    int distance = dist(x_macron, tuple_x, reverse);
+                    if (min_distance == -1 || distance < min_distance)
+                    {
+                        ret = x;
+                        min_distance = distance;
+                    }
+                }
+            }
+            // and then for me
+            HCoord x = new HCoord(0, pos[0]);
+            if (!(x in exclude_list))
+            {
+                PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
+                int distance = dist(x_macron, tuple_x, reverse);
+                if (min_distance == -1 || distance < min_distance)
+                {
+                    ret = x;
+                    min_distance = distance;
+                }
+            }
+            // If null yet, then nobody participates.
+            return ret;
+        }
+
+        internal ISerializable contact_peer
+        (int p_id,
+         PeerTupleNode x_macron,
+         RemoteCall request,
+         int timeout_exec,
+         bool exclude_myself,
+         out PeerTupleNode respondant,
+         PeerTupleGNodeContainer? _exclude_tuple_list=null,
+         bool reverse=false)
+        throws PeersNoParticipantsInNetworkError
+        {
+            int target_levels = x_macron.tuple.size;
+            var exclude_gnode_list = new ArrayList<HCoord>();
+            bool optional = false;
+            if (services.has_key(p_id))
+            {
+                optional = services[p_id].p_is_optional;
+                if (! services[p_id].is_ready())
+                    exclude_myself = true;
+            }
+            else
+                optional = true;
+            exclude_gnode_list.add_all(get_non_participant_gnodes(p_id));
+            if (exclude_myself)
+                exclude_gnode_list.add(new HCoord(0, pos[0]));
+            PeerTupleGNodeContainer exclude_tuple_list;
+            if (_exclude_tuple_list != null)
+                exclude_tuple_list = _exclude_tuple_list;
+            else
+                exclude_tuple_list = new PeerTupleGNodeContainer();
+            foreach (PeerTupleGNode gn in exclude_tuple_list.list)
+            {
+                int @case;
+                HCoord ret;
+                convert_tuple_gnode(gn, out @case, out ret);
+                if (@case == 2)
+                    exclude_gnode_list.add(ret);
+            }
+            PeerTupleGNodeContainer non_participant_tuple_list = new PeerTupleGNodeContainer();
+            ISerializable? response = null;
+            while (true)
+            {
+                HCoord? x = approximate(x_macron, exclude_gnode_list, reverse);
+                if (x == null)
+                    throw new PeersNoParticipantsInNetworkError.GENERIC("");
+                if (x.lvl == 0 && x.pos == pos[0])
+                    return services[p_id].exec(request);
+                PeerMessageForwarder mf = new PeerMessageForwarder();
+                mf.n = make_tuple_node(new HCoord(0, pos[0]), x.lvl+1);
+                // That is n0·n1·...·nj, where j = x.lvl
+                if (x.lvl == 0)
+                    mf.x_macron = null;
+                else
+                    mf.x_macron = new PeerTupleNode(x_macron.tuple.slice(0, x.lvl));
+                    // That is x̄0·x̄1·...·x̄j-1.
+                mf.lvl = x.lvl;
+                mf.pos = x.pos;
+                mf.p_id = p_id;
+                mf.msg_id = Random.int_range(0, int.MAX);
+                mf.reverse = reverse;
+                foreach (PeerTupleGNode t in exclude_tuple_list.list)
+                {
+                    int @case;
+                    HCoord ret;
+                    convert_tuple_gnode(t, out @case, out ret);
+                    if (@case == 3)
+                    {
+                        if (ret.equals(x))
+                        {
+                            int eps = t.top - t.tuple.size;
+                            PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
+                            mf.exclude_tuple_list.add(_t);
+                        }
+                    }
+                }
+                // TODO
+                assert_not_reached();
+            }
+            return response;
+        }
+
         /* Remotable methods
          */
 
@@ -674,13 +893,13 @@ namespace Netsukuku
             assert_not_reached();
 		}
 
-		public RemoteCall get_request (int msg_id) throws PeersUnknownMessageError
+		public RemoteCall get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError
         {
 		    // TODO
             assert_not_reached();
         }
 
-		public void set_response (int msg_id, ISerializable resp)
+		public void set_response (int msg_id, ISerializable response)
         {
 		    // TODO
             assert_not_reached();
@@ -713,6 +932,11 @@ namespace Netsukuku
         {
             this.p_id = p_id;
             this.p_is_optional = p_is_optional;
+        }
+
+        public virtual bool is_ready()
+        {
+            return true;
         }
 
         public abstract ISerializable exec(RemoteCall req);
@@ -754,15 +978,18 @@ namespace Netsukuku
             return new PeerTupleNode(perfect_tuple(k));
         }
 
-        protected ISerializable call(Object k, RemoteCall req, long exec_timeout_msec)
+        protected ISerializable call(Object k, RemoteCall request, int timeout_exec)
         throws PeersNoParticipantsInNetworkError
         {
+            PeerTupleNode respondant;
             return
             peers_manager.contact_peer
                 (p_id,
                  internal_perfect_tuple(k),
-                 req,
-                 exec_timeout_msec);
+                 request,
+                 timeout_exec,
+                 false,
+                 out respondant);
         }
     }
 }

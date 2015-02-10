@@ -80,12 +80,28 @@ class MyBackFactory : Object, IPeersBackStubFactory
     }
 }
 
+class MyNeighborsFactory : Object, IPeersNeighborsFactory
+{
+    public IAddressManagerRootDispatcher i_peers_get_broadcast
+        (IPeersMissingArcHandler missing_handler)
+    {
+        assert_not_reached();
+    }
+
+    public IAddressManagerRootDispatcher i_peers_get_tcp
+        (IPeersArc arc)
+    {
+        assert_not_reached();
+    }
+}
+
 int main(string[] args)
 {
     PeersManager.init();
     var m = new MyMapPaths();
     var bf = new MyBackFactory();
-    PeersManager peers = new PeersManager(m, bf);
+    var nf = new MyNeighborsFactory();
+    PeersManager peers = new PeersManager(m, bf, nf);
     //peers.register(p);
 
     return 0;
