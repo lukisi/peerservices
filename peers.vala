@@ -1057,8 +1057,15 @@ namespace Netsukuku
             return response;
         }
 
-        /* Remotable methods
-         */
+        /* Participation publish algorithms */
+
+        private bool check_non_participation(int p_id, int lvl, int pos)
+        {
+            // TODO
+            error("");
+        }
+
+        /* Remotable methods */
 
         public IPeerParticipantSet get_participant_set(int lvl)
         {
@@ -1194,7 +1201,7 @@ namespace Netsukuku
                             while (true)
                             {
                                 try {
-                                    gwstub = map_paths.i_peers_gateway(mf2.lvl, mf2.pos, caller, failed);
+                                    gwstub = map_paths.i_peers_gateway(mf2.lvl, mf2.pos, _rpc_caller, failed);
                                 } catch (PeersNonexistentDestinationError e) {
                                     ms_wait(20);
                                     break;
@@ -1208,7 +1215,7 @@ namespace Netsukuku
                                 delivered = true;
                                 IAddressManagerRootDispatcher nstub
                                     = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                                PeerTupleGNode gn = make_tuple_node(x, mf.n.tuple.size);
+                                PeerTupleGNode gn = make_tuple_gnode(x, mf.n.tuple.size);
                                 try {
                                     nstub.peers_manager.set_next_destination(mf.msg_id, gn);
                                 } catch (RPCError e) {
@@ -1222,13 +1229,12 @@ namespace Netsukuku
             }
             else
             {
-
                 IAddressManagerRootDispatcher gwstub;
                 IAddressManagerRootDispatcher? failed = null;
                 while (true)
                 {
                     try {
-                        gwstub = map_paths.i_peers_gateway(mf.lvl, mf.pos, caller, failed);
+                        gwstub = map_paths.i_peers_gateway(mf.lvl, mf.pos, _rpc_caller, failed);
                     } catch (PeersNonexistentDestinationError e) {
                         // give up routing
                         break;
@@ -1244,10 +1250,29 @@ namespace Netsukuku
             }
             if (optional && participant_maps.has_key(mf.p_id))
             {
-                
+                foreach (PeerTupleGNode t in mf.non_participant_tuple_list)
+                {
+                    int @case;
+                    HCoord ret;
+                    convert_tuple_gnode(t, out @case, out ret);
+                    if (@case == 2)
+                    {
+                        if (ret in participant_maps[mf.p_id].participant_list)
+                        {
+                            Tasklets.Tasklet.tasklet_callback(
+                                (_p_id, _ret) => {
+                                    int t_p_id = ((SerializableInt)_p_id).i;
+                                    HCoord t_ret = (HCoord)_ret;
+                                    if (check_non_participation(t_p_id, t_ret.lvl, t_ret.pos))
+                                        if (participant_maps.has_key(t_p_id))
+                                            participant_maps[t_p_id].participant_list.remove(t_ret); 
+                                },
+                                new SerializableInt(mf.p_id),
+                                ret);
+                        }
+                    }
+                }
             }
-            // TODO
-            assert_not_reached();
         }
 
         public RemoteCall get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError
