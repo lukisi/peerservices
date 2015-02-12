@@ -90,7 +90,6 @@ peersclient_LDADD = \
 
 libpeers_la_SOURCES = \
 	peers.vala \
-	interfaces.vala \
 	$(NULL)
 
 libpeers_la_VALAFLAGS = \
@@ -129,7 +128,6 @@ CLEANFILES = \
 	$(srcdir)/libpeers_la_vala.stamp \
 	$(srcdir)/main.c \
 	$(srcdir)/peers.c \
-	$(srcdir)/interfaces.c \
 	$(srcdir)/testsuites/test_peers/test_peers.c \
 	$(srcdir)/testsuites/test_peers/generic_naddr.c \
 	$(srcdir)/testsuites/test_peers/base_dispatcher.c \

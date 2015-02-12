@@ -1,1 +1,1 @@
-../../interfaces.vala
+../../../common/interfaces.vala
