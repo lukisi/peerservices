@@ -222,38 +222,38 @@ class PeersTester : Object
         assert(found);
     }
 
-    public void test_participating()
+    public void test_participant()
     {
-/*        PeerParticipatingSet s0;
+        PeerParticipantSet s0;
         {
             uchar[] orig;
             {
-                PeerParticipatingMap m12 = new PeerParticipatingMap();
-                m12.participating_list.add(new HCoord(3, 2));
-                m12.participating_list.add(new HCoord(4, 1));
-                m12.participating_list.add(new HCoord(0, 2));
-                PeerParticipatingMap m15 = new PeerParticipatingMap();
-                m15.participating_list.add(new HCoord(3, 5));
-                PeerParticipatingSet s = new PeerParticipatingSet();
-                s.participating_set[12] = m12;
-                s.participating_set[15] = m15;
+                PeerParticipantMap m12 = new PeerParticipantMap();
+                m12.participant_list.add(new HCoord(3, 2));
+                m12.participant_list.add(new HCoord(4, 1));
+                m12.participant_list.add(new HCoord(0, 2));
+                PeerParticipantMap m15 = new PeerParticipantMap();
+                m15.participant_list.add(new HCoord(3, 5));
+                PeerParticipantSet s = new PeerParticipantSet();
+                s.participant_set[12] = m12;
+                s.participant_set[15] = m15;
                 orig = s.serialize();
             }
             uchar []dest = new uchar[orig.length];
             for (int i = 0; i < orig.length; i++) dest[i] = orig[i];
-            s0 = (PeerParticipatingSet)ISerializable.deserialize(dest);
+            s0 = (PeerParticipantSet)ISerializable.deserialize(dest);
         }
-        assert(s0.participating_set.size == 2);
-        assert(s0.participating_set.has_key(12));
-        PeerParticipatingMap m = s0.participating_set[12];
-        assert(m.participating_list.size == 3);
-        assert(m.participating_list.contains(new HCoord(3, 2)));
-        assert(m.participating_list.contains(new HCoord(4, 1)));
-        assert(m.participating_list.contains(new HCoord(0, 2)));
-        assert(s0.participating_set.has_key(15));
-        m = s0.participating_set[15];
-        assert(m.participating_list.size == 1);
-        assert(m.participating_list.contains(new HCoord(3, 5)));*/
+        assert(s0.participant_set.size == 2);
+        assert(s0.participant_set.has_key(12));
+        PeerParticipantMap m = s0.participant_set[12];
+        assert(m.participant_list.size == 3);
+        assert(m.participant_list.contains(new HCoord(3, 2)));
+        assert(m.participant_list.contains(new HCoord(4, 1)));
+        assert(m.participant_list.contains(new HCoord(0, 2)));
+        assert(s0.participant_set.has_key(15));
+        m = s0.participant_set[15];
+        assert(m.participant_list.size == 1);
+        assert(m.participant_list.contains(new HCoord(3, 5)));
     }
 
     public static int main(string[] args)
@@ -284,10 +284,10 @@ class PeersTester : Object
             x.test_message();
             x.tear_down();
         });
-        GLib.Test.add_func ("/Serializables/ParticipatingSet", () => {
+        GLib.Test.add_func ("/Serializables/ParticipantSet", () => {
             var x = new PeersTester();
             x.set_up();
-            x.test_participating();
+            x.test_participant();
             x.tear_down();
         });
         GLib.Test.run();

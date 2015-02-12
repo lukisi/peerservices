@@ -453,6 +453,7 @@ namespace Netsukuku
         private HashMap<int, PeerService> services;
         private HashMap<int, WaitingAnswer> waiting_answer_map;
         private HashMap<int, PeerParticipantMap> participant_maps;
+        private ArrayList<HCoord> recent_list_non_participants;
         public PeersManager
             (IPeersMapPaths map_paths,
              IPeersBackStubFactory back_stub_factory,
@@ -472,34 +473,34 @@ namespace Netsukuku
             services = new HashMap<int, PeerService>();
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
+            recent_list_non_participants = new ArrayList<HCoord>((a, b) => {return a.equals(b);});
         }
 
         public void register(PeerService p)
         {
-            // TODO
             if (services.has_key(p.p_id))
             {
                 critical("PeersManager.register: Two services with same ID?");
                 return;
             }
             services[p.p_id] = p;
-            // ...
             if (p.p_is_optional)
             {
-                // TODO start tasklet to publish periodically my participation
-            }
-            // ...
-            // TODO start tasklet to retrieve records for my cache of DHT
-            // ...
-            if (p.p_is_optional)
-            {
+                Tasklet.tasklet_callback((_p_id) => {
+                        int t_p_id = ((SerializableInt)_p_id).i;
+                        publish_my_participation(t_p_id);
+                    },
+                    new SerializableInt(p.p_id));
                 if (!participant_maps.has_key(p.p_id))
                     participant_maps[p.p_id] = new PeerParticipantMap();
                 // save my position
                 PeerParticipantMap map = participant_maps[p.p_id];
                 map.participant_list.add(new HCoord(0, pos[0]));
             }
-            // ...
+            // Each specific service must handle, after registering, the
+            //  retrieve of cache by using begin_retrieve and next_retrieve
+            //  functions. If is needed it can use implementation of is_ready
+            //  to wait for the cache before answering requests.
         }
 
         /* Helpers */
@@ -1059,16 +1060,249 @@ namespace Netsukuku
 
         /* Participation publish algorithms */
 
-        private bool check_non_participation(int p_id, int lvl, int pos)
+        private bool check_non_participation(int p_id, int lvl, int _pos)
         {
-            // TODO
-            error("");
+            // Decide if it's secure to state that lvl,_pos does not participate to service p_id.
+            PeerTupleNode? x_macron = null;
+            if (lvl > 0)
+            {
+                ArrayList<int> tuple = new ArrayList<int>();
+                for (int i = 0; i < lvl; i++) tuple.add(0);
+                x_macron = new PeerTupleNode(tuple);
+            }
+            PeerTupleNode n = make_tuple_node(new HCoord(0, pos[0]), lvl+1);
+            PeerMessageForwarder mf = new PeerMessageForwarder();
+            mf.n = n;
+            mf.x_macron = x_macron;
+            mf.lvl = lvl;
+            mf.pos = _pos;
+            mf.p_id = p_id;
+            mf.msg_id = Random.int_range(0, int.MAX);
+            int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(lvl+1));
+            WaitingAnswer waiting_answer = new WaitingAnswer(null, make_tuple_gnode(new HCoord(lvl, _pos), lvl+1));
+            IAddressManagerRootDispatcher gwstub;
+            IAddressManagerRootDispatcher? failed = null;
+            while (true)
+            {
+                try {
+                    gwstub = map_paths.i_peers_gateway(lvl, _pos, null, failed);
+                } catch (PeersNonexistentDestinationError e) {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return true;
+                }
+                try {
+                    gwstub.peers_manager.forward_peer_message(mf);
+                } catch (RPCError e) {
+                    failed = gwstub;
+                    continue;
+                }
+                break;
+            }
+            try {
+                waiting_answer.ch.recv_with_timeout(timeout_routing);
+                if (waiting_answer.exclude_gnode != null)
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+                else if (waiting_answer.non_participant_gnode != null)
+                {
+                    int @case;
+                    HCoord ret;
+                    convert_tuple_gnode(waiting_answer.non_participant_gnode, out @case, out ret);
+                    if (@case == 2)
+                    {
+                        waiting_answer_map.unset(mf.msg_id);
+                        return true;
+                    }
+                    else
+                    {
+                        waiting_answer_map.unset(mf.msg_id);
+                        return false;
+                    }
+                }
+                else if (waiting_answer.response != null)
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+                else
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+            } catch (ChannelError e) {
+                // TIMEOUT_EXPIRED
+                waiting_answer_map.unset(mf.msg_id);
+                return false;
+            }
+        }
+
+        class MissingArcSetParticipant : Object, IPeersMissingArcHandler
+        {
+            public MissingArcSetParticipant(PeersManager mgr, int p_id, PeerTupleGNode tuple)
+            {
+                this.mgr = mgr;
+                this.p_id = p_id;
+                this.tuple = tuple;
+            }
+            private PeersManager mgr;
+            private int p_id;
+            private PeerTupleGNode tuple;
+            public void i_peers_missing(IPeersArc missing_arc)
+            {
+                IAddressManagerRootDispatcher disp =
+                    mgr.neighbors_factory.i_peers_get_tcp(missing_arc);
+                try {
+                    disp.peers_manager.set_participant(p_id, tuple);
+                } catch (RPCError e) {
+                    // ignore
+                }
+            }
+        }
+
+        private void publish_my_participation(int p_id)
+        {
+            PeerTupleGNode gn = make_tuple_gnode(new HCoord(0, pos[0]), levels);
+            int timeout = 300000; // 5 min
+            int iterations = 5;
+            while (true)
+            {
+                if (iterations > 0) iterations--;
+                else timeout = Random.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
+                MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, gn);
+                IAddressManagerRootDispatcher br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
+                try {
+                    br_stub.peers_manager.set_participant(p_id, gn);
+                } catch (RPCError e) {
+                    // ignore
+                }
+                ms_wait(timeout);
+            }
+        }
+
+        /* DHT maintainer algorithms */
+
+        private class ReplicaContinuation : Object, IPeersContinuation
+        {
+            public int q;
+            public int p_id;
+            public PeerTupleNode x_macron;
+            public RemoteCall r;
+            public int timeout_exec;
+            public ArrayList<PeerTupleNode> replicas;
+            public PeerTupleGNodeContainer exclude_tuple_list;
+        }
+
+        public bool begin_replica
+                (int q,
+                 int p_id,
+                 Gee.List<int> perfect_tuple,
+                 RemoteCall r,
+                 int timeout_exec,
+                 out ISerializable resp,
+                 out IPeersContinuation cont)
+        {
+            ReplicaContinuation _cont = new ReplicaContinuation();
+            _cont.q = q;
+            _cont.p_id = p_id;
+            _cont.x_macron = new PeerTupleNode(perfect_tuple);
+            _cont.r = r;
+            _cont.timeout_exec = timeout_exec;
+            _cont.replicas = new ArrayList<PeerTupleNode>();
+            _cont.exclude_tuple_list = new PeerTupleGNodeContainer();
+            cont = _cont;
+            return next_replica(cont, out resp);
+        }
+
+        public bool next_replica(IPeersContinuation cont, out ISerializable resp)
+        {
+            ReplicaContinuation _cont = (ReplicaContinuation)cont;
+            resp = new SerializableNone();
+            if (_cont.replicas.size >= _cont.q) return false;
+            PeerTupleNode respondant;
+            try {
+                resp = contact_peer
+                    (_cont.p_id, _cont.x_macron, _cont.r,
+                     _cont.timeout_exec, true,
+                     out respondant, _cont.exclude_tuple_list);
+            } catch (PeersNoParticipantsInNetworkError e) {
+                return false;
+            }
+            _cont.replicas.add(respondant);
+            PeerTupleGNode respondant_as_gnode = new PeerTupleGNode(respondant.tuple, respondant.tuple.size);
+            _cont.exclude_tuple_list.list.add(respondant_as_gnode);
+            return _cont.replicas.size < _cont.q; 
+        }
+
+        private class RetrieveCacheContinuation : Object, IPeersContinuation
+        {
+            public int p_id;
+            public RemoteCall r;
+            public int timeout_exec;
+            public int j;
+            public PeerTupleGNodeContainer exclude_tuple_list;
+        }
+
+        public bool begin_retrieve_cache
+                (int p_id,
+                 RemoteCall r,
+                 int timeout_exec,
+                 out ISerializable resp,
+                 out IPeersContinuation cont)
+        {
+            resp = new SerializableNone();
+            for (int j = 0; j < levels; j++)
+            {
+                PeerTupleNode x_macron = make_tuple_node(new HCoord(0, pos[0]), j+1);
+                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer();
+                PeerTupleNode respondant;
+                try {
+                    resp = contact_peer
+                        (p_id, x_macron, r,
+                         timeout_exec, true,
+                         out respondant, exclude_tuple_list);
+                } catch (PeersNoParticipantsInNetworkError e) {
+                    continue;
+                }
+                PeerTupleGNode respondant_as_gnode = new PeerTupleGNode(respondant.tuple, respondant.tuple.size);
+                exclude_tuple_list.list.add(respondant_as_gnode);
+                RetrieveCacheContinuation _cont = new RetrieveCacheContinuation();
+                _cont.p_id = p_id;
+                _cont.r = r;
+                _cont.timeout_exec = timeout_exec;
+                _cont.j = j;
+                _cont.exclude_tuple_list = new PeerTupleGNodeContainer();
+                cont = _cont;
+                return true;
+            }
+            return false;
+        }
+
+        public bool next_retrieve_cache(IPeersContinuation cont, out ISerializable resp)
+        {
+            resp = new SerializableNone();
+            RetrieveCacheContinuation _cont = (RetrieveCacheContinuation)cont;
+            PeerTupleNode x_macron = make_tuple_node(new HCoord(0, pos[0]), _cont.j+1);
+            PeerTupleNode respondant;
+            try {
+                resp = contact_peer
+                    (_cont.p_id, x_macron, _cont.r,
+                     _cont.timeout_exec, true,
+                     out respondant, _cont.exclude_tuple_list, true);
+            } catch (PeersNoParticipantsInNetworkError e) {
+                return false;
+            }
+            return false;
         }
 
         /* Remotable methods */
 
         public IPeerParticipantSet get_participant_set(int lvl)
         {
+            // check payload
+            if (lvl <= 0 || lvl > levels) return new PeerParticipantSet(); // should be throw exception
+            // begin
             PeerParticipantSet ret = new PeerParticipantSet();
             foreach (int p_id in participant_maps.keys)
             {
@@ -1093,6 +1327,7 @@ namespace Netsukuku
             if (! (peer_message is PeerMessageForwarder)) return;
             PeerMessageForwarder mf = (PeerMessageForwarder) peer_message;
             if (! check_valid_message(mf)) return;
+            if (_rpc_caller == null) return;
             // begin
             bool optional = false;
             bool exclude_myself = false;
@@ -1259,7 +1494,7 @@ namespace Netsukuku
                     {
                         if (ret in participant_maps[mf.p_id].participant_list)
                         {
-                            Tasklets.Tasklet.tasklet_callback(
+                            Tasklet.tasklet_callback(
                                 (_p_id, _ret) => {
                                     int t_p_id = ((SerializableInt)_p_id).i;
                                     HCoord t_ret = (HCoord)_ret;
@@ -1303,6 +1538,40 @@ namespace Netsukuku
         {
             // TODO
             assert_not_reached();
+        }
+
+        public void set_participant (int p_id, IPeerTupleGNode tuple)
+        {
+            // check payload
+            if (! (tuple is PeerTupleGNode)) return;
+            PeerTupleGNode gn = (PeerTupleGNode) tuple;
+            if (! check_valid_tuple_gnode(gn)) return;
+            // begin
+            if (services.has_key(p_id) && ! services[p_id].p_is_optional) return;
+            int @case;
+            HCoord ret;
+            convert_tuple_gnode(gn, out @case, out @ret);
+            if (@case == 1) return;
+            if (ret in recent_list_non_participants) return;
+            recent_list_non_participants.add(ret);
+            if (! participant_maps.has_key(p_id))
+                participant_maps[p_id] = new PeerParticipantMap();
+            participant_maps[p_id].participant_list.add(ret);
+            PeerTupleGNode ret_gn = make_tuple_gnode(ret, levels);
+            MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, ret_gn);
+            IAddressManagerRootDispatcher br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
+            try {
+                br_stub.peers_manager.set_participant(p_id, ret_gn);
+            } catch (RPCError e) {
+                // ignore
+            }
+            Tasklet.tasklet_callback(
+                (_ret) => {
+                    HCoord t_ret = (HCoord)_ret;
+                    ms_wait(60000);
+                    recent_list_non_participants.remove(t_ret);
+                },
+                ret);
         }
     }
 
@@ -1355,11 +1624,6 @@ namespace Netsukuku
             return tuple;
         }
 
-        internal PeerTupleNode internal_perfect_tuple(Object k)
-        {
-            return new PeerTupleNode(perfect_tuple(k));
-        }
-
         protected ISerializable call(Object k, RemoteCall request, int timeout_exec)
         throws PeersNoParticipantsInNetworkError
         {
@@ -1367,7 +1631,7 @@ namespace Netsukuku
             return
             peers_manager.contact_peer
                 (p_id,
-                 internal_perfect_tuple(k),
+                 new PeerTupleNode(perfect_tuple(k)),
                  request,
                  timeout_exec,
                  false,
