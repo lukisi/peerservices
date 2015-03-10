@@ -37,6 +37,7 @@ test_peers_VALAFLAGS = \
 	$(NULL)
 
 test_peers_CPPFLAGS = \
+	-w \
 	$(GOBJECT_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(GEE_CFLAGS) \
@@ -70,6 +71,7 @@ peersclient_VALAFLAGS = \
 	$(NULL)
 
 peersclient_CPPFLAGS = \
+	-w \
 	$(GOBJECT_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(GEE_CFLAGS) \
@@ -105,6 +107,7 @@ libpeers_la_VALAFLAGS = \
 	$(NULL)
 
 libpeers_la_CPPFLAGS = \
+	-w \
 	$(GOBJECT_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(GEE_CFLAGS) \
