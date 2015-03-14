@@ -22,10 +22,8 @@ check_PROGRAMS = \
 #  are symbolic links to avoid name clashes with vala-generated C files.
 test_peers_SOURCES = \
 	testsuites/test_peers/test_peers.vala \
-	testsuites/test_peers/generic_naddr.vala \
 	testsuites/test_peers/base_dispatcher.vala \
 	testsuites/test_peers/peers.vala \
-	testsuites/test_peers/interfaces.vala \
 	$(NULL)
 
 test_peers_VALAFLAGS = \
@@ -131,8 +129,8 @@ CLEANFILES = \
 	$(srcdir)/libpeers_la_vala.stamp \
 	$(srcdir)/main.c \
 	$(srcdir)/peers.c \
+	$(srcdir)/testsuites/test_peers/peers.c \
 	$(srcdir)/testsuites/test_peers/test_peers.c \
-	$(srcdir)/testsuites/test_peers/generic_naddr.c \
 	$(srcdir)/testsuites/test_peers/base_dispatcher.c \
 	$(NULL)
 
