@@ -16,93 +16,97 @@
  *  along with Netsukuku.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-using Tasklets;
 using Gee;
-using zcd;
 using Netsukuku;
-
-namespace Netsukuku
-{
-    public void    log_debug(string msg)   {print(msg+"\n");}
-    public void    log_trace(string msg)   {print(msg+"\n");}
-    public void  log_verbose(string msg)   {print(msg+"\n");}
-    public void     log_info(string msg)   {print(msg+"\n");}
-    public void   log_notice(string msg)   {print(msg+"\n");}
-    public void     log_warn(string msg)   {print(msg+"\n");}
-    public void    log_error(string msg)   {print(msg+"\n");}
-    public void log_critical(string msg)   {print(msg+"\n");}
-}
+using Netsukuku.ModRpc;
+using Tasklets;
 
 class MyMapPaths : Object, IPeersMapPaths
 {
     public int i_peers_get_levels()
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
     public int i_peers_get_gsize(int level)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
     public int i_peers_get_nodes_in_my_group(int level)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
     public int i_peers_get_my_pos(int level)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
     public bool i_peers_exists(int level, int pos)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
-    public IAddressManagerRootDispatcher i_peers_gateway
+    public IAddressManagerStub i_peers_gateway
         (int level, int pos,
-         CallerInfo? received_from=null,
-         IAddressManagerRootDispatcher? failed=null)
+         zcd.ModRpc.CallerInfo? received_from=null,
+         IAddressManagerStub? failed=null)
         throws PeersNonexistentDestinationError
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
 }
 
 class MyBackFactory : Object, IPeersBackStubFactory
 {
-    public IAddressManagerRootDispatcher i_peers_get_tcp_inside
+    public IAddressManagerStub i_peers_get_tcp_inside
         (Gee.List<int> positions)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 }
 
 class MyNeighborsFactory : Object, IPeersNeighborsFactory
 {
-    public IAddressManagerRootDispatcher i_peers_get_broadcast
+    public IAddressManagerStub i_peers_get_broadcast
         (IPeersMissingArcHandler missing_handler)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 
-    public IAddressManagerRootDispatcher i_peers_get_tcp
+    public IAddressManagerStub i_peers_get_tcp
         (IPeersArc arc)
     {
-        assert_not_reached();
+        error("not implemented yet");
     }
 }
 
+zcd.IZcdTasklet zcd_tasklet;
+Netsukuku.INtkdTasklet ntkd_tasklet;
+
 int main(string[] args)
 {
-    PeersManager.init();
+    // Initialize tasklet system
+    MyTaskletSystem.init();
+    zcd_tasklet = MyTaskletSystem.get_zcd();
+    ntkd_tasklet = MyTaskletSystem.get_ntkd();
+
+    // Initialize known serializable classes
+    // ... TODO
+    // Pass tasklet system to ModRpc (and ZCD)
+    zcd.ModRpc.init_tasklet_system(zcd_tasklet);
+    // Pass tasklet system to module peerservices
+    PeersManager.init(ntkd_tasklet);
+
     var m = new MyMapPaths();
     var bf = new MyBackFactory();
     var nf = new MyNeighborsFactory();
     PeersManager peers = new PeersManager(m, bf, nf);
     //peers.register(p);
 
+    MyTaskletSystem.kill();
+    print("\nExiting.\n");
     return 0;
 }

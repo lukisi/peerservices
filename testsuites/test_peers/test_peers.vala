@@ -16,44 +16,32 @@
  *  along with Netsukuku.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-using Tasklets;
 using Gee;
 using zcd;
 using Netsukuku;
 
 class PeersTester : Object
 {
-    string logger;
-    const bool output = false;
-    public void print_out(string s)
-    {
-        if (output) print(s);
-    }
-
     public void set_up ()
     {
-        logger = "";
     }
 
     public void tear_down ()
     {
-        logger = "";
     }
 
     public void test_node()
     {
         PeerTupleNode n0;
         {
-            uchar[] orig;
+            Json.Node node;
             {
                 Gee.List<int> nums = new ArrayList<int>();
                 nums.add_all_array({1, 2, 3, 4});
                 PeerTupleNode n = new PeerTupleNode(nums);
-                orig = n.serialize();
+                node = Json.gobject_serialize(n);
             }
-            uchar []dest = new uchar[orig.length];
-            for (int i = 0; i < orig.length; i++) dest[i] = orig[i];
-            n0 = (PeerTupleNode)ISerializable.deserialize(dest);
+            n0 = (PeerTupleNode)Json.gobject_deserialize(typeof(PeerTupleNode), node);
         }
         assert(n0.tuple.size == 4);
         assert(n0.tuple[2] == 3);
@@ -63,16 +51,14 @@ class PeersTester : Object
     {
         PeerTupleGNode gn0;
         {
-            uchar[] orig;
+            Json.Node node;
             {
                 Gee.List<int> nums = new ArrayList<int>();
                 nums.add_all_array({1, 2, 3, 4});
                 PeerTupleGNode gn = new PeerTupleGNode(nums, 3);
-                orig = gn.serialize();
+                node = Json.gobject_serialize(gn);
             }
-            uchar []dest = new uchar[orig.length];
-            for (int i = 0; i < orig.length; i++) dest[i] = orig[i];
-            gn0 = (PeerTupleGNode)ISerializable.deserialize(dest);
+            gn0 = (PeerTupleGNode)Json.gobject_deserialize(typeof(PeerTupleGNode), node);
         }
         assert(gn0.tuple.size == 4);
         assert(gn0.tuple[2] == 3);
@@ -124,7 +110,7 @@ class PeersTester : Object
     {
         PeerMessageForwarder mf0;
         {
-            uchar[] orig;
+            Json.Node node;
             {
                 PeerMessageForwarder mf = new PeerMessageForwarder();
                 Gee.List<int> nums = new ArrayList<int>();
@@ -153,11 +139,9 @@ class PeersTester : Object
                 nums = new ArrayList<int>();
                 nums.add_all_array({3, 2, 5, 6});
                 mf.non_participant_tuple_list.add(new PeerTupleGNode(nums, 5));
-                orig = mf.serialize();
+                node = Json.gobject_serialize(mf);
             }
-            uchar []dest = new uchar[orig.length];
-            for (int i = 0; i < orig.length; i++) dest[i] = orig[i];
-            mf0 = (PeerMessageForwarder)ISerializable.deserialize(dest);
+            mf0 = (PeerMessageForwarder)Json.gobject_deserialize(typeof(PeerMessageForwarder), node);
         }
         assert(mf0.n.tuple.size == 4 &&
                mf0.n.tuple[0] == 1 &&
@@ -226,7 +210,7 @@ class PeersTester : Object
     {
         PeerParticipantSet s0;
         {
-            uchar[] orig;
+            Json.Node node;
             {
                 PeerParticipantMap m12 = new PeerParticipantMap();
                 m12.participant_list.add(new HCoord(3, 2));
@@ -237,11 +221,9 @@ class PeersTester : Object
                 PeerParticipantSet s = new PeerParticipantSet();
                 s.participant_set[12] = m12;
                 s.participant_set[15] = m15;
-                orig = s.serialize();
+                node = Json.gobject_serialize(s);
             }
-            uchar []dest = new uchar[orig.length];
-            for (int i = 0; i < orig.length; i++) dest[i] = orig[i];
-            s0 = (PeerParticipantSet)ISerializable.deserialize(dest);
+            s0 = (PeerParticipantSet)Json.gobject_deserialize(typeof(PeerParticipantSet), node);
         }
         assert(s0.participant_set.size == 2);
         assert(s0.participant_set.has_key(12));
@@ -259,7 +241,6 @@ class PeersTester : Object
     public static int main(string[] args)
     {
         GLib.Test.init(ref args);
-        Tasklet.init();
         GLib.Test.add_func ("/Serializables/TupleNode", () => {
             var x = new PeersTester();
             x.set_up();
@@ -291,7 +272,6 @@ class PeersTester : Object
             x.tear_down();
         });
         GLib.Test.run();
-        Tasklet.kill();
         return 0;
     }
 }

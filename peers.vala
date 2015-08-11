@@ -17,8 +17,9 @@
  */
 
 using Gee;
-using zcd;
-using Tasklets;
+using Netsukuku.ModRpc;
+using zcd.ModRpc;
+using LibPeersInternals;
 
 namespace Netsukuku
 {
@@ -37,10 +38,10 @@ namespace Netsukuku
         public abstract int i_peers_get_nodes_in_my_group(int level);
         public abstract int i_peers_get_my_pos(int level);
         public abstract bool i_peers_exists(int level, int pos);
-        public abstract IAddressManagerRootDispatcher i_peers_gateway
+        public abstract IAddressManagerStub i_peers_gateway
             (int level, int pos,
-             CallerInfo? received_from=null,
-             IAddressManagerRootDispatcher? failed=null)
+             zcd.ModRpc.CallerInfo? received_from=null,
+             IAddressManagerStub? failed=null)
             throws PeersNonexistentDestinationError;
     }
 
@@ -48,15 +49,15 @@ namespace Netsukuku
     {
         // positions[0] is pos[0] of the node to contact inside our gnode
         // of level positions.size
-        public abstract IAddressManagerRootDispatcher i_peers_get_tcp_inside
+        public abstract IAddressManagerStub i_peers_get_tcp_inside
             (Gee.List<int> positions);
     }
 
     public interface IPeersNeighborsFactory : Object
     {
-        public abstract IAddressManagerRootDispatcher i_peers_get_broadcast(
+        public abstract IAddressManagerStub i_peers_get_broadcast(
                             IPeersMissingArcHandler missing_handler);
-        public abstract IAddressManagerRootDispatcher i_peers_get_tcp(
+        public abstract IAddressManagerStub i_peers_get_tcp(
                             IPeersArc arc);
     }
 
@@ -73,43 +74,60 @@ namespace Netsukuku
     {
     }
 
-    internal class PeerTupleNode : Object, ISerializable, IPeerTupleNode
+    internal class PeerTupleNode : Object, Json.Serializable, IPeerTupleNode
     {
-        private ArrayList<int> _tuple;
-        public Gee.List<int> tuple {
-            owned get {
-                return _tuple.read_only_view;
-            }
-        }
+        public Gee.List<int> tuple {get; set;}
         public PeerTupleNode(Gee.List<int> tuple)
         {
-            this._tuple = new ArrayList<int>();
-            this._tuple.add_all(tuple);
+            this.tuple = new ArrayList<int>();
+            this.tuple.add_all(tuple);
         }
 
-        public Variant serialize_to_variant()
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
         {
-            Variant v0 = Serializer.int_array_to_variant(_tuple.to_array());
-            return v0;
+            @value = 0;
+            switch (property_name) {
+            case "tuple":
+                try {
+                    @value = deserialize_list_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
         }
 
-        public void deserialize_from_variant(Variant v) throws SerializerError
+        public unowned GLib.ParamSpec find_property
+        (string name)
         {
-            int[] my_tuple = Serializer.variant_to_int_array(v);
-            _tuple = new ArrayList<int>();
-            _tuple.add_all_array(my_tuple);
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "tuple":
+                return serialize_list_int((Gee.List<int>)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
         }
     }
 
-    internal class PeerTupleGNode : Object, ISerializable, IPeerTupleGNode
+    internal class PeerTupleGNode : Object, Json.Serializable, IPeerTupleGNode
     {
-        private ArrayList<int> _tuple;
-        public Gee.List<int> tuple {
-            owned get {
-                return _tuple.read_only_view;
-            }
-        }
-        public int top {get; private set;}
+        public Gee.List<int> tuple {get; set;}
+        public int top {get; set;}
         public PeerTupleGNode(Gee.List<int> tuple, int top)
         {
             this._tuple = new ArrayList<int>();
@@ -117,23 +135,53 @@ namespace Netsukuku
             this.top = top;
         }
 
-        public Variant serialize_to_variant()
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
         {
-            Variant v0 = Serializer.int_array_to_variant(_tuple.to_array());
-            Variant v1 = Serializer.int_to_variant(top);
-            Variant vret = Serializer.tuple_to_variant(v0, v1);
-            return vret;
+            @value = 0;
+            switch (property_name) {
+            case "tuple":
+                try {
+                    @value = deserialize_list_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "top":
+                try {
+                    @value = deserialize_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
         }
 
-        public void deserialize_from_variant(Variant v) throws SerializerError
+        public unowned GLib.ParamSpec find_property
+        (string name)
         {
-            Variant v0;
-            Variant v1;
-            Serializer.variant_to_tuple(v, out v0, out v1);
-            int[] my_tuple = Serializer.variant_to_int_array(v0);
-            _tuple = new ArrayList<int>();
-            _tuple.add_all_array(my_tuple);
-            top = Serializer.variant_to_int(v1);
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "tuple":
+                return serialize_list_int((Gee.List<int>)@value);
+            case "top":
+                return serialize_int((int)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
         }
     }
 
@@ -227,17 +275,17 @@ namespace Netsukuku
         }
     }
 
-    internal class PeerMessageForwarder : Object, ISerializable, IPeerMessage
+    internal class PeerMessageForwarder : Object, Json.Serializable, IPeerMessage
     {
-        public PeerTupleNode n;
-        public PeerTupleNode? x_macron;
-        public int lvl;
-        public int pos;
-        public int p_id;
-        public int msg_id;
-        public Gee.List<PeerTupleGNode> exclude_tuple_list;
-        public Gee.List<PeerTupleGNode> non_participant_tuple_list;
-        public bool reverse;
+        public PeerTupleNode n {get; set;}
+        public PeerTupleNode? x_macron {get; set;}
+        public int lvl {get; set;}
+        public int pos {get; set;}
+        public int p_id {get; set;}
+        public int msg_id {get; set;}
+        public Gee.List<PeerTupleGNode> exclude_tuple_list {get; set;}
+        public Gee.List<PeerTupleGNode> non_participant_tuple_list {get; set;}
+        public bool reverse {get; set;}
 
         public PeerMessageForwarder()
         {
@@ -246,99 +294,120 @@ namespace Netsukuku
             reverse = false;
         }
 
-        public Variant serialize_to_variant()
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
         {
-            Variant v0 = n.serialize_to_variant();
-            Variant v1;
-            if (x_macron == null)
-            {
-                v1 = Serializer.int_to_variant(0);
+            @value = 0;
+            switch (property_name) {
+            case "n":
+                try {
+                    @value = deserialize_peer_tuple_node(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "x-macron":
+            case "x_macron":
+                try {
+                    @value = deserialize_nullable_peer_tuple_node(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "lvl":
+            case "pos":
+            case "p-id":
+            case "p_id":
+            case "msg-id":
+            case "msg_id":
+                try {
+                    @value = deserialize_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "exclude-tuple-list":
+            case "exclude_tuple_list":
+                try {
+                    @value = deserialize_list_peer_tuple_gnode(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "non_participant_tuple_list":
+            case "non-participant-tuple-list":
+                try {
+                    @value = deserialize_list_peer_tuple_gnode(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "reverse":
+                try {
+                    @value = deserialize_bool(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
             }
-            else
-            {
-                v1 = x_macron.serialize_to_variant();
-            }
-            Variant v2 = Serializer.int_to_variant(lvl);
-            Variant v3 = Serializer.int_to_variant(pos);
-            Variant v4 = Serializer.int_to_variant(p_id);
-            Variant v5 = Serializer.int_to_variant(msg_id);
-            Variant v6;
-            {
-                ListISerializable lst = new ListISerializable();
-                foreach (PeerTupleGNode o in exclude_tuple_list) lst.add(o);
-                v6 = lst.serialize_to_variant();
-            }
-            Variant v7;
-            {
-                ListISerializable lst = new ListISerializable();
-                foreach (PeerTupleGNode o in non_participant_tuple_list) lst.add(o);
-                v7 = lst.serialize_to_variant();
-            }
-            Variant v8 = Serializer.int_to_variant(reverse ? 1 : 0);
-            Variant vtemp = Serializer.tuple_to_variant_5(v0, v1, v2, v3, v4);
-            Variant vret = Serializer.tuple_to_variant_5(vtemp, v5, v6, v7, v8);
-            return vret;
+            return true;
         }
 
-        public void deserialize_from_variant(Variant v) throws SerializerError
+        public unowned GLib.ParamSpec find_property
+        (string name)
         {
-            Variant v0;
-            Variant v1;
-            Variant v2;
-            Variant v3;
-            Variant v4;
-            Variant v5;
-            Variant v6;
-            Variant v7;
-            Variant v8;
-            Variant vtemp;
-            Serializer.variant_to_tuple_5(v, out vtemp, out v5, out v6, out v7, out v8);
-            Serializer.variant_to_tuple_5(vtemp, out v0, out v1, out v2, out v3, out v4);
-            n = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
-            n.deserialize_from_variant(v0);
-            if (v1.get_type_string() == "i")
-            {
-                x_macron = null;
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "n":
+                return serialize_peer_tuple_node((PeerTupleNode)@value);
+            case "x-macron":
+            case "x_macron":
+                return serialize_nullable_peer_tuple_node((PeerTupleNode?)@value);
+            case "lvl":
+            case "pos":
+            case "p-id":
+            case "p_id":
+            case "msg-id":
+            case "msg_id":
+                return serialize_int((int)@value);
+            case "exclude-tuple-list":
+            case "exclude_tuple_list":
+                return serialize_list_peer_tuple_gnode((Gee.List<PeerTupleGNode>)@value);
+            case "non_participant_tuple_list":
+            case "non-participant-tuple-list":
+                return serialize_list_peer_tuple_gnode((Gee.List<PeerTupleGNode>)@value);
+            case "reverse":
+                return serialize_bool((bool)@value);
+            default:
+                error(@"wrong param $(property_name)");
             }
-            else
-            {
-                x_macron = (PeerTupleNode)Object.new(typeof(PeerTupleNode));
-                x_macron.deserialize_from_variant(v1);
-            }
-            lvl = Serializer.variant_to_int(v2);
-            pos = Serializer.variant_to_int(v3);
-            p_id = Serializer.variant_to_int(v4);
-            msg_id = Serializer.variant_to_int(v5);
-            exclude_tuple_list = new ArrayList<PeerTupleGNode>();
-            {
-                ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
-                lst.deserialize_from_variant(v6);
-                Gee.List<PeerTupleGNode> typed_lst = (Gee.List<PeerTupleGNode>)lst.backed;
-                exclude_tuple_list.add_all(typed_lst);
-            }
-            non_participant_tuple_list = new ArrayList<PeerTupleGNode>();
-            {
-                ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
-                lst.deserialize_from_variant(v7);
-                Gee.List<PeerTupleGNode> typed_lst = (Gee.List<PeerTupleGNode>)lst.backed;
-                non_participant_tuple_list.add_all(typed_lst);
-            }
-            reverse = Serializer.variant_to_int(v8) == 1;
         }
     }
 
     internal class WaitingAnswer : Object
     {
-        public Channel ch;
-        public RemoteCall? request;
+        public INtkdChannel ch;
+        public IPeersRequest? request;
         public PeerTupleGNode min_target;
         public PeerTupleGNode? exclude_gnode;
         public PeerTupleGNode? non_participant_gnode;
         public PeerTupleNode? respondant_node;
-        public ISerializable? response;
-        public WaitingAnswer(RemoteCall? request, PeerTupleGNode min_target)
+        public IPeersResponse? response;
+        public WaitingAnswer(IPeersRequest? request, PeerTupleGNode min_target)
         {
-            ch = new Channel();
+            ch = tasklet.get_channel();
             this.request = request;
             this.min_target = min_target;
             exclude_gnode = null;
@@ -348,93 +417,115 @@ namespace Netsukuku
         }
     }
 
-    internal class PeerParticipantMap : Object, ISerializable
+    internal class PeerParticipantMap : Object, Json.Serializable
     {
-        private ArrayList<HCoord> _list;
-        public Gee.List<HCoord> participant_list {
-            owned get {
-                return _list;
-            }
-        }
+        public Gee.List<HCoord> participant_list {get; set;}
 
         public PeerParticipantMap()
         {
-            _list = new ArrayList<HCoord>((a,b) => {return a.equals(b);});
+            participant_list = new ArrayList<HCoord>((a,b) => a.equals(b));
         }
 
-        public Variant serialize_to_variant()
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
         {
-            Variant v;
-            {
-                ListISerializable lst = new ListISerializable();
-                foreach (HCoord o in participant_list) lst.add(o);
-                v = lst.serialize_to_variant();
+            @value = 0;
+            switch (property_name) {
+            case "participant-list":
+            case "participant_list":
+                try {
+                    @value = deserialize_list_hcoord(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
             }
-            return v;
+            return true;
         }
 
-        public void deserialize_from_variant(Variant v) throws SerializerError
+        public unowned GLib.ParamSpec find_property
+        (string name)
         {
-            _list = new ArrayList<HCoord>((a,b) => {return a.equals(b);});
-            {
-                ListISerializable lst = (ListISerializable)Object.new(typeof(ListISerializable));
-                lst.deserialize_from_variant(v);
-                Gee.List<HCoord> typed_lst = (Gee.List<HCoord>)lst.backed;
-                participant_list.add_all(typed_lst);
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "participant-list":
+            case "participant_list":
+                return serialize_list_hcoord((Gee.List<HCoord>)@value);
+            default:
+                error(@"wrong param $(property_name)");
             }
         }
     }
 
-    internal class PeerParticipantSet : Object, ISerializable, IPeerParticipantSet
+    internal class PeerParticipantSet : Object, Json.Serializable, IPeerParticipantSet
     {
-        private HashMap<int, PeerParticipantMap> _set;
-        public HashMap<int, PeerParticipantMap> participant_set {
-            owned get {
-                return _set;
-            }
-        }
+        public HashMap<int, PeerParticipantMap> participant_set {get; set;}
 
         public PeerParticipantSet()
         {
-            _set = new HashMap<int, PeerParticipantMap>();
+            participant_set = new HashMap<int, PeerParticipantMap>();
         }
 
-        public Variant serialize_to_variant()
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
         {
-            Variant v0 = Serializer.int_array_to_variant(participant_set.keys.to_array());
-            Variant v1;
-            {
-                ListISerializable lv = new ListISerializable();
-                foreach (int k in participant_set.keys) lv.add(participant_set[k]);
-                v1 = lv.serialize_to_variant();
+            @value = 0;
+            switch (property_name) {
+            case "participant-set":
+            case "participant_set":
+                try {
+                    @value = deserialize_map_int_peer_participant_map(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
             }
-            Variant vret = Serializer.tuple_to_variant(v0, v1);
-            return vret;
+            return true;
         }
 
-        public void deserialize_from_variant(Variant v) throws SerializerError
+        public unowned GLib.ParamSpec find_property
+        (string name)
         {
-            Variant v0;
-            Variant v1;
-            Serializer.variant_to_tuple(v, out v0, out v1);
-            {
-                int[] keys = Serializer.variant_to_int_array(v0);
-                ListISerializable lv = (ListISerializable)Object.new(typeof(ListISerializable));
-                lv.deserialize_from_variant(v1);
-                Gee.List<PeerParticipantMap> typed_lv = (Gee.List<PeerParticipantMap>)lv.backed;
-                if (keys.length != typed_lv.size)
-                    throw new SerializerError.GENERIC("Mismatch in hashmap keys and values numbers.");
-                _set = new HashMap<int, PeerParticipantMap>();
-                for (int i = 0; i < typed_lv.size; i++)
-                    _set[keys[i]] = typed_lv[i];
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "participant_set":
+            case "participant-set":
+                return serialize_map_int_peer_participant_map((HashMap<int, PeerParticipantMap>)@value);
+            default:
+                error(@"wrong param $(property_name)");
             }
         }
     }
 
+    internal INtkdTasklet tasklet;
     public class PeersManager : Object,
-                                IPeersManager
+                                IPeersManagerSkeleton
     {
-        public static void init()
+        public static void init(INtkdTasklet _tasklet)
         {
             // Register serializable types
             typeof(PeerTupleNode).class_peek();
@@ -442,6 +533,7 @@ namespace Netsukuku
             typeof(PeerMessageForwarder).class_peek();
             typeof(PeerParticipantMap).class_peek();
             typeof(PeerParticipantSet).class_peek();
+            tasklet = _tasklet;
         }
 
         private IPeersMapPaths map_paths;
@@ -486,11 +578,10 @@ namespace Netsukuku
             services[p.p_id] = p;
             if (p.p_is_optional)
             {
-                Tasklet.tasklet_callback((_p_id) => {
-                        int t_p_id = ((SerializableInt)_p_id).i;
-                        publish_my_participation(t_p_id);
-                    },
-                    new SerializableInt(p.p_id));
+                PublishMyParticipationTasklet ts = new PublishMyParticipationTasklet();
+                ts.t = this;
+                ts.p_id = p.p_id;
+                tasklet.spawn(ts);
                 if (!participant_maps.has_key(p.p_id))
                     participant_maps[p.p_id] = new PeerParticipantMap();
                 // save my position
@@ -861,17 +952,18 @@ namespace Netsukuku
             return ret;
         }
 
-        internal ISerializable contact_peer
+        internal IPeersResponse contact_peer
         (int p_id,
          PeerTupleNode x_macron,
-         RemoteCall request,
+         IPeersRequest request,
          int timeout_exec,
          bool exclude_myself,
-         out PeerTupleNode respondant,
+         out PeerTupleNode? respondant,
          PeerTupleGNodeContainer? _exclude_tuple_list=null,
          bool reverse=false)
         throws PeersNoParticipantsInNetworkError
         {
+            respondant = null;
             int target_levels = x_macron.tuple.size;
             var exclude_gnode_list = new ArrayList<HCoord>();
             bool optional = false;
@@ -900,7 +992,7 @@ namespace Netsukuku
                     exclude_gnode_list.add(ret);
             }
             PeerTupleGNodeContainer non_participant_tuple_list = new PeerTupleGNodeContainer();
-            ISerializable? response = null;
+            IPeersResponse? response = null;
             while (true)
             {
                 HCoord? x = approximate(x_macron, exclude_gnode_list, reverse);
@@ -944,8 +1036,8 @@ namespace Netsukuku
                 int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(x.lvl+1));
                 WaitingAnswer waiting_answer = new WaitingAnswer(request, make_tuple_gnode(x, x.lvl+1));
                 waiting_answer_map[mf.msg_id] = waiting_answer;
-                IAddressManagerRootDispatcher gwstub;
-                IAddressManagerRootDispatcher? failed = null;
+                IAddressManagerStub gwstub;
+                IAddressManagerStub? failed = null;
                 bool redo_approximate = false;
                 while (true)
                 {
@@ -957,7 +1049,10 @@ namespace Netsukuku
                     }
                     try {
                         gwstub.peers_manager.forward_peer_message(mf);
-                    } catch (RPCError e) {
+                    } catch (zcd.ModRpc.StubError e) {
+                        failed = gwstub;
+                        continue;
+                    } catch (zcd.ModRpc.DeserializeError e) {
                         failed = gwstub;
                         continue;
                     }
@@ -966,7 +1061,7 @@ namespace Netsukuku
                 if (redo_approximate)
                 {
                     waiting_answer_map.unset(mf.msg_id);
-                    ms_wait(2);
+                    tasklet.ms_wait(2);
                     continue;
                 }
                 int timeout = timeout_routing;
@@ -1033,7 +1128,7 @@ namespace Netsukuku
                         {
                             // A new destination (min_target) is found, nothing to do.
                         }
-                    } catch (ChannelError e) {
+                    } catch (NtkdChannelError e) {
                         // TIMEOUT_EXPIRED
                         PeerTupleGNode t = rebase_tuple_gnode(waiting_answer.min_target, target_levels);
                         // t represents the same g-node of waiting_answer.min_target, but with top=target_levels
@@ -1080,8 +1175,8 @@ namespace Netsukuku
             mf.msg_id = Random.int_range(0, int.MAX);
             int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(lvl+1));
             WaitingAnswer waiting_answer = new WaitingAnswer(null, make_tuple_gnode(new HCoord(lvl, _pos), lvl+1));
-            IAddressManagerRootDispatcher gwstub;
-            IAddressManagerRootDispatcher? failed = null;
+            IAddressManagerStub gwstub;
+            IAddressManagerStub? failed = null;
             while (true)
             {
                 try {
@@ -1092,7 +1187,10 @@ namespace Netsukuku
                 }
                 try {
                     gwstub.peers_manager.forward_peer_message(mf);
-                } catch (RPCError e) {
+                } catch (zcd.ModRpc.StubError e) {
+                    failed = gwstub;
+                    continue;
+                } catch (zcd.ModRpc.DeserializeError e) {
                     failed = gwstub;
                     continue;
                 }
@@ -1131,7 +1229,7 @@ namespace Netsukuku
                     waiting_answer_map.unset(mf.msg_id);
                     return false;
                 }
-            } catch (ChannelError e) {
+            } catch (NtkdChannelError e) {
                 // TIMEOUT_EXPIRED
                 waiting_answer_map.unset(mf.msg_id);
                 return false;
@@ -1151,16 +1249,28 @@ namespace Netsukuku
             private PeerTupleGNode tuple;
             public void i_peers_missing(IPeersArc missing_arc)
             {
-                IAddressManagerRootDispatcher disp =
+                IAddressManagerStub stub =
                     mgr.neighbors_factory.i_peers_get_tcp(missing_arc);
                 try {
-                    disp.peers_manager.set_participant(p_id, tuple);
-                } catch (RPCError e) {
+                    stub.peers_manager.set_participant(p_id, tuple);
+                } catch (zcd.ModRpc.StubError e) {
+                    // ignore
+                } catch (zcd.ModRpc.DeserializeError e) {
                     // ignore
                 }
             }
         }
 
+        private class PublishMyParticipationTasklet : Object, INtkdTaskletSpawnable
+        {
+            public PeersManager t;
+            public int p_id;
+            public void * func()
+            {
+                t.publish_my_participation(p_id);
+                return null;
+            }
+        }
         private void publish_my_participation(int p_id)
         {
             PeerTupleGNode gn = make_tuple_gnode(new HCoord(0, pos[0]), levels);
@@ -1171,13 +1281,15 @@ namespace Netsukuku
                 if (iterations > 0) iterations--;
                 else timeout = Random.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
                 MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, gn);
-                IAddressManagerRootDispatcher br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
+                IAddressManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
                 try {
                     br_stub.peers_manager.set_participant(p_id, gn);
-                } catch (RPCError e) {
+                } catch (zcd.ModRpc.StubError e) {
+                    // ignore
+                } catch (zcd.ModRpc.DeserializeError e) {
                     // ignore
                 }
-                ms_wait(timeout);
+                tasklet.ms_wait(timeout);
             }
         }
 
@@ -1188,7 +1300,7 @@ namespace Netsukuku
             public int q;
             public int p_id;
             public PeerTupleNode x_macron;
-            public RemoteCall r;
+            public IPeersRequest r;
             public int timeout_exec;
             public ArrayList<PeerTupleNode> replicas;
             public PeerTupleGNodeContainer exclude_tuple_list;
@@ -1198,9 +1310,9 @@ namespace Netsukuku
                 (int q,
                  int p_id,
                  Gee.List<int> perfect_tuple,
-                 RemoteCall r,
+                 IPeersRequest r,
                  int timeout_exec,
-                 out ISerializable resp,
+                 out IPeersResponse? resp,
                  out IPeersContinuation cont)
         {
             ReplicaContinuation _cont = new ReplicaContinuation();
@@ -1215,10 +1327,10 @@ namespace Netsukuku
             return next_replica(cont, out resp);
         }
 
-        public bool next_replica(IPeersContinuation cont, out ISerializable resp)
+        public bool next_replica(IPeersContinuation cont, out IPeersResponse? resp)
         {
             ReplicaContinuation _cont = (ReplicaContinuation)cont;
-            resp = new SerializableNone();
+            resp = null;
             if (_cont.replicas.size >= _cont.q) return false;
             PeerTupleNode respondant;
             try {
@@ -1238,7 +1350,7 @@ namespace Netsukuku
         private class RetrieveCacheContinuation : Object, IPeersContinuation
         {
             public int p_id;
-            public RemoteCall r;
+            public IPeersRequest r;
             public int timeout_exec;
             public int j;
             public PeerTupleGNodeContainer exclude_tuple_list;
@@ -1246,12 +1358,13 @@ namespace Netsukuku
 
         public bool begin_retrieve_cache
                 (int p_id,
-                 RemoteCall r,
+                 IPeersRequest r,
                  int timeout_exec,
-                 out ISerializable resp,
-                 out IPeersContinuation cont)
+                 out IPeersResponse? resp,
+                 out IPeersContinuation? cont)
         {
-            resp = new SerializableNone();
+            resp = null;
+            cont = null;
             for (int j = 0; j < levels; j++)
             {
                 PeerTupleNode x_macron = make_tuple_node(new HCoord(0, pos[0]), j+1);
@@ -1279,9 +1392,9 @@ namespace Netsukuku
             return false;
         }
 
-        public bool next_retrieve_cache(IPeersContinuation cont, out ISerializable resp)
+        public bool next_retrieve_cache(IPeersContinuation cont, out IPeersResponse? resp)
         {
-            resp = new SerializableNone();
+            resp = null;
             RetrieveCacheContinuation _cont = (RetrieveCacheContinuation)cont;
             PeerTupleNode x_macron = make_tuple_node(new HCoord(0, pos[0]), _cont.j+1);
             PeerTupleNode respondant;
@@ -1298,7 +1411,8 @@ namespace Netsukuku
 
         /* Remotable methods */
 
-        public IPeerParticipantSet get_participant_set(int lvl)
+        public IPeerParticipantSet get_participant_set
+        (int lvl, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // check payload
             if (lvl <= 0 || lvl > levels) return new PeerParticipantSet(); // should be throw exception
@@ -1320,8 +1434,8 @@ namespace Netsukuku
             return ret;
         }
 
-        public void forward_peer_message(IPeerMessage peer_message,
-                                         CallerInfo? _rpc_caller=null)
+        public void forward_peer_message
+        (IPeerMessage peer_message, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // check payload
             if (! (peer_message is PeerMessageForwarder)) return;
@@ -1342,12 +1456,14 @@ namespace Netsukuku
             {
                 if (! my_gnode_participates(mf.p_id, mf.lvl))
                 {
-                    IAddressManagerRootDispatcher nstub
+                    IAddressManagerStub nstub
                         = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                     PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                     try {
                         nstub.peers_manager.set_non_participant(mf.msg_id, gn);
-                    } catch (RPCError e) {
+                    } catch (zcd.ModRpc.StubError e) {
+                        // ignore
+                    } catch (zcd.ModRpc.DeserializeError e) {
                         // ignore
                     }
                 }
@@ -1373,36 +1489,41 @@ namespace Netsukuku
                         HCoord? x = approximate(mf.x_macron, exclude_gnode_list, mf.reverse);
                         if (x == null)
                         {
-                            IAddressManagerRootDispatcher nstub
+                            IAddressManagerStub nstub
                                 = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                             PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                             try {
                                 nstub.peers_manager.set_failure(mf.msg_id, gn);
-                            } catch (RPCError e) {
+                            } catch (zcd.ModRpc.StubError e) {
+                                // ignore
+                            } catch (zcd.ModRpc.DeserializeError e) {
                                 // ignore
                             }
                             break;
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
-                            IAddressManagerRootDispatcher nstub
+                            IAddressManagerStub nstub
                                 = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                             PeerTupleNode tuple_respondant = make_tuple_node(new HCoord(0, pos[0]), mf.n.tuple.size);
                             try {
-                                RemoteCall request
+                                IPeersRequest request
                                     = nstub.peers_manager.get_request(mf.msg_id, tuple_respondant);
-                                ISerializable resp = services[mf.p_id].exec(request);
+                                IPeersResponse resp = services[mf.p_id].exec(request);
                                 nstub.peers_manager.set_response(mf.msg_id, resp);
                             } catch (PeersUnknownMessageError e) {
                                 // ignore
-                            } catch (RPCError e) {
+                            } catch (zcd.ModRpc.StubError e) {
+                                // ignore
+                            } catch (zcd.ModRpc.DeserializeError e) {
                                 // ignore
                             }
                             break;
                         }
                         else
                         {
-                            PeerMessageForwarder mf2 = (PeerMessageForwarder)ISerializable.deserialize(mf.serialize());
+                            PeerMessageForwarder mf2 = (PeerMessageForwarder)Json.gobject_deserialize
+                                    (typeof(PeerMessageForwarder), Json.gobject_serialize(mf));
                             mf2.lvl = x.lvl;
                             mf2.pos = x.pos;
                             if (x.lvl == 0)
@@ -1431,29 +1552,34 @@ namespace Netsukuku
                                 if (visible_by_someone_inside_my_gnode(t, x.lvl+1))
                                     mf2.non_participant_tuple_list.add(t);
                             }
-                            IAddressManagerRootDispatcher gwstub;
-                            IAddressManagerRootDispatcher? failed = null;
+                            IAddressManagerStub gwstub;
+                            IAddressManagerStub? failed = null;
                             while (true)
                             {
                                 try {
                                     gwstub = map_paths.i_peers_gateway(mf2.lvl, mf2.pos, _rpc_caller, failed);
                                 } catch (PeersNonexistentDestinationError e) {
-                                    ms_wait(20);
+                                    tasklet.ms_wait(20);
                                     break;
                                 }
                                 try {
                                     gwstub.peers_manager.forward_peer_message(mf2);
-                                } catch (RPCError e) {
+                                } catch (zcd.ModRpc.StubError e) {
+                                    failed = gwstub;
+                                    continue;
+                                } catch (zcd.ModRpc.DeserializeError e) {
                                     failed = gwstub;
                                     continue;
                                 }
                                 delivered = true;
-                                IAddressManagerRootDispatcher nstub
+                                IAddressManagerStub nstub
                                     = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                                 PeerTupleGNode gn = make_tuple_gnode(x, mf.n.tuple.size);
                                 try {
                                     nstub.peers_manager.set_next_destination(mf.msg_id, gn);
-                                } catch (RPCError e) {
+                                } catch (zcd.ModRpc.StubError e) {
+                                    // ignore
+                                } catch (zcd.ModRpc.DeserializeError e) {
                                     // ignore
                                 }
                                 break;
@@ -1464,8 +1590,8 @@ namespace Netsukuku
             }
             else
             {
-                IAddressManagerRootDispatcher gwstub;
-                IAddressManagerRootDispatcher? failed = null;
+                IAddressManagerStub gwstub;
+                IAddressManagerStub? failed = null;
                 while (true)
                 {
                     try {
@@ -1476,7 +1602,10 @@ namespace Netsukuku
                     }
                     try {
                         gwstub.peers_manager.forward_peer_message(mf);
-                    } catch (RPCError e) {
+                    } catch (zcd.ModRpc.StubError e) {
+                        failed = gwstub;
+                        continue;
+                    } catch (zcd.ModRpc.DeserializeError e) {
                         failed = gwstub;
                         continue;
                     }
@@ -1494,53 +1623,68 @@ namespace Netsukuku
                     {
                         if (ret in participant_maps[mf.p_id].participant_list)
                         {
-                            Tasklet.tasklet_callback(
-                                (_p_id, _ret) => {
-                                    int t_p_id = ((SerializableInt)_p_id).i;
-                                    HCoord t_ret = (HCoord)_ret;
-                                    if (check_non_participation(t_p_id, t_ret.lvl, t_ret.pos))
-                                        if (participant_maps.has_key(t_p_id))
-                                            participant_maps[t_p_id].participant_list.remove(t_ret); 
-                                },
-                                new SerializableInt(mf.p_id),
-                                ret);
+                            CheckNonParticipationTasklet ts = new CheckNonParticipationTasklet();
+                            ts.t = this;
+                            ts.ret = ret;
+                            ts.p_id = mf.p_id;
+                            tasklet.spawn(ts);
                         }
                     }
                 }
             }
         }
+        private class CheckNonParticipationTasklet : Object, INtkdTaskletSpawnable
+        {
+            public PeersManager t;
+            public HCoord ret;
+            public int p_id;
+            public void * func()
+            {
+                if (t.check_non_participation(p_id, ret.lvl, ret.pos))
+                    if (t.participant_maps.has_key(p_id))
+                        t.participant_maps[p_id].participant_list.remove(ret); 
+                return null;
+            }
+        }
 
-        public RemoteCall get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError
+        public IPeersRequest get_request
+        (int msg_id, IPeerTupleNode respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        throws PeersUnknownMessageError
         {
             // TODO
             assert_not_reached();
         }
 
-        public void set_response (int msg_id, ISerializable response)
+        public void set_response
+        (int msg_id, IPeersResponse response, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // TODO
             assert_not_reached();
         }
 
-        public void set_next_destination (int msg_id, IPeerTupleGNode tuple)
+        public void set_next_destination
+        (int msg_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // TODO
             assert_not_reached();
         }
 
-        public void set_failure (int msg_id, IPeerTupleGNode tuple)
+        public void set_failure
+        (int msg_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // TODO
             assert_not_reached();
         }
 
-        public void set_non_participant (int msg_id, IPeerTupleGNode tuple)
+        public void set_non_participant
+        (int msg_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // TODO
             assert_not_reached();
         }
 
-        public void set_participant (int p_id, IPeerTupleGNode tuple)
+        public void set_participant
+        (int p_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
             // check payload
             if (! (tuple is PeerTupleGNode)) return;
@@ -1559,19 +1703,29 @@ namespace Netsukuku
             participant_maps[p_id].participant_list.add(ret);
             PeerTupleGNode ret_gn = make_tuple_gnode(ret, levels);
             MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, ret_gn);
-            IAddressManagerRootDispatcher br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
+            IAddressManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
             try {
                 br_stub.peers_manager.set_participant(p_id, ret_gn);
-            } catch (RPCError e) {
+            } catch (zcd.ModRpc.StubError e) {
+                // ignore
+            } catch (zcd.ModRpc.DeserializeError e) {
                 // ignore
             }
-            Tasklet.tasklet_callback(
-                (_ret) => {
-                    HCoord t_ret = (HCoord)_ret;
-                    ms_wait(60000);
-                    recent_list_non_participants.remove(t_ret);
-                },
-                ret);
+            RecentListNonParticipantsRemoveTasklet ts = new RecentListNonParticipantsRemoveTasklet();
+            ts.t = this;
+            ts.ret = ret;
+            tasklet.spawn(ts);
+        }
+        private class RecentListNonParticipantsRemoveTasklet : Object, INtkdTaskletSpawnable
+        {
+            public PeersManager t;
+            public HCoord ret;
+            public void * func()
+            {
+                tasklet.ms_wait(60000);
+                t.recent_list_non_participants.remove(ret);
+                return null;
+            }
         }
     }
 
@@ -1590,7 +1744,7 @@ namespace Netsukuku
             return true;
         }
 
-        public abstract ISerializable exec(RemoteCall req);
+        public abstract IPeersResponse exec(IPeersRequest req);
     }
 
     public abstract class PeerClient : Object
@@ -1624,7 +1778,7 @@ namespace Netsukuku
             return tuple;
         }
 
-        protected ISerializable call(Object k, RemoteCall request, int timeout_exec)
+        protected IPeersResponse call(Object k, IPeersRequest request, int timeout_exec)
         throws PeersNoParticipantsInNetworkError
         {
             PeerTupleNode respondant;

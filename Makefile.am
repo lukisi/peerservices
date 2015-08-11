@@ -1,11 +1,11 @@
 NULL = 
 ACLOCAL_AMFLAGS = -I m4
 
-EXTRA_LTLIBRARIES = \
+noinst_LTLIBRARIES = \
 	libpeers.la \
 	$(NULL)
 
-bin_PROGRAMS =  \
+noinst_PROGRAMS =  \
 	peersclient \
 	$(NULL)
 
@@ -17,121 +17,119 @@ check_PROGRAMS = \
 	test_peers \
 	$(NULL)
 
-# test_peers does some tests on internal classes, hence we need to compile
-#  it with source files, not with the convenience library. The source files
-#  are symbolic links to avoid name clashes with vala-generated C files.
-test_peers_SOURCES = \
-	testsuites/test_peers/test_peers.vala \
-	testsuites/test_peers/base_dispatcher.vala \
-	testsuites/test_peers/peers.vala \
-	$(NULL)
-
-test_peers_VALAFLAGS = \
-	--pkg gio-2.0 \
-	--pkg gee-0.8 \
-	--pkg tasklet \
-	--pkg zcd \
-	--pkg ntkd-rpc\
-	$(NULL)
-
-test_peers_CPPFLAGS = \
-	-w \
-	$(GOBJECT_CFLAGS) \
-	$(GIO_CFLAGS) \
-	$(GEE_CFLAGS) \
-	$(TASKLET_CFLAGS) \
-	$(ZCD_CFLAGS) \
-	$(NTKDRPC_CFLAGS) \
-	$(NULL)
-
-test_peers_LDADD = \
-	$(GOBJECT_LIBS) \
-	$(GIO_LIBS) \
-	$(GEE_LIBS) \
-	$(TASKLET_LIBS) \
-	$(ZCD_LIBS) \
-	$(NTKDRPC_LIBS) \
-	$(NULL)
-
-peersclient_SOURCES =  \
-	main.vala \
-	peers.vapi \
-	$(NULL)
-
-peersclient_VALAFLAGS = \
-	--pkg gio-2.0 \
-	--pkg gee-0.8 \
-	--pkg tasklet \
-	--pkg posix \
-	--pkg zcd \
-	--pkg ntkd-rpc\
-	--pkg linux \
-	$(NULL)
-
-peersclient_CPPFLAGS = \
-	-w \
-	$(GOBJECT_CFLAGS) \
-	$(GIO_CFLAGS) \
-	$(GEE_CFLAGS) \
-	$(TASKLET_CFLAGS) \
-	$(ZCD_CFLAGS) \
-	$(NTKDRPC_CFLAGS) \
-	$(NULL)
-
-peersclient_LDADD = \
-	$(GOBJECT_LIBS) \
-	$(GIO_LIBS) \
-	$(GEE_LIBS) \
-	$(TASKLET_LIBS) \
-	$(ZCD_LIBS) \
-	$(NTKDRPC_LIBS) \
-	$(builddir)/libpeers.la \
-	$(NULL)
-
 libpeers_la_SOURCES = \
 	peers.vala \
+	serialize_helpers.vala \
 	$(NULL)
 
 libpeers_la_VALAFLAGS = \
 	-H peers.h \
 	--library peers \
-	--pkg gio-2.0 \
 	--pkg gee-0.8 \
-	--pkg tasklet \
-	--pkg posix \
-	--pkg zcd \
-	--pkg ntkd-rpc\
-	--pkg linux \
+	--pkg json-glib-1.0 \
+	--pkg ntkd-common \
+	--pkg ntkd-tasklet-system \
+	--pkg ntkdrpc\
+	--pkg zcd-tasklet-system \
 	$(NULL)
 
 libpeers_la_CPPFLAGS = \
 	-w \
 	$(GOBJECT_CFLAGS) \
-	$(GIO_CFLAGS) \
 	$(GEE_CFLAGS) \
-	$(TASKLET_CFLAGS) \
-	$(ZCD_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
 	$(NTKDRPC_CFLAGS) \
 	$(NULL)
 
-libpeers_la_LIBADD = -lm \
+libpeers_la_LIBADD = \
 	$(GOBJECT_LIBS) \
-	$(GIO_LIBS) \
 	$(GEE_LIBS) \
-	$(TASKLET_LIBS) \
-	$(ZCD_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
 	$(NTKDRPC_LIBS) \
 	$(NULL)
 
-CLEANFILES = \
+# test_peers does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
+test_peers_SOURCES = \
+	testsuites/test_peers/test_peers.vala \
+	testsuites/test_peers/base_fake_address_manager.vala \
+	testsuites/test_peers/peers.vala \
+	testsuites/test_peers/serialize_helpers.vala \
+	$(NULL)
+
+test_peers_VALAFLAGS = \
+	--pkg gee-0.8 \
+	--pkg json-glib-1.0 \
+	--pkg ntkd-common \
+	--pkg ntkd-tasklet-system \
+	--pkg ntkdrpc\
+	--pkg zcd-tasklet-system \
+	$(NULL)
+
+test_peers_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(TASKLET_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+test_peers_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(TASKLET_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+peersclient_SOURCES =  \
+	main.vala \
+	tasklet_system_tasklet.vala \
+	base_fake_address_manager.vala \
+	peers.vapi \
+	$(NULL)
+
+peersclient_VALAFLAGS = \
+	--pkg gee-0.8 \
+	--pkg ntkd-common \
+	--pkg ntkd-tasklet-system \
+	--pkg tasklet \
+	--pkg ntkdrpc \
+	--pkg zcd-tasklet-system \
+	$(NULL)
+
+peersclient_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(TASKLET_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+peersclient_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(TASKLET_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(builddir)/libpeers.la \
+	$(NULL)
+
+MAINTAINERCLEANFILES = \
 	$(srcdir)/peers.vapi \
-	$(srcdir)/peers.h \
-	$(srcdir)/libpeers_la_vala.stamp \
-	$(srcdir)/main.c \
-	$(srcdir)/peers.c \
-	$(srcdir)/testsuites/test_peers/peers.c \
-	$(srcdir)/testsuites/test_peers/test_peers.c \
-	$(srcdir)/testsuites/test_peers/base_dispatcher.c \
 	$(NULL)
 
 peers.vapi: libpeers_la_vala.stamp
