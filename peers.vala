@@ -77,6 +77,7 @@ namespace Netsukuku
     internal class PeerTupleNode : Object, Json.Serializable, IPeerTupleNode
     {
         public Gee.List<int> tuple {get; set;}
+        public int top {get {return tuple.size;}}
         public PeerTupleNode(Gee.List<int> tuple)
         {
             this.tuple = new ArrayList<int>();
@@ -91,6 +92,9 @@ namespace Netsukuku
         {
             @value = 0;
             switch (property_name) {
+            case "top":
+                // get-only dynamic property
+                return false;
             case "tuple":
                 try {
                     @value = deserialize_list_int(property_node);
@@ -116,6 +120,8 @@ namespace Netsukuku
          GLib.ParamSpec pspec)
         {
             switch (property_name) {
+            case "top":
+                return serialize_int(0); // get-only dynamic property
             case "tuple":
                 return serialize_list_int((Gee.List<int>)@value);
             default:
@@ -1648,39 +1654,144 @@ namespace Netsukuku
         }
 
         public IPeersRequest get_request
-        (int msg_id, IPeerTupleNode respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         throws PeersUnknownMessageError
         {
-            // TODO
-            assert_not_reached();
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.get_request: ignored because unknown msg_id");
+                throw new PeersUnknownMessageError.GENERIC("unknown msg_id");
+            }
+            if (! (_respondant is PeerTupleNode))
+            {
+                debug("PeersManager.get_request: ignored because unknown class as IPeerTupleNode");
+                throw new PeersUnknownMessageError.GENERIC("unknown class as IPeerTupleNode");
+            }
+            PeerTupleNode respondant = (PeerTupleNode)_respondant;
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must be inside my search g-node
+            if (wa.min_target.top != respondant.top)
+            {
+                debug("PeersManager.get_request: ignored because not same g-node of research");
+                throw new PeersUnknownMessageError.GENERIC("not same g-node of research");
+            }
+            // might be a fake request
+            if (wa.request == null) throw new PeersUnknownMessageError.GENERIC("was a fake request");
+            // ok
+            wa.respondant_node = respondant;
+            wa.ch.send_async(0);
+            return wa.request;
         }
 
         public void set_response
         (int msg_id, IPeersResponse response, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
-            // TODO
-            assert_not_reached();
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_response: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            if (wa.respondant_node == null)
+            {
+                debug("PeersManager.set_response: ignored because did not send request");
+                return;
+            }
+            wa.response = response;
+            wa.ch.send_async(0);
         }
 
         public void set_next_destination
-        (int msg_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
-            // TODO
-            assert_not_reached();
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_next_destination: ignored because unknown msg_id");
+                return;
+            }
+            if (! (_tuple is PeerTupleGNode))
+            {
+                debug("PeersManager.set_next_destination: ignored because unknown class as IPeerTupleGNode");
+                return;
+            }
+            PeerTupleGNode tuple = (PeerTupleGNode)_tuple;
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must maintain the smallest value k
+            if (wa.min_target.top != tuple.top)
+            {
+                debug("PeersManager.set_next_destination: ignored because not same g-node of research");
+                return;
+            }
+            int old_k = wa.min_target.top - wa.min_target.tuple.size;
+            if (tuple.top - tuple.tuple.size >= old_k)
+            {
+                debug("PeersManager.set_next_destination: ignored because already reached a lower level");
+                return;
+            }
+            wa.min_target = tuple;
+            wa.ch.send_async(0);
         }
 
         public void set_failure
-        (int msg_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
-            // TODO
-            assert_not_reached();
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_failure: ignored because unknown msg_id");
+                return;
+            }
+            if (! (_tuple is PeerTupleGNode))
+            {
+                debug("PeersManager.set_failure: ignored because unknown class as IPeerTupleGNode");
+                return;
+            }
+            PeerTupleGNode tuple = (PeerTupleGNode)_tuple;
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must be lower than the smallest value k
+            if (wa.min_target.top != tuple.top)
+            {
+                debug("PeersManager.set_failure: ignored because not same g-node of research");
+                return;
+            }
+            int old_k = wa.min_target.top - wa.min_target.tuple.size;
+            if (tuple.top - tuple.tuple.size >= old_k)
+            {
+                debug("PeersManager.set_failure: ignored because already reached a lower level");
+                return;
+            }
+            wa.exclude_gnode = tuple;
+            wa.ch.send_async(0);
         }
 
         public void set_non_participant
-        (int msg_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
-            // TODO
-            assert_not_reached();
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_non_participant: ignored because unknown msg_id");
+                return;
+            }
+            if (! (_tuple is PeerTupleGNode))
+            {
+                debug("PeersManager.set_non_participant: ignored because unknown class as IPeerTupleGNode");
+                return;
+            }
+            PeerTupleGNode tuple = (PeerTupleGNode)_tuple;
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must be lower than the smallest value k
+            if (wa.min_target.top != tuple.top)
+            {
+                debug("PeersManager.set_non_participant: ignored because not same g-node of research");
+                return;
+            }
+            int old_k = wa.min_target.top - wa.min_target.tuple.size;
+            if (tuple.top - tuple.tuple.size >= old_k)
+            {
+                debug("PeersManager.set_non_participant: ignored because already reached a lower level");
+                return;
+            }
+            wa.non_participant_gnode = tuple;
+            wa.ch.send_async(0);
         }
 
         public void set_participant
