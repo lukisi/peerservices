@@ -27,6 +27,10 @@ namespace Netsukuku
         GENERIC
     }
 
+    public errordomain PeersNonexistentFellowError {
+        GENERIC
+    }
+
     public errordomain PeersNoParticipantsInNetworkError {
         GENERIC
     }
@@ -43,6 +47,8 @@ namespace Netsukuku
              zcd.ModRpc.CallerInfo? received_from=null,
              IAddressManagerStub? failed=null)
             throws PeersNonexistentDestinationError;
+        public abstract IAddressManagerStub i_peers_fellow(int level)
+            throws PeersNonexistentFellowError;
     }
 
     public interface IPeersBackStubFactory : Object
@@ -551,9 +557,14 @@ namespace Netsukuku
         private HashMap<int, PeerService> services;
         private HashMap<int, WaitingAnswer> waiting_answer_map;
         private HashMap<int, PeerParticipantMap> participant_maps;
-        private ArrayList<HCoord> recent_list_non_participants;
+        private ArrayList<HCoord> recent_published_list;
+
+        // The maps of participants are now ready.
+        public signal void participant_maps_ready();
+
         public PeersManager
             (IPeersMapPaths map_paths,
+             int level_new_gnode,
              IPeersBackStubFactory back_stub_factory,
              IPeersNeighborsFactory neighbors_factory)
         {
@@ -571,7 +582,64 @@ namespace Netsukuku
             services = new HashMap<int, PeerService>();
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
-            recent_list_non_participants = new ArrayList<HCoord>((a, b) => {return a.equals(b);});
+            recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
+            if (level_new_gnode < levels)
+            {
+                RetrieveParticipantSetTasklet ts = new RetrieveParticipantSetTasklet();
+                ts.t = this;
+                ts.lvl = level_new_gnode + 1;
+                tasklet.spawn(ts);
+            }
+        }
+
+        private class RetrieveParticipantSetTasklet : Object, INtkdTaskletSpawnable
+        {
+            public PeersManager t;
+            public int lvl;
+            public void * func()
+            {
+                t.retrieve_participant_set(lvl);
+                t.participant_maps_ready();
+                return null;
+            }
+        }
+        private void retrieve_participant_set(int lvl)
+        {
+            IAddressManagerStub stub;
+            try {
+                stub = map_paths.i_peers_fellow(lvl);
+            } catch (PeersNonexistentFellowError e) {
+                debug(@"retrieve_participant_set: Failed to get because PeersNonexistentFellowError");
+                return;
+            }
+            IPeerParticipantSet ret;
+            try {
+                ret = stub.peers_manager.get_participant_set(lvl);
+            } catch (PeersInvalidRequest e) {
+                debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
+                return;
+            } catch (zcd.ModRpc.StubError e) {
+                debug(@"retrieve_participant_set: Failed to get because StubError $(e.message)");
+                return;
+            } catch (zcd.ModRpc.DeserializeError e) {
+                debug(@"retrieve_participant_set: Failed to get because DeserializeError $(e.message)");
+                return;
+            }
+            if (! (ret is PeerParticipantSet)) {
+                debug("retrieve_participant_set: Failed to get because unknown class");
+                return;
+            }
+            PeerParticipantSet participant_set = (PeerParticipantSet)ret;
+            // copy
+            participant_maps = new HashMap<int, PeerParticipantMap>();
+            foreach (int p_id in participant_set.participant_set.keys)
+            {
+                PeerParticipantMap my_map = new PeerParticipantMap();
+                participant_maps[p_id] = my_map;
+                PeerParticipantMap map = participant_set.participant_set[p_id];
+                foreach (HCoord hc in map.participant_list)
+                    my_map.participant_list.add(hc);
+            }
         }
 
         public void register(PeerService p)
@@ -1419,9 +1487,10 @@ namespace Netsukuku
 
         public IPeerParticipantSet get_participant_set
         (int lvl, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        throws PeersInvalidRequest
         {
             // check payload
-            if (lvl <= 0 || lvl > levels) return new PeerParticipantSet(); // should be throw exception
+            if (lvl <= 0 || lvl > levels) throw new PeersInvalidRequest.GENERIC("level out of range");
             // begin
             PeerParticipantSet ret = new PeerParticipantSet();
             foreach (int p_id in participant_maps.keys)
@@ -1518,6 +1587,8 @@ namespace Netsukuku
                                 IPeersResponse resp = services[mf.p_id].exec(request);
                                 nstub.peers_manager.set_response(mf.msg_id, resp);
                             } catch (PeersUnknownMessageError e) {
+                                // ignore
+                            } catch (PeersInvalidRequest e) {
                                 // ignore
                             } catch (zcd.ModRpc.StubError e) {
                                 // ignore
@@ -1655,7 +1726,7 @@ namespace Netsukuku
 
         public IPeersRequest get_request
         (int msg_id, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
-        throws PeersUnknownMessageError
+        throws PeersUnknownMessageError, PeersInvalidRequest
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -1665,7 +1736,7 @@ namespace Netsukuku
             if (! (_respondant is PeerTupleNode))
             {
                 debug("PeersManager.get_request: ignored because unknown class as IPeerTupleNode");
-                throw new PeersUnknownMessageError.GENERIC("unknown class as IPeerTupleNode");
+                throw new PeersInvalidRequest.GENERIC("unknown class as IPeerTupleNode");
             }
             PeerTupleNode respondant = (PeerTupleNode)_respondant;
             WaitingAnswer wa = waiting_answer_map[msg_id];
@@ -1673,7 +1744,7 @@ namespace Netsukuku
             if (wa.min_target.top != respondant.top)
             {
                 debug("PeersManager.get_request: ignored because not same g-node of research");
-                throw new PeersUnknownMessageError.GENERIC("not same g-node of research");
+                throw new PeersInvalidRequest.GENERIC("not same g-node of research");
             }
             // might be a fake request
             if (wa.request == null) throw new PeersUnknownMessageError.GENERIC("was a fake request");
@@ -1807,8 +1878,8 @@ namespace Netsukuku
             HCoord ret;
             convert_tuple_gnode(gn, out @case, out @ret);
             if (@case == 1) return;
-            if (ret in recent_list_non_participants) return;
-            recent_list_non_participants.add(ret);
+            if (ret in recent_published_list) return;
+            recent_published_list.add(ret);
             if (! participant_maps.has_key(p_id))
                 participant_maps[p_id] = new PeerParticipantMap();
             participant_maps[p_id].participant_list.add(ret);
@@ -1822,19 +1893,19 @@ namespace Netsukuku
             } catch (zcd.ModRpc.DeserializeError e) {
                 // ignore
             }
-            RecentListNonParticipantsRemoveTasklet ts = new RecentListNonParticipantsRemoveTasklet();
+            RecentPublishedListRemoveTasklet ts = new RecentPublishedListRemoveTasklet();
             ts.t = this;
             ts.ret = ret;
             tasklet.spawn(ts);
         }
-        private class RecentListNonParticipantsRemoveTasklet : Object, INtkdTaskletSpawnable
+        private class RecentPublishedListRemoveTasklet : Object, INtkdTaskletSpawnable
         {
             public PeersManager t;
             public HCoord ret;
             public void * func()
             {
                 tasklet.ms_wait(60000);
-                t.recent_list_non_participants.remove(ret);
+                t.recent_published_list.remove(ret);
                 return null;
             }
         }

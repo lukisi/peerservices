@@ -57,6 +57,11 @@ class MyMapPaths : Object, IPeersMapPaths
         error("not implemented yet");
     }
 
+    public IAddressManagerStub i_peers_fellow(int level)
+        throws PeersNonexistentFellowError
+    {
+        error("not implemented yet");
+    }
 }
 
 class MyBackFactory : Object, IPeersBackStubFactory
@@ -103,7 +108,7 @@ int main(string[] args)
     var m = new MyMapPaths();
     var bf = new MyBackFactory();
     var nf = new MyNeighborsFactory();
-    PeersManager peers = new PeersManager(m, bf, nf);
+    PeersManager peers = new PeersManager(m, 4/*levels*/, bf, nf);
     //peers.register(p);
 
     MyTaskletSystem.kill();
