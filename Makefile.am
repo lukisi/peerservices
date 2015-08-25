@@ -1,7 +1,8 @@
 NULL = 
 ACLOCAL_AMFLAGS = -I m4
+.PHONY: check
 
-noinst_LTLIBRARIES = \
+lib_LTLIBRARIES = \
 	libpeers.la \
 	$(NULL)
 
@@ -126,6 +127,25 @@ peersclient_LDADD = \
 	$(TASKLET_LIBS) \
 	$(NTKDRPC_LIBS) \
 	$(builddir)/libpeers.la \
+	$(NULL)
+
+vapidir = $(datadir)/vala/vapi
+dist_vapi_DATA = \
+	peers.vapi \
+	peers.deps \
+	$(NULL)
+
+include_HEADERS = \
+	peers.h \
+	$(NULL)
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = \
+	peers.pc \
+	$(NULL)
+
+EXTRA_DIST = \
+	peers.pc.in \
 	$(NULL)
 
 MAINTAINERCLEANFILES = \
