@@ -42,12 +42,12 @@ namespace Netsukuku
         public abstract int i_peers_get_nodes_in_my_group(int level);
         public abstract int i_peers_get_my_pos(int level);
         public abstract bool i_peers_exists(int level, int pos);
-        public abstract IAddressManagerStub i_peers_gateway
+        public abstract IPeersManagerStub i_peers_gateway
             (int level, int pos,
              zcd.ModRpc.CallerInfo? received_from=null,
-             IAddressManagerStub? failed=null)
+             IPeersManagerStub? failed=null)
             throws PeersNonexistentDestinationError;
-        public abstract IAddressManagerStub i_peers_fellow(int level)
+        public abstract IPeersManagerStub i_peers_fellow(int level)
             throws PeersNonexistentFellowError;
     }
 
@@ -55,15 +55,15 @@ namespace Netsukuku
     {
         // positions[0] is pos[0] of the node to contact inside our gnode
         // of level positions.size
-        public abstract IAddressManagerStub i_peers_get_tcp_inside
+        public abstract IPeersManagerStub i_peers_get_tcp_inside
             (Gee.List<int> positions);
     }
 
     public interface IPeersNeighborsFactory : Object
     {
-        public abstract IAddressManagerStub i_peers_get_broadcast(
+        public abstract IPeersManagerStub i_peers_get_broadcast(
                             IPeersMissingArcHandler missing_handler);
-        public abstract IAddressManagerStub i_peers_get_tcp(
+        public abstract IPeersManagerStub i_peers_get_tcp(
                             IPeersArc arc);
     }
 
@@ -605,7 +605,7 @@ namespace Netsukuku
         }
         private void retrieve_participant_set(int lvl)
         {
-            IAddressManagerStub stub;
+            IPeersManagerStub stub;
             try {
                 stub = map_paths.i_peers_fellow(lvl);
             } catch (PeersNonexistentFellowError e) {
@@ -614,7 +614,7 @@ namespace Netsukuku
             }
             IPeerParticipantSet ret;
             try {
-                ret = stub.peers_manager.get_participant_set(lvl);
+                ret = stub.get_participant_set(lvl);
             } catch (PeersInvalidRequest e) {
                 debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
                 return;
@@ -1110,8 +1110,8 @@ namespace Netsukuku
                 int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(x.lvl+1));
                 WaitingAnswer waiting_answer = new WaitingAnswer(request, make_tuple_gnode(x, x.lvl+1));
                 waiting_answer_map[mf.msg_id] = waiting_answer;
-                IAddressManagerStub gwstub;
-                IAddressManagerStub? failed = null;
+                IPeersManagerStub gwstub;
+                IPeersManagerStub? failed = null;
                 bool redo_approximate = false;
                 while (true)
                 {
@@ -1122,7 +1122,7 @@ namespace Netsukuku
                         break;
                     }
                     try {
-                        gwstub.peers_manager.forward_peer_message(mf);
+                        gwstub.forward_peer_message(mf);
                     } catch (zcd.ModRpc.StubError e) {
                         failed = gwstub;
                         continue;
@@ -1249,8 +1249,8 @@ namespace Netsukuku
             mf.msg_id = Random.int_range(0, int.MAX);
             int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(lvl+1));
             WaitingAnswer waiting_answer = new WaitingAnswer(null, make_tuple_gnode(new HCoord(lvl, _pos), lvl+1));
-            IAddressManagerStub gwstub;
-            IAddressManagerStub? failed = null;
+            IPeersManagerStub gwstub;
+            IPeersManagerStub? failed = null;
             while (true)
             {
                 try {
@@ -1260,7 +1260,7 @@ namespace Netsukuku
                     return true;
                 }
                 try {
-                    gwstub.peers_manager.forward_peer_message(mf);
+                    gwstub.forward_peer_message(mf);
                 } catch (zcd.ModRpc.StubError e) {
                     failed = gwstub;
                     continue;
@@ -1323,10 +1323,10 @@ namespace Netsukuku
             private PeerTupleGNode tuple;
             public void i_peers_missing(IPeersArc missing_arc)
             {
-                IAddressManagerStub stub =
+                IPeersManagerStub stub =
                     mgr.neighbors_factory.i_peers_get_tcp(missing_arc);
                 try {
-                    stub.peers_manager.set_participant(p_id, tuple);
+                    stub.set_participant(p_id, tuple);
                 } catch (zcd.ModRpc.StubError e) {
                     // ignore
                 } catch (zcd.ModRpc.DeserializeError e) {
@@ -1355,9 +1355,9 @@ namespace Netsukuku
                 if (iterations > 0) iterations--;
                 else timeout = Random.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
                 MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, gn);
-                IAddressManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
+                IPeersManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
                 try {
-                    br_stub.peers_manager.set_participant(p_id, gn);
+                    br_stub.set_participant(p_id, gn);
                 } catch (zcd.ModRpc.StubError e) {
                     // ignore
                 } catch (zcd.ModRpc.DeserializeError e) {
@@ -1531,11 +1531,11 @@ namespace Netsukuku
             {
                 if (! my_gnode_participates(mf.p_id, mf.lvl))
                 {
-                    IAddressManagerStub nstub
+                    IPeersManagerStub nstub
                         = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                     PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                     try {
-                        nstub.peers_manager.set_non_participant(mf.msg_id, gn);
+                        nstub.set_non_participant(mf.msg_id, gn);
                     } catch (zcd.ModRpc.StubError e) {
                         // ignore
                     } catch (zcd.ModRpc.DeserializeError e) {
@@ -1564,11 +1564,11 @@ namespace Netsukuku
                         HCoord? x = approximate(mf.x_macron, exclude_gnode_list, mf.reverse);
                         if (x == null)
                         {
-                            IAddressManagerStub nstub
+                            IPeersManagerStub nstub
                                 = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                             PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                             try {
-                                nstub.peers_manager.set_failure(mf.msg_id, gn);
+                                nstub.set_failure(mf.msg_id, gn);
                             } catch (zcd.ModRpc.StubError e) {
                                 // ignore
                             } catch (zcd.ModRpc.DeserializeError e) {
@@ -1578,14 +1578,14 @@ namespace Netsukuku
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
-                            IAddressManagerStub nstub
+                            IPeersManagerStub nstub
                                 = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                             PeerTupleNode tuple_respondant = make_tuple_node(new HCoord(0, pos[0]), mf.n.tuple.size);
                             try {
                                 IPeersRequest request
-                                    = nstub.peers_manager.get_request(mf.msg_id, tuple_respondant);
+                                    = nstub.get_request(mf.msg_id, tuple_respondant);
                                 IPeersResponse resp = services[mf.p_id].exec(request);
-                                nstub.peers_manager.set_response(mf.msg_id, resp);
+                                nstub.set_response(mf.msg_id, resp);
                             } catch (PeersUnknownMessageError e) {
                                 // ignore
                             } catch (PeersInvalidRequest e) {
@@ -1629,8 +1629,8 @@ namespace Netsukuku
                                 if (visible_by_someone_inside_my_gnode(t, x.lvl+1))
                                     mf2.non_participant_tuple_list.add(t);
                             }
-                            IAddressManagerStub gwstub;
-                            IAddressManagerStub? failed = null;
+                            IPeersManagerStub gwstub;
+                            IPeersManagerStub? failed = null;
                             while (true)
                             {
                                 try {
@@ -1640,7 +1640,7 @@ namespace Netsukuku
                                     break;
                                 }
                                 try {
-                                    gwstub.peers_manager.forward_peer_message(mf2);
+                                    gwstub.forward_peer_message(mf2);
                                 } catch (zcd.ModRpc.StubError e) {
                                     failed = gwstub;
                                     continue;
@@ -1649,11 +1649,11 @@ namespace Netsukuku
                                     continue;
                                 }
                                 delivered = true;
-                                IAddressManagerStub nstub
+                                IPeersManagerStub nstub
                                     = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                                 PeerTupleGNode gn = make_tuple_gnode(x, mf.n.tuple.size);
                                 try {
-                                    nstub.peers_manager.set_next_destination(mf.msg_id, gn);
+                                    nstub.set_next_destination(mf.msg_id, gn);
                                 } catch (zcd.ModRpc.StubError e) {
                                     // ignore
                                 } catch (zcd.ModRpc.DeserializeError e) {
@@ -1667,8 +1667,8 @@ namespace Netsukuku
             }
             else
             {
-                IAddressManagerStub gwstub;
-                IAddressManagerStub? failed = null;
+                IPeersManagerStub gwstub;
+                IPeersManagerStub? failed = null;
                 while (true)
                 {
                     try {
@@ -1678,7 +1678,7 @@ namespace Netsukuku
                         break;
                     }
                     try {
-                        gwstub.peers_manager.forward_peer_message(mf);
+                        gwstub.forward_peer_message(mf);
                     } catch (zcd.ModRpc.StubError e) {
                         failed = gwstub;
                         continue;
@@ -1885,9 +1885,9 @@ namespace Netsukuku
             participant_maps[p_id].participant_list.add(ret);
             PeerTupleGNode ret_gn = make_tuple_gnode(ret, levels);
             MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, ret_gn);
-            IAddressManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
+            IPeersManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
             try {
-                br_stub.peers_manager.set_participant(p_id, ret_gn);
+                br_stub.set_participant(p_id, ret_gn);
             } catch (zcd.ModRpc.StubError e) {
                 // ignore
             } catch (zcd.ModRpc.DeserializeError e) {

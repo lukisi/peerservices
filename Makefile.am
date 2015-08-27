@@ -58,7 +58,6 @@ libpeers_la_LIBADD = \
 #  are symbolic links to avoid name clashes with vala-generated C files.
 test_peers_SOURCES = \
 	testsuites/test_peers/test_peers.vala \
-	testsuites/test_peers/base_fake_address_manager.vala \
 	testsuites/test_peers/peers.vala \
 	testsuites/test_peers/serialize_helpers.vala \
 	$(NULL)

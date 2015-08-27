@@ -21,6 +21,74 @@ using Netsukuku;
 using Netsukuku.ModRpc;
 using Tasklets;
 
+/* This "holder" class is needed because the PeersManagerRemote class provided by
+ * the ZCD framework is owned (and tied to) by the AddressManagerXxxxRootStub.
+ */
+private class PeersManagerStubHolder : Object, IPeersManagerStub
+{
+    public PeersManagerStubHolder(IAddressManagerStub addr)
+    {
+        this.addr = addr;
+    }
+    private IAddressManagerStub addr;
+
+	public void forward_peer_message
+	(IPeerMessage peer_message)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.forward_peer_message(peer_message);
+	}
+
+	public IPeerParticipantSet get_participant_set
+	(int lvl)
+	throws PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    return addr.peers_manager.get_participant_set(lvl);
+	}
+
+	public IPeersRequest get_request
+	(int msg_id, IPeerTupleNode respondant)
+	throws PeersUnknownMessageError, PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    return addr.peers_manager.get_request(msg_id, respondant);
+	}
+
+	public void set_failure
+	(int msg_id, IPeerTupleGNode tuple)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_failure(msg_id, tuple);
+	}
+
+	public void set_next_destination
+	(int msg_id, IPeerTupleGNode tuple)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_next_destination(msg_id, tuple);
+	}
+
+	public void set_non_participant
+	(int msg_id, IPeerTupleGNode tuple)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_non_participant(msg_id, tuple);
+	}
+
+	public void set_participant
+	(int p_id, IPeerTupleGNode tuple)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_participant(p_id, tuple);
+	}
+
+	public void set_response
+	(int msg_id, IPeersResponse response)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_response(msg_id, response);
+	}
+}
+
 class MyMapPaths : Object, IPeersMapPaths
 {
     public int i_peers_get_levels()
@@ -48,16 +116,16 @@ class MyMapPaths : Object, IPeersMapPaths
         error("not implemented yet");
     }
 
-    public IAddressManagerStub i_peers_gateway
+    public IPeersManagerStub i_peers_gateway
         (int level, int pos,
          zcd.ModRpc.CallerInfo? received_from=null,
-         IAddressManagerStub? failed=null)
+         IPeersManagerStub? failed=null)
         throws PeersNonexistentDestinationError
     {
         error("not implemented yet");
     }
 
-    public IAddressManagerStub i_peers_fellow(int level)
+    public IPeersManagerStub i_peers_fellow(int level)
         throws PeersNonexistentFellowError
     {
         error("not implemented yet");
@@ -66,7 +134,7 @@ class MyMapPaths : Object, IPeersMapPaths
 
 class MyBackFactory : Object, IPeersBackStubFactory
 {
-    public IAddressManagerStub i_peers_get_tcp_inside
+    public IPeersManagerStub i_peers_get_tcp_inside
         (Gee.List<int> positions)
     {
         error("not implemented yet");
@@ -75,13 +143,13 @@ class MyBackFactory : Object, IPeersBackStubFactory
 
 class MyNeighborsFactory : Object, IPeersNeighborsFactory
 {
-    public IAddressManagerStub i_peers_get_broadcast
+    public IPeersManagerStub i_peers_get_broadcast
         (IPeersMissingArcHandler missing_handler)
     {
         error("not implemented yet");
     }
 
-    public IAddressManagerStub i_peers_get_tcp
+    public IPeersManagerStub i_peers_get_tcp
         (IPeersArc arc)
     {
         error("not implemented yet");

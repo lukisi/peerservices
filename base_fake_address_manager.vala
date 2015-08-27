@@ -21,20 +21,18 @@ using Netsukuku.ModRpc;
 
 public class FakeAddressManagerSkeleton : Object,
                                   IAddressManagerSkeleton,
-                                  INeighborhoodManagerSkeleton,
-                                  IQspnManagerSkeleton,
                                   IPeersManagerSkeleton
 {
 	public virtual unowned INeighborhoodManagerSkeleton
 	neighborhood_manager_getter()
 	{
-	    return this;
+	    error("FakeAddressManagerSkeleton: this test should not use method neighborhood_manager_getter.");
 	}
 
 	public virtual unowned IQspnManagerSkeleton
 	qspn_manager_getter()
 	{
-	    return this;
+	    error("FakeAddressManagerSkeleton: this test should not use method qspn_manager_getter.");
 	}
 
 	public virtual unowned IPeersManagerSkeleton
@@ -43,45 +41,11 @@ public class FakeAddressManagerSkeleton : Object,
 	    return this;
 	}
 
-	public virtual uint16 expect_ping
-	(string guid, uint16 peer_port, zcd.ModRpc.CallerInfo? caller = null)
-	throws Netsukuku.NeighborhoodUnmanagedDeviceError
-    {
-        error("FakeAddressManagerSkeleton: you must override method expect_ping.");
-    }
-
-	public virtual void here_i_am 
-	(Netsukuku.INeighborhoodNodeID my_id, string mac, string nic_addr, zcd.ModRpc.CallerInfo? caller = null)
-    {
-        error("FakeAddressManagerSkeleton: you must override method here_i_am.");
-    }
-
-	public virtual void remove_arc 
-	(Netsukuku.INeighborhoodNodeID my_id, string mac, string nic_addr, zcd.ModRpc.CallerInfo? caller = null)
-    {
-        error("FakeAddressManagerSkeleton: you must override method remove_arc.");
-    }
-
-	public virtual void request_arc
-	(Netsukuku.INeighborhoodNodeID my_id, string mac, string nic_addr, zcd.ModRpc.CallerInfo? caller = null)
-	throws Netsukuku.NeighborhoodRequestArcError
-    {
-        error("FakeAddressManagerSkeleton: you must override method request_arc.");
-    }
-
-	public virtual Netsukuku.IQspnEtpMessage get_full_etp
-	(Netsukuku.IQspnAddress requesting_address, zcd.ModRpc.CallerInfo? caller = null)
-	throws Netsukuku.QspnNotAcceptedError, Netsukuku.QspnBootstrapInProgressError
-    {
-        error("FakeAddressManagerSkeleton: you must override method get_full_etp.");
-    }
-
-	public virtual void send_etp
-	(Netsukuku.IQspnEtpMessage etp, bool is_full, zcd.ModRpc.CallerInfo? caller = null)
-	throws Netsukuku.QspnNotAcceptedError
-    {
-        error("FakeAddressManagerSkeleton: you must override method send_etp.");
-    }
+	public virtual unowned ICoordinatorManagerSkeleton
+	coordinator_manager_getter()
+	{
+	    error("FakeAddressManagerSkeleton: this test should not use method coordinator_manager_getter.");
+	}
 
     public virtual void forward_peer_message
     (Netsukuku.IPeerMessage peer_message, zcd.ModRpc.CallerInfo? caller = null)
@@ -135,20 +99,18 @@ public class FakeAddressManagerSkeleton : Object,
 
 public class FakeAddressManagerStub : Object,
                                   IAddressManagerStub,
-                                  INeighborhoodManagerStub,
-                                  IQspnManagerStub,
                                   IPeersManagerStub
 {
 	public virtual unowned INeighborhoodManagerStub
 	neighborhood_manager_getter()
 	{
-	    return this;
+	    error("FakeAddressManagerSkeleton: this test should not use method neighborhood_manager_getter.");
 	}
 
 	public virtual unowned IQspnManagerStub
 	qspn_manager_getter()
 	{
-	    return this;
+	    error("FakeAddressManagerSkeleton: this test should not use method qspn_manager_getter.");
 	}
 
 	public virtual unowned IPeersManagerStub
@@ -157,47 +119,11 @@ public class FakeAddressManagerStub : Object,
 	    return this;
 	}
 
-	public virtual uint16 expect_ping
-	(string guid, uint16 peer_port)
-	throws Netsukuku.NeighborhoodUnmanagedDeviceError, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
-    {
-        error("FakeAddressManagerStub: you must override method expect_ping.");
-    }
-
-	public virtual void here_i_am 
-	(Netsukuku.INeighborhoodNodeID my_id, string mac, string nic_addr)
-	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
-    {
-        error("FakeAddressManagerStub: you must override method here_i_am.");
-    }
-
-	public virtual void remove_arc 
-	(Netsukuku.INeighborhoodNodeID my_id, string mac, string nic_addr)
-	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
-    {
-        error("FakeAddressManagerStub: you must override method remove_arc.");
-    }
-
-	public virtual void request_arc
-	(Netsukuku.INeighborhoodNodeID my_id, string mac, string nic_addr)
-	throws Netsukuku.NeighborhoodRequestArcError, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
-    {
-        error("FakeAddressManagerStub: you must override method request_arc.");
-    }
-
-    public virtual IQspnEtpMessage get_full_etp
-    (Netsukuku.IQspnAddress requesting_address)
-    throws Netsukuku.QspnNotAcceptedError, Netsukuku.QspnBootstrapInProgressError, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
-    {
-        error("FakeAddressManagerStub: you must override method get_full_etp.");
-    }
-
-    public virtual void send_etp
-    (Netsukuku.IQspnEtpMessage etp, bool is_full)
-    throws Netsukuku.QspnNotAcceptedError, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
-    {
-        error("FakeAddressManagerStub: you must override method send_etp.");
-    }
+	public virtual unowned ICoordinatorManagerStub
+	coordinator_manager_getter()
+	{
+	    error("FakeAddressManagerSkeleton: this test should not use method coordinator_manager_getter.");
+	}
 
     public virtual void forward_peer_message
     (Netsukuku.IPeerMessage peer_message)
