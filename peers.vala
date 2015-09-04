@@ -1417,7 +1417,7 @@ namespace Netsukuku
             }
             _cont.replicas.add(respondant);
             PeerTupleGNode respondant_as_gnode = new PeerTupleGNode(respondant.tuple, respondant.tuple.size);
-            _cont.exclude_tuple_list.list.add(respondant_as_gnode);
+            _cont.exclude_tuple_list.add(respondant_as_gnode);
             return _cont.replicas.size < _cont.q; 
         }
 
