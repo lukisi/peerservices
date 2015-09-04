@@ -1187,16 +1187,16 @@ namespace Netsukuku
                             waiting_answer_map.unset(mf.msg_id);
                             break;
                         }
+                        else if (waiting_answer.respondant_node != null)
+                        {
+                            respondant = waiting_answer.respondant_node;
+                            timeout = timeout_exec;
+                        }
                         else if (waiting_answer.response != null)
                         {
                             response = waiting_answer.response;
                             waiting_answer_map.unset(mf.msg_id);
                             break;
-                        }
-                        else if (waiting_answer.respondant_node != null)
-                        {
-                            respondant = waiting_answer.respondant_node;
-                            timeout = timeout_exec;
                         }
                         else
                         {
@@ -1453,7 +1453,7 @@ namespace Netsukuku
                     continue;
                 }
                 PeerTupleGNode respondant_as_gnode = new PeerTupleGNode(respondant.tuple, respondant.tuple.size);
-                exclude_tuple_list.list.add(respondant_as_gnode);
+                exclude_tuple_list.add(respondant_as_gnode);
                 RetrieveCacheContinuation _cont = new RetrieveCacheContinuation();
                 _cont.p_id = p_id;
                 _cont.r = r;
