@@ -1187,7 +1187,7 @@ namespace Netsukuku
                             waiting_answer_map.unset(mf.msg_id);
                             break;
                         }
-                        else if (waiting_answer.respondant_node != null)
+                        else if (respondant == null && waiting_answer.respondant_node != null)
                         {
                             respondant = waiting_answer.respondant_node;
                             timeout = timeout_exec;
