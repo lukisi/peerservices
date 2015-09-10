@@ -67,7 +67,7 @@ class PeersTester : Object
 
     public void test_cont()
     {
-        PeerTupleGNodeContainer cont = new PeerTupleGNodeContainer();
+        PeerTupleGNodeContainer cont = new PeerTupleGNodeContainer(5);
 
         Gee.List<int> nums = new ArrayList<int>();
         nums.add_all_array({1, 2, 3, 4});

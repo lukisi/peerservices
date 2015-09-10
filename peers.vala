@@ -205,9 +205,11 @@ namespace Netsukuku
                 return _list.read_only_view;
             }
         }
+        public int top {get; private set;}
 
-        public PeerTupleGNodeContainer()
+        public PeerTupleGNodeContainer(int top)
         {
+            this.top = top;
             _list = new ArrayList<PeerTupleGNode>();
         }
 
@@ -227,6 +229,7 @@ namespace Netsukuku
 
         public void add(PeerTupleGNode g)
         {
+            assert(g.top == top);
             // If g is already contained in the list, return.
             if (contains(g)) return;
             // Cycle the list:
@@ -1056,7 +1059,8 @@ namespace Netsukuku
             if (_exclude_tuple_list != null)
                 exclude_tuple_list = _exclude_tuple_list;
             else
-                exclude_tuple_list = new PeerTupleGNodeContainer();
+                exclude_tuple_list = new PeerTupleGNodeContainer(target_levels);
+            assert(exclude_tuple_list.top == target_levels);
             foreach (PeerTupleGNode gn in exclude_tuple_list.list)
             {
                 int @case;
@@ -1065,7 +1069,7 @@ namespace Netsukuku
                 if (@case == 2)
                     exclude_gnode_list.add(ret);
             }
-            PeerTupleGNodeContainer non_participant_tuple_list = new PeerTupleGNodeContainer();
+            PeerTupleGNodeContainer non_participant_tuple_list = new PeerTupleGNodeContainer(target_levels);
             IPeersResponse? response = null;
             while (true)
             {
@@ -1154,10 +1158,7 @@ namespace Netsukuku
                             {
                                 exclude_gnode_list.add(ret);
                             }
-                            else
-                            {
-                                exclude_tuple_list.add(t);
-                            }
+                            exclude_tuple_list.add(t);
                             waiting_answer_map.unset(mf.msg_id);
                             break;
                         }
@@ -1179,17 +1180,25 @@ namespace Netsukuku
                                 }
                                 exclude_gnode_list.add(ret);
                             }
-                            else
-                            {
-                                exclude_tuple_list.add(t);
-                            }
+                            exclude_tuple_list.add(t);
                             non_participant_tuple_list.add(t);
                             waiting_answer_map.unset(mf.msg_id);
                             break;
                         }
                         else if (respondant == null && waiting_answer.respondant_node != null)
                         {
-                            respondant = waiting_answer.respondant_node;
+                            // respondant_node may have top = j < target_levels.
+                            ArrayList<int> positions = new ArrayList<int>();
+                            int j = waiting_answer.respondant_node.top;
+                            for (int i = 0; i < j; i++)
+                            {
+                                positions.add(waiting_answer.respondant_node.tuple[i]);
+                            }
+                            for (int i = j; i < target_levels; i++)
+                            {
+                                positions.add(pos[i]);
+                            }
+                            respondant = new PeerTupleNode(positions);
                             timeout = timeout_exec;
                         }
                         else if (waiting_answer.response != null)
@@ -1213,10 +1222,7 @@ namespace Netsukuku
                         {
                             exclude_gnode_list.add(ret);
                         }
-                        else
-                        {
-                            exclude_tuple_list.add(t);
-                        }
+                        exclude_tuple_list.add(t);
                         waiting_answer_map.unset(mf.msg_id);
                         break;
                     }
@@ -1396,7 +1402,7 @@ namespace Netsukuku
             _cont.r = r;
             _cont.timeout_exec = timeout_exec;
             _cont.replicas = new ArrayList<PeerTupleNode>();
-            _cont.exclude_tuple_list = new PeerTupleGNodeContainer();
+            _cont.exclude_tuple_list = new PeerTupleGNodeContainer(_cont.x_macron.tuple.size);
             cont = _cont;
             return next_replica(cont, out resp);
         }
@@ -1442,7 +1448,7 @@ namespace Netsukuku
             for (int j = 0; j < levels; j++)
             {
                 PeerTupleNode x_macron = make_tuple_node(new HCoord(0, pos[0]), j+1);
-                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer();
+                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer(x_macron.tuple.size);
                 PeerTupleNode respondant;
                 try {
                     resp = contact_peer
@@ -1459,7 +1465,7 @@ namespace Netsukuku
                 _cont.r = r;
                 _cont.timeout_exec = timeout_exec;
                 _cont.j = j;
-                _cont.exclude_tuple_list = new PeerTupleGNodeContainer();
+                _cont.exclude_tuple_list = exclude_tuple_list;
                 cont = _cont;
                 return true;
             }
