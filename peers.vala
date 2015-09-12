@@ -909,6 +909,30 @@ namespace Netsukuku
             return new PeerTupleGNode(tuple0, new_top);
         }
 
+        private PeerTupleNode rebase_tuple_node(PeerTupleNode t, int new_top)
+        {
+            // Given t that represents a node inside my g-node at level t.top, returns
+            //  a PeerTupleNode with top=new_top that represents the same node.
+            // Assert that t.top <= new_top.
+            assert(t.top <= new_top);
+            ArrayList<int> tuple = new ArrayList<int>();
+            ArrayList<int> tuple0 = new ArrayList<int>();
+            int i = new_top;
+            while (true)
+            {
+                i--;
+                if (i >= t.top)
+                    tuple.insert(0, pos[i]);
+                else
+                {
+                    tuple0.add_all(t.tuple);
+                    tuple0.add_all(tuple);
+                    break;
+                }
+            }
+            return new PeerTupleNode(tuple0);
+        }
+
         private bool visible_by_someone_inside_my_gnode(PeerTupleGNode t, int lvl)
         {
             // Given a g-node decides if some node inside my g-node of level lvl has
@@ -1187,18 +1211,8 @@ namespace Netsukuku
                         }
                         else if (respondant == null && waiting_answer.respondant_node != null)
                         {
-                            // respondant_node may have top = j < target_levels.
-                            ArrayList<int> positions = new ArrayList<int>();
-                            int j = waiting_answer.respondant_node.top;
-                            for (int i = 0; i < j; i++)
-                            {
-                                positions.add(waiting_answer.respondant_node.tuple[i]);
-                            }
-                            for (int i = j; i < target_levels; i++)
-                            {
-                                positions.add(pos[i]);
-                            }
-                            respondant = new PeerTupleNode(positions);
+                            respondant = rebase_tuple_node(waiting_answer.respondant_node, target_levels);
+                            // respondant represents the same node of waiting_answer.respondant_node, but with top=target_levels
                             timeout = timeout_exec;
                         }
                         else if (waiting_answer.response != null)
