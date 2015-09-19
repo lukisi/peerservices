@@ -420,6 +420,7 @@ namespace Netsukuku
         public PeerTupleGNode? non_participant_gnode;
         public PeerTupleNode? respondant_node;
         public IPeersResponse? response;
+        public string? refuse_message;
         public WaitingAnswer(IPeersRequest? request, PeerTupleGNode min_target)
         {
             ch = tasklet.get_channel();
@@ -429,6 +430,7 @@ namespace Netsukuku
             non_participant_gnode = null;
             respondant_node = null;
             response = null;
+            refuse_message = null;
         }
     }
 
@@ -561,9 +563,14 @@ namespace Netsukuku
         private HashMap<int, WaitingAnswer> waiting_answer_map;
         private HashMap<int, PeerParticipantMap> participant_maps;
         private ArrayList<HCoord> recent_published_list;
+        public int level_new_gnode {get; private set;}
+        public bool participant_maps_retrieved {get; private set;}
+        public bool participant_maps_failed {get; private set;}
 
         // The maps of participants are now ready.
         public signal void participant_maps_ready();
+        // The retrieve of maps of participants failed.
+        public signal void participant_maps_failure();
 
         public PeersManager
             (IPeersMapPaths map_paths,
@@ -586,8 +593,12 @@ namespace Netsukuku
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
+            this.level_new_gnode = level_new_gnode;
+            participant_maps_retrieved = true;
+            participant_maps_failed = false;
             if (level_new_gnode < levels)
             {
+                participant_maps_retrieved = false;
                 RetrieveParticipantSetTasklet ts = new RetrieveParticipantSetTasklet();
                 ts.t = this;
                 ts.lvl = level_new_gnode + 1;
@@ -601,36 +612,45 @@ namespace Netsukuku
             public int lvl;
             public void * func()
             {
-                t.retrieve_participant_set(lvl);
-                t.participant_maps_ready();
+                bool ret = t.retrieve_participant_set(lvl);
+                if (ret)
+                {
+                    t.participant_maps_retrieved = true;
+                    t.participant_maps_ready();
+                }
+                else
+                {
+                    t.participant_maps_failed = true;
+                    t.participant_maps_failure();
+                }
                 return null;
             }
         }
-        private void retrieve_participant_set(int lvl)
+        private bool retrieve_participant_set(int lvl)
         {
             IPeersManagerStub stub;
             try {
                 stub = map_paths.i_peers_fellow(lvl);
             } catch (PeersNonexistentFellowError e) {
                 debug(@"retrieve_participant_set: Failed to get because PeersNonexistentFellowError");
-                return;
+                return false;
             }
             IPeerParticipantSet ret;
             try {
                 ret = stub.get_participant_set(lvl);
             } catch (PeersInvalidRequest e) {
                 debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
-                return;
+                return false;
             } catch (zcd.ModRpc.StubError e) {
                 debug(@"retrieve_participant_set: Failed to get because StubError $(e.message)");
-                return;
+                return false;
             } catch (zcd.ModRpc.DeserializeError e) {
                 debug(@"retrieve_participant_set: Failed to get because DeserializeError $(e.message)");
-                return;
+                return false;
             }
             if (! (ret is PeerParticipantSet)) {
                 debug("retrieve_participant_set: Failed to get because unknown class");
-                return;
+                return false;
             }
             PeerParticipantSet participant_set = (PeerParticipantSet)ret;
             // copy
@@ -643,6 +663,7 @@ namespace Netsukuku
                 foreach (HCoord hc in map.participant_list)
                     my_map.participant_list.add(hc);
             }
+            return true;
         }
 
         public void register(PeerService p)
@@ -1792,6 +1813,25 @@ namespace Netsukuku
             wa.ch.send_async(0);
         }
 
+        public void set_refuse_message
+        (int msg_id, string refuse_message, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_refuse_execute: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            if (wa.respondant_node == null)
+            {
+                debug("PeersManager.set_refuse_execute: ignored because did not send request");
+                return;
+            }
+            wa.refuse_message = refuse_message;
+            debug(@"PeersManager.set_refuse_message: $(refuse_message)");
+            wa.ch.send_async(0);
+        }
+
         public void set_next_destination
         (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
         {
@@ -1931,6 +1971,12 @@ namespace Netsukuku
         }
     }
 
+    public errordomain PeersRefuseExecutionError {
+        WRITE_OUT_OF_MEMORY,
+        READ_NOT_FOUND_NOT_EXHAUSTIVE,
+        GENERIC
+    }
+
     public abstract class PeerService : Object
     {
         public int p_id {get; private set;}
@@ -1946,7 +1992,7 @@ namespace Netsukuku
             return true;
         }
 
-        public abstract IPeersResponse exec(IPeersRequest req);
+        public abstract IPeersResponse exec(IPeersRequest req) throws PeersRefuseExecutionError;
     }
 
     public abstract class PeerClient : Object

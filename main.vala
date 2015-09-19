@@ -87,6 +87,13 @@ private class PeersManagerStubHolder : Object, IPeersManagerStub
 	{
 	    addr.peers_manager.set_response(msg_id, response);
 	}
+
+	public void set_refuse_message
+	(int msg_id, string refuse_message)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_refuse_message(msg_id, refuse_message);
+	}
 }
 
 class MyMapPaths : Object, IPeersMapPaths
