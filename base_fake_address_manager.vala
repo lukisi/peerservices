@@ -91,13 +91,13 @@ public class FakeAddressManagerSkeleton : Object,
     }
 
     public virtual void set_response
-    (int msg_id, Netsukuku.IPeersResponse response, zcd.ModRpc.CallerInfo? caller = null)
+    (int msg_id, Netsukuku.IPeersResponse response, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? caller = null)
     {
         error("FakeAddressManagerSkeleton: you must override method set_response.");
     }
 
     public virtual void set_refuse_message
-    (int msg_id, string refuse_message, zcd.ModRpc.CallerInfo? caller = null)
+    (int msg_id, string refuse_message, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? caller = null)
     {
         error("FakeAddressManagerSkeleton: you must override method set_refuse_message.");
     }
@@ -181,14 +181,14 @@ public class FakeAddressManagerStub : Object,
     }
 
     public virtual void set_response
-    (int msg_id, Netsukuku.IPeersResponse response)
+    (int msg_id, Netsukuku.IPeersResponse response, IPeerTupleNode _respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
         error("FakeAddressManagerStub: you must override method set_response.");
     }
 
     public virtual void set_refuse_message
-    (int msg_id, string refuse_message)
+    (int msg_id, string refuse_message, IPeerTupleNode _respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
         error("FakeAddressManagerStub: you must override method set_refuse_message.");

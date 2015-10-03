@@ -82,17 +82,17 @@ private class PeersManagerStubHolder : Object, IPeersManagerStub
 	}
 
 	public void set_response
-	(int msg_id, IPeersResponse response)
+	(int msg_id, IPeersResponse response, IPeerTupleNode _respondant)
 	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
 	{
-	    addr.peers_manager.set_response(msg_id, response);
+	    addr.peers_manager.set_response(msg_id, response, _respondant);
 	}
 
 	public void set_refuse_message
-	(int msg_id, string refuse_message)
+	(int msg_id, string refuse_message, IPeerTupleNode _respondant)
 	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
 	{
-	    addr.peers_manager.set_refuse_message(msg_id, refuse_message);
+	    addr.peers_manager.set_refuse_message(msg_id, refuse_message, _respondant);
 	}
 }
 

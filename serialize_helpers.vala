@@ -99,6 +99,13 @@ namespace LibPeersInternals
         }
     }
 
+    internal Gee.List<Object> deserialize_list_object(Json.Node property_node)
+    throws HelperDeserializeError
+    {
+        ListDeserializer<Object> c = new ListDeserializer<Object>();
+        return c.deserialize_list_object(property_node);
+    }
+
     internal Json.Node serialize_list_object(Gee.List<Object> lst)
     {
         Json.Builder b = new Json.Builder();
