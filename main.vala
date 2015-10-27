@@ -94,6 +94,13 @@ private class PeersManagerStubHolder : Object, IPeersManagerStub
 	{
 	    addr.peers_manager.set_refuse_message(msg_id, refuse_message, _respondant);
 	}
+
+	public void set_redo_from_start
+	(int msg_id, IPeerTupleNode _respondant)
+	throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+	{
+	    addr.peers_manager.set_redo_from_start(msg_id, _respondant);
+	}
 }
 
 class MyMapPaths : Object, IPeersMapPaths

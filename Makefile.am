@@ -16,6 +16,7 @@ TESTS = \
 
 check_PROGRAMS = \
 	test_peers \
+	simulator \
 	$(NULL)
 
 libpeers_la_SOURCES = \
@@ -90,6 +91,44 @@ test_peers_LDADD = \
 	$(TASKLETSYSTEM_LIBS) \
 	$(TASKLET_LIBS) \
 	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+simulator_SOURCES =  \
+	testsuites/simulator/simulator.vala \
+	testsuites/simulator/tasklet_system_tasklet.vala \
+	testsuites/simulator/service_ttl_100.vala \
+	peers.vapi \
+	$(NULL)
+
+simulator_VALAFLAGS = \
+	--pkg gee-0.8 \
+	--pkg ntkd-tasklet-system \
+	--pkg tasklet \
+	--pkg ntkdrpc \
+	--pkg zcd-tasklet-system \
+	--pkg json-glib-1.0 \
+	$(NULL)
+
+simulator_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(TASKLET_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+simulator_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(TASKLET_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(builddir)/libpeers.la \
 	$(NULL)
 
 peersclient_SOURCES =  \

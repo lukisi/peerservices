@@ -101,6 +101,12 @@ public class FakeAddressManagerSkeleton : Object,
     {
         error("FakeAddressManagerSkeleton: you must override method set_refuse_message.");
     }
+
+    public virtual void set_redo_from_start
+    (int msg_id, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? caller = null)
+    {
+        error("FakeAddressManagerSkeleton: you must override method set_redo_from_start.");
+    }
 }
 
 public class FakeAddressManagerStub : Object,
@@ -192,6 +198,13 @@ public class FakeAddressManagerStub : Object,
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
         error("FakeAddressManagerStub: you must override method set_refuse_message.");
+    }
+
+    public virtual void set_redo_from_start
+    (int msg_id, IPeerTupleNode _respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("FakeAddressManagerStub: you must override method set_redo_from_start.");
     }
 }
 
