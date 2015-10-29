@@ -11,13 +11,17 @@ noinst_PROGRAMS =  \
 	$(NULL)
 
 TESTS = \
-	test_peers \
+	test_serialization \
 	$(NULL)
 
 check_PROGRAMS = \
-	test_peers \
-	simulator \
+	test_serialization \
 	$(NULL)
+
+#check_PROGRAMS = \
+#	test_serialization \
+#	simulator \
+#	$(NULL)
 
 libpeers_la_SOURCES = \
 	peers.vala \
@@ -54,16 +58,16 @@ libpeers_la_LIBADD = \
 	$(NTKDRPC_LIBS) \
 	$(NULL)
 
-# test_peers does some tests on internal classes, hence we need to compile
+# test_serialization does some tests on internal classes, hence we need to compile
 #  it with source files, not with the convenience library. The source files
 #  are symbolic links to avoid name clashes with vala-generated C files.
-test_peers_SOURCES = \
-	testsuites/test_peers/test_peers.vala \
-	testsuites/test_peers/peers.vala \
-	testsuites/test_peers/serialize_helpers.vala \
+test_serialization_SOURCES = \
+	testsuites/test_serialization/test_serialization.vala \
+	testsuites/test_serialization/peers.vala \
+	testsuites/test_serialization/serialize_helpers.vala \
 	$(NULL)
 
-test_peers_VALAFLAGS = \
+test_serialization_VALAFLAGS = \
 	--pkg gee-0.8 \
 	--pkg json-glib-1.0 \
 	--pkg ntkd-common \
@@ -72,7 +76,7 @@ test_peers_VALAFLAGS = \
 	--pkg zcd-tasklet-system \
 	$(NULL)
 
-test_peers_CPPFLAGS = \
+test_serialization_CPPFLAGS = \
 	-w \
 	$(GOBJECT_CFLAGS) \
 	$(GEE_CFLAGS) \
@@ -83,7 +87,7 @@ test_peers_CPPFLAGS = \
 	$(NTKDRPC_CFLAGS) \
 	$(NULL)
 
-test_peers_LDADD = \
+test_serialization_LDADD = \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \

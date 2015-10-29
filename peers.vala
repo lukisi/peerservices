@@ -543,7 +543,7 @@ namespace Netsukuku
         }
     }
 
-    internal class RequestWaitThenSendRecord : Object, IPeersRequest
+    internal class RequestWaitThenSendRecord : Object, Json.Serializable, IPeersRequest
     {
         public Object k {get; set;}
         public RequestWaitThenSendRecord(Object k)
@@ -552,14 +552,94 @@ namespace Netsukuku
         }
 
         public const int timeout_exec = 99999; //TODO
+
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
+        {
+            @value = 0;
+            switch (property_name) {
+            case "k":
+                try {
+                    @value = deserialize_object(typeof(Object), false, property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
+        }
+
+        public unowned GLib.ParamSpec find_property
+        (string name)
+        {
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "k":
+                return serialize_object((Object)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
+        }
     }
 
-    internal class RequestWaitThenSendRecordResponse : Object, IPeersResponse
+    internal class RequestWaitThenSendRecordResponse : Object, Json.Serializable, IPeersResponse
     {
         public Object record {get; set;}
         public RequestWaitThenSendRecordResponse(Object record)
         {
             this.record = record;
+        }
+
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
+        {
+            @value = 0;
+            switch (property_name) {
+            case "record":
+                try {
+                    @value = deserialize_object(typeof(Object), false, property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
+        }
+
+        public unowned GLib.ParamSpec find_property
+        (string name)
+        {
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "record":
+                return serialize_object((Object)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
         }
     }
 

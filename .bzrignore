@@ -8,10 +8,9 @@ base_fake_address_manager.c
 tasklet_system_tasklet.c
 Makefile.in
 Makefile
-testsuites/test_peers/test_peers.c
-testsuites/test_peers/base_fake_address_manager.c
-testsuites/test_peers/peers.c
-testsuites/test_peers/serialize_helpers.c
+testsuites/test_serialization/test_serialization.c
+testsuites/test_serialization/peers.c
+testsuites/test_serialization/serialize_helpers.c
 testsuites/simulator/simulator.c
 testsuites/simulator/service_ttl_100.c
 *.lo

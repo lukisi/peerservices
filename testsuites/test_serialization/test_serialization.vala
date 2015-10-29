@@ -55,14 +55,14 @@ class PeersTester : Object
             {
                 Gee.List<int> nums = new ArrayList<int>();
                 nums.add_all_array({1, 2, 3, 4});
-                PeerTupleGNode gn = new PeerTupleGNode(nums, 3);
+                PeerTupleGNode gn = new PeerTupleGNode(nums, 5);
                 node = Json.gobject_serialize(gn);
             }
             gn0 = (PeerTupleGNode)Json.gobject_deserialize(typeof(PeerTupleGNode), node);
         }
         assert(gn0.tuple.size == 4);
         assert(gn0.tuple[2] == 3);
-        assert(gn0.top == 3);
+        assert(gn0.top == 5);
     }
 
     public void test_cont()
@@ -121,7 +121,6 @@ class PeersTester : Object
                 mf.x_macron = new PeerTupleNode(nums);
                 mf.lvl = 3;
                 mf.pos = 2;
-                mf.reverse = true;
                 mf.msg_id = 12345;
                 mf.p_id = 12;
                 nums = new ArrayList<int>();
@@ -156,7 +155,6 @@ class PeersTester : Object
         assert(mf0.pos == 2);
         assert(mf0.p_id == 12);
         assert(mf0.msg_id == 12345);
-        assert(mf0.reverse);
         assert(mf0.exclude_tuple_list.size == 1);
         bool found = false;
         foreach (PeerTupleGNode gn in mf0.exclude_tuple_list)
@@ -238,6 +236,111 @@ class PeersTester : Object
         assert(m.participant_list.contains(new HCoord(3, 5)));
     }
 
+    private class TestKey : Object
+    {
+        public int l {get; set;}
+        public TestKey(int l)
+        {
+            this.l = l;
+        }
+    }
+    private class TestRecord : Object
+    {
+        public string s {get; set;}
+        public TestRecord(string s)
+        {
+            this.s = s;
+        }
+    }
+    public void test_retrieve_request()
+    {
+        RequestWaitThenSendRecord r0;
+        {
+            Json.Node node;
+            {
+                RequestWaitThenSendRecord r = new RequestWaitThenSendRecord(new TestKey(12));
+                node = Json.gobject_serialize(r);
+            }
+            r0 = (RequestWaitThenSendRecord)Json.gobject_deserialize(typeof(RequestWaitThenSendRecord), node);
+        }
+        assert(r0.k != null);
+        assert(r0.k is TestKey);
+        assert(((TestKey)r0.k).l == 12);
+    }
+    public void test_retrieve_response()
+    {
+        RequestWaitThenSendRecordResponse r0;
+        {
+            Json.Node node;
+            {
+                RequestWaitThenSendRecordResponse r = new RequestWaitThenSendRecordResponse(new TestRecord("twelve"));
+                node = Json.gobject_serialize(r);
+            }
+            r0 = (RequestWaitThenSendRecordResponse)Json.gobject_deserialize(typeof(RequestWaitThenSendRecordResponse), node);
+        }
+        assert(r0.record != null);
+        assert(r0.record is TestRecord);
+        assert(((TestRecord)r0.record).s == "twelve");
+    }
+    public void test_retrieve_not_found()
+    {
+        RequestWaitThenSendRecordNotFound n0;
+        {
+            Json.Node node;
+            {
+                RequestWaitThenSendRecordNotFound n = new RequestWaitThenSendRecordNotFound();
+                node = Json.gobject_serialize(n);
+            }
+            n0 = (RequestWaitThenSendRecordNotFound)Json.gobject_deserialize(typeof(RequestWaitThenSendRecordNotFound), node);
+        }
+        assert(n0.get_type() == typeof(RequestWaitThenSendRecordNotFound));
+    }
+    public void test_retrieve_send_keys()
+    {
+        RequestSendKeys s0;
+        {
+            Json.Node node;
+            {
+                RequestSendKeys s = new RequestSendKeys(20);
+                node = Json.gobject_serialize(s);
+            }
+            s0 = (RequestSendKeys)Json.gobject_deserialize(typeof(RequestSendKeys), node);
+        }
+        assert(s0.max_count == 20);
+        ArrayList<Object> keys = new ArrayList<Object>();
+        keys.add_all_array({new TestKey(1), new TestKey(2), new TestKey(3), new TestKey(4), new TestKey(5)});
+        RequestSendKeysResponse r0;
+        {
+            Json.Node node;
+            {
+                RequestSendKeysResponse r = new RequestSendKeysResponse();
+                r.keys.add_all(keys);
+                node = Json.gobject_serialize(r);
+            }
+            r0 = (RequestSendKeysResponse)Json.gobject_deserialize(typeof(RequestSendKeysResponse), node);
+        }
+        assert(r0.keys.size == 5);
+        bool found1 = false;
+        bool found2 = false;
+        bool found3 = false;
+        bool found4 = false;
+        bool found5 = false;
+        foreach (Object k in r0.keys)
+        {
+            assert(k is TestKey);
+            if (((TestKey)k).l == 1) found1 = true;
+            if (((TestKey)k).l == 2) found2 = true;
+            if (((TestKey)k).l == 3) found3 = true;
+            if (((TestKey)k).l == 4) found4 = true;
+            if (((TestKey)k).l == 5) found5 = true;
+        }
+        assert(found1);
+        assert(found2);
+        assert(found3);
+        assert(found4);
+        assert(found5);
+    }
+
     public static int main(string[] args)
     {
         GLib.Test.init(ref args);
@@ -269,6 +372,15 @@ class PeersTester : Object
             var x = new PeersTester();
             x.set_up();
             x.test_participant();
+            x.tear_down();
+        });
+        GLib.Test.add_func ("/Serializables/Retrieve", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_retrieve_request();
+            x.test_retrieve_response();
+            x.test_retrieve_not_found();
+            x.test_retrieve_send_keys();
             x.tear_down();
         });
         GLib.Test.run();
