@@ -69,6 +69,11 @@ void main(string[] args)
     MyTaskletSystem.init();
     tasklet = MyTaskletSystem.get_ntkd();
 
+    ttl_100.serialization_tests();
+
+    // TODO delete
+    return;
+
     // pass tasklet system to modules
     PeersManager.init(tasklet);
 
@@ -439,6 +444,7 @@ public class MyPeersMapPath : Object, IPeersMapPaths
     public int i_peers_get_nodes_in_my_group
     (int level)
     {
+        if (level == 0) return 1;
         error("not implemented yet");
     }
 }
@@ -590,14 +596,14 @@ public class MyPeersManagerStub : Object, IPeersManagerStub
         skeleton.set_participant(p_id, ((IPeerTupleGNode)dup_object(tuple)), caller);
     }
 
-    public void set_response
-    (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+    public void set_redo_from_start
+    (int msg_id, IPeerTupleNode respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
-        skeleton.set_response(msg_id, ((IPeersResponse)dup_object(response)), ((IPeerTupleNode)dup_object(respondant)), caller);
+        skeleton.set_redo_from_start(msg_id, ((IPeerTupleNode)dup_object(respondant)), caller);
     }
 
     public void set_refuse_message
@@ -608,6 +614,16 @@ public class MyPeersManagerStub : Object, IPeersManagerStub
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
         skeleton.set_refuse_message(msg_id, refuse_message, ((IPeerTupleNode)dup_object(respondant)), caller);
+    }
+
+    public void set_response
+    (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
+        var caller = new MyCallerInfo();
+        tasklet.ms_wait(2); // simulates network latency
+        skeleton.set_response(msg_id, ((IPeersResponse)dup_object(response)), ((IPeerTupleNode)dup_object(respondant)), caller);
     }
 }
 
@@ -677,11 +693,11 @@ public class MyPeersManagerBroadcastStub : Object, IPeersManagerStub
         error("set_non_participant should not be sent in broadcast");
     }
 
-    public void set_response
-    (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+    public void set_redo_from_start
+    (int msg_id, IPeerTupleNode respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
-        error("set_response should not be sent in broadcast");
+        error("set_redo_from_start should not be sent in broadcast");
     }
 
     public void set_refuse_message
@@ -689,6 +705,13 @@ public class MyPeersManagerBroadcastStub : Object, IPeersManagerStub
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
         error("set_refuse_message should not be sent in broadcast");
+    }
+
+    public void set_response
+    (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_response should not be sent in broadcast");
     }
 }
 

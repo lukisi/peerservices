@@ -770,9 +770,11 @@ namespace Netsukuku
         public abstract bool is_insert_request(IPeersRequest r);
         public abstract bool is_read_only_request(IPeersRequest r);
         public abstract bool is_update_request(IPeersRequest r);
+        public abstract bool is_replica_value_request(IPeersRequest r);
+        public abstract bool is_replica_delete_request(IPeersRequest r);
         public abstract IPeersResponse prepare_response_not_found(IPeersRequest r);
         public abstract IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec);
-        public abstract IPeersResponse execute(IPeersRequest r);
+        public abstract IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError;
 
         public DatabaseHandler dh {get {return dh_getter();} set {dh_setter(value);}}
         public abstract unowned DatabaseHandler dh_getter();
@@ -2147,6 +2149,41 @@ namespace Netsukuku
                     }
                 }
             }
+            if (tdd.is_replica_value_request(r))
+            {
+                Object k = tdd.get_key_from_request(r);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    var res = tdd.execute(r);
+                    assert(tdd.my_records_contains(k));
+                    return res;
+                }
+                if (! ttl_db_is_out_of_memory(tdd))
+                {
+                    ttl_db_remove_not_found(tdd, k);
+                    ttl_db_remove_not_exhaustive(tdd, k);
+                    var res = tdd.execute(r);
+                    assert(tdd.my_records_contains(k));
+                    return res;
+                }
+                else
+                {
+                    ttl_db_remove_not_found(tdd, k);
+                    ttl_db_add_not_exhaustive(tdd, k);
+                    throw new PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY("my node is out of memory");
+                }
+            }
+            if (tdd.is_replica_delete_request(r))
+            {
+                Object k = tdd.get_key_from_request(r);
+                var res = tdd.execute(r);
+                assert(! tdd.my_records_contains(k));
+                ttl_db_remove_not_exhaustive(tdd, k);
+                ttl_db_add_not_found(tdd, k);
+                return res;
+            }
             // none of previous cases
             return tdd.execute(r);
         }
@@ -2308,6 +2345,10 @@ namespace Netsukuku
                     }
                     throw new PeersRedoFromStartError.GENERIC("");
                 }
+            }
+            if (fkdd.is_replica_value_request(r))
+            {
+                return fkdd.execute(r);
             }
             // none of previous cases
             return fkdd.execute(r);

@@ -12,16 +12,13 @@ noinst_PROGRAMS =  \
 
 TESTS = \
 	test_serialization \
+	simulator \
 	$(NULL)
 
 check_PROGRAMS = \
 	test_serialization \
+	simulator \
 	$(NULL)
-
-#check_PROGRAMS = \
-#	test_serialization \
-#	simulator \
-#	$(NULL)
 
 libpeers_la_SOURCES = \
 	peers.vala \
