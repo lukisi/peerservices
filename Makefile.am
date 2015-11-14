@@ -12,7 +12,7 @@ noinst_PROGRAMS =  \
 
 TESTS = \
 	test_serialization \
-	simulator \
+	test_1 \
 	$(NULL)
 
 check_PROGRAMS = \
@@ -22,6 +22,7 @@ check_PROGRAMS = \
 
 libpeers_la_SOURCES = \
 	peers.vala \
+	peers_debug.vala \
 	serialize_helpers.vala \
 	$(NULL)
 
@@ -98,6 +99,7 @@ simulator_SOURCES =  \
 	testsuites/simulator/simulator.vala \
 	testsuites/simulator/tasklet_system_tasklet.vala \
 	testsuites/simulator/service_ttl_100.vala \
+	testsuites/simulator/simulator_debug.vala \
 	peers.vapi \
 	$(NULL)
 

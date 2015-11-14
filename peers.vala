@@ -891,16 +891,16 @@ namespace Netsukuku
         }
         private bool retrieve_participant_set(int lvl)
         {
-            IPeersManagerStub stub;
+            IPeersManagerStub f_stub;
             try {
-                stub = map_paths.i_peers_fellow(lvl);
+                f_stub = map_paths.i_peers_fellow(lvl);
             } catch (PeersNonexistentFellowError e) {
                 debug(@"retrieve_participant_set: Failed to get because PeersNonexistentFellowError");
                 return false;
             }
             IPeerParticipantSet ret;
             try {
-                ret = stub.get_participant_set(lvl);
+                ret = f_stub.get_participant_set(lvl);
             } catch (PeersInvalidRequest e) {
                 debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
                 return false;
@@ -1356,9 +1356,9 @@ namespace Netsukuku
         private int find_timeout_routing(int nodes)
         {
             // number of msec to wait for a routing between a group of $(nodes) nodes.
-            int ret = 20;
-            if (nodes > 100) ret = 200;
-            if (nodes > 1000) ret = 2000;
+            int ret = 2000;
+            if (nodes > 100) ret = 20000;
+            if (nodes > 1000) ret = 200000;
             // TODO explore values
             return ret;
         }
@@ -1495,8 +1495,7 @@ namespace Netsukuku
                             failed = gwstub;
                             continue;
                         } catch (zcd.ModRpc.DeserializeError e) {
-                            failed = gwstub;
-                            continue;
+                            assert_not_reached();
                         }
                         break;
                     }
@@ -1656,8 +1655,7 @@ namespace Netsukuku
                     failed = gwstub;
                     continue;
                 } catch (zcd.ModRpc.DeserializeError e) {
-                    failed = gwstub;
-                    continue;
+                    assert_not_reached();
                 }
                 break;
             }
@@ -1963,7 +1961,7 @@ namespace Netsukuku
                     PeerTupleGNode t = make_tuple_gnode(gn, l_n0+1);
                     exclude_tuple_list.add(t);
                 }
-                PeerTupleGNode t_respondant = rebase_tuple_gnode(tuple_node_to_tuple_gnode(respondant), l_n0+1);
+                PeerTupleGNode t_respondant = new PeerTupleGNode(respondant.tuple.slice(0, l_n0+1), l_n0+1);
                 exclude_tuple_list.add(t_respondant);
                 while (! ttl_db_is_out_of_memory(tdd))
                 {
@@ -1993,7 +1991,7 @@ namespace Netsukuku
                         }
                         if (ttl_db_is_out_of_memory(tdd)) break;
                     }
-                    t_respondant = rebase_tuple_gnode(tuple_node_to_tuple_gnode(respondant), l_n0+1);
+                    t_respondant = tuple_node_to_tuple_gnode(respondant);
                     exclude_tuple_list.add(t_respondant);
                 }
             } catch (PeersNoParticipantsInNetworkError e) {
@@ -2594,8 +2592,7 @@ namespace Netsukuku
                                     failed = gwstub;
                                     continue;
                                 } catch (zcd.ModRpc.DeserializeError e) {
-                                    failed = gwstub;
-                                    continue;
+                                    assert_not_reached();
                                 }
                                 delivered = true;
                                 IPeersManagerStub nstub
@@ -2632,8 +2629,7 @@ namespace Netsukuku
                         failed = gwstub;
                         continue;
                     } catch (zcd.ModRpc.DeserializeError e) {
-                        failed = gwstub;
-                        continue;
+                        assert_not_reached();
                     }
                     break;
                 }
@@ -2871,7 +2867,7 @@ namespace Netsukuku
                 return;
             }
             int old_k = wa.min_target.top - wa.min_target.tuple.size;
-            if (tuple.top - tuple.tuple.size >= old_k)
+            if (tuple.top - tuple.tuple.size > old_k)
             {
                 debug("PeersManager.set_failure: ignored because already reached a lower level");
                 return;
@@ -2902,7 +2898,7 @@ namespace Netsukuku
                 return;
             }
             int old_k = wa.min_target.top - wa.min_target.tuple.size;
-            if (tuple.top - tuple.tuple.size >= old_k)
+            if (tuple.top - tuple.tuple.size > old_k)
             {
                 debug("PeersManager.set_non_participant: ignored because already reached a lower level");
                 return;

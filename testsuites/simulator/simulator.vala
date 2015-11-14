@@ -60,6 +60,8 @@ public class SimulatorNode : Object
     public MyPeersBackStubFactory back_factory;
     public MyPeersNeighborsFactory neighbor_factory;
     public PeersManager peers_manager;
+    public ttl_100.Ttl100Service srv100;
+    public ttl_100.Ttl100Client cli100;
 }
 
 INtkdTasklet tasklet;
@@ -70,9 +72,6 @@ void main(string[] args)
     tasklet = MyTaskletSystem.get_ntkd();
 
     ttl_100.serialization_tests();
-
-    // TODO delete
-    return;
 
     // pass tasklet system to modules
     PeersManager.init(tasklet);
@@ -98,6 +97,11 @@ class Directive : Object
     // Info
     public bool info = false;
     public string info_name;
+    // A node requests a 'insert'
+    public bool req_insert = false;
+    public string req_insert_q_name;
+    public int req_insert_k;
+    public string req_insert_v;
 }
 
 string[] read_file(string path)
@@ -162,6 +166,7 @@ internal class FileTester : Object
                                      levels,
                                      n.back_factory,
                                      n.neighbor_factory);
+            n.srv100 = new ttl_100.Ttl100Service(gsizes, n.peers_manager);
         }
 
         while (true)
@@ -212,6 +217,20 @@ internal class FileTester : Object
                 data_cur++;
                 assert(data[data_cur] == "");
             }
+            else if (data[data_cur] != null && data[data_cur].has_prefix("request_insert"))
+            {
+                string line = data[data_cur];
+                string[] line_pieces = line.split(" ");
+                Directive dd = new Directive();
+                dd.req_insert = true;
+                dd.req_insert_k = int.parse(line_pieces[1]);
+                dd.req_insert_v = line_pieces[2];
+                assert(line_pieces[3] == "query_node");
+                dd.req_insert_q_name = line_pieces[4];
+                directives.add(dd);
+                data_cur++;
+                assert(data[data_cur] == "");
+            }
             else if (data_cur >= data.length)
             {
                 break;
@@ -231,7 +250,6 @@ internal class FileTester : Object
                 assert(dd.lvl <= levels);
                 assert(dd.lvl > 0);
                 var neighbor_n = nodes[dd.neighbor_name];
-                var stub_p = new MyPeersManagerStub(neighbor_n.peers_manager);
                 nodes[dd.name] = new SimulatorNode();
                 SimulatorNode n = nodes[dd.name];
                 n.name = dd.name;
@@ -248,11 +266,7 @@ internal class FileTester : Object
                 n.map_paths = new MyPeersMapPath(gsizes.to_array(), n.my_pos.to_array());
                 n.back_factory = new MyPeersBackStubFactory();
                 n.neighbor_factory = new MyPeersNeighborsFactory();
-                n.map_paths.set_fellow(dd.lvl, stub_p);
-                n.peers_manager = new PeersManager(n.map_paths,
-                                         dd.lvl-1,
-                                         n.back_factory,
-                                         n.neighbor_factory);
+                n.map_paths.set_fellow(dd.lvl, new MyPeersManagerTcpFellowStub(neighbor_n.peers_manager));
                 n.neighbors.add(dd.neighbor_name);
                 neighbor_n.neighbors.add(dd.name);
                 // continue in a tasklet
@@ -282,22 +296,50 @@ internal class FileTester : Object
                 print(@"  my_pos: $(mypos)\n");
                 print("\n");
             }
+            else if (dd.req_insert)
+            {
+                print(@"request from node $(dd.req_insert_q_name).\n");
+                print(@"insert $(dd.req_insert_k), $(dd.req_insert_v).\n");
+                SimulatorNode n = nodes[dd.req_insert_q_name];
+                n.cli100 = new ttl_100.Ttl100Client(gsizes, n.peers_manager);
+                try {
+                    n.cli100.db_insert(dd.req_insert_k, dd.req_insert_v);
+                    print("done.\n");
+                } catch (ttl_100.Ttl100OutOfMemoryError e) {
+                    print(@"out of memory: $(e.message).\n");
+                } catch (ttl_100.Ttl100NotFreeError e) {
+                    print(@"not free: $(e.message).\n");
+                }
+            }
+            else error("not implemented yet");
         }
     }
-
-    internal class CompleteHookTasklet : Object, INtkdTaskletSpawnable
+    private class CompleteHookTasklet : Object, INtkdTaskletSpawnable
     {
         public FileTester t;
         public Directive dd;
         public void * func()
         {
-            tasklet.ms_wait(20); // simulate little wait before bootstrap
-            t.update_my_map(dd.neighbor_name, dd.name);
-            t.update_back_factories(dd.name);
-            tasklet.ms_wait(100); // simulate little wait before ETPs reach fellows
-            t.start_update_their_maps(dd.neighbor_name, dd.name);
+            t.tasklet_complete_hook(dd);
             return null;
         }
+    }
+    private void tasklet_complete_hook(Directive dd)
+    {
+        SimulatorNode n = nodes[dd.name];
+        tasklet.ms_wait(20); // simulate little wait before bootstrap
+        update_my_map(dd.neighbor_name, dd.name);
+        update_back_factories(dd.name);
+
+        // bootstrap complete, we can create our peers_manager
+        n.peers_manager = new PeersManager(n.map_paths,
+                                 dd.lvl-1,
+                                 n.back_factory,
+                                 n.neighbor_factory);
+        n.srv100 = new ttl_100.Ttl100Service(gsizes, n.peers_manager);
+
+        tasklet.ms_wait(100); // simulate little wait before ETPs reach fellows
+        start_update_their_maps(dd.neighbor_name, dd.name);
     }
 
     void update_back_factories(string name)
@@ -331,13 +373,17 @@ internal class FileTester : Object
             gw_lvl--;
             assert(gw_lvl >= 0);
         }
+        neo.map_paths.add_existent_gnode(gw_lvl, gw.my_pos[gw_lvl], new MyPeersManagerTcpNoWaitStub(gw.peers_manager));
         for (int i = gw_lvl; i < levels; i++)
         {
             for (int j = 0; j < gsizes[i]; j++)
             {
-                if (! gw.map_paths.i_peers_exists(i, j))
+                if (j != gw.my_pos[i])
                 {
-                    neo.map_paths.add_existent_gnode(i, j, new MyPeersManagerStub(gw.peers_manager));
+                    if (gw.map_paths.i_peers_exists(i, j))
+                    {
+                        neo.map_paths.add_existent_gnode(i, j, new MyPeersManagerTcpNoWaitStub(gw.peers_manager));
+                    }
                 }
             }
         }
@@ -362,7 +408,7 @@ internal class FileTester : Object
         int neo_pos = neo.my_pos[neo_lvl];
         if (! old.map_paths.i_peers_exists(neo_lvl, neo_pos))
         {
-            old.map_paths.add_existent_gnode(neo_lvl, neo_pos, new MyPeersManagerStub(gw_to_neo.peers_manager));
+            old.map_paths.add_existent_gnode(neo_lvl, neo_pos, new MyPeersManagerTcpNoWaitStub(gw_to_neo.peers_manager));
         }
         foreach (string neighbor_name in old.neighbors) if (neighbor_name != name_gw_to_neo)
         {
@@ -416,7 +462,7 @@ public class MyPeersMapPath : Object, IPeersMapPaths
         string k = @"$(level),$(pos)";
         if (! (map_gnodes.has_key(k)))
         {
-            warning(@"Forwarding a peer-message. gateway not set for $(k).");
+            warning(@"Transmitting a peer-message. gateway not set for $(k).");
             throw new PeersNonexistentDestinationError.GENERIC(@"gateway not set for $(k)");
         }
         // This simulator has a lazy implementation of i_peers_gateway. It simulates well only networks with no loops.
@@ -445,7 +491,8 @@ public class MyPeersMapPath : Object, IPeersMapPaths
     (int level)
     {
         if (level == 0) return 1;
-        error("not implemented yet");
+        // approssimative implementation, it should be ok
+        return 20;
     }
 }
 
@@ -478,11 +525,11 @@ public class MyPeersBackStubFactory : Object, IPeersBackStubFactory
         s += "*";
         if (nodes.has_key(s))
         {
-            return new MyPeersManagerStub(nodes[s].peers_manager);
+            return new MyPeersManagerTcpInsideStub(nodes[s].peers_manager);
         }
         else
         {
-            return new MyPeersManagerStub(null);
+            return new MyPeersManagerTcpInsideStub(null);
         }
     }
 }
@@ -512,11 +559,200 @@ public class MyPeersNeighborsFactory : Object, IPeersNeighborsFactory
     }
 }
 
-public class MyPeersManagerStub : Object, IPeersManagerStub
+public class MyPeersManagerTcpFellowStub : Object, IPeersManagerStub
 {
     public bool working;
     public Netsukuku.ModRpc.IPeersManagerSkeleton skeleton;
-    public MyPeersManagerStub(IPeersManagerSkeleton? skeleton)
+    public MyPeersManagerTcpFellowStub(IPeersManagerSkeleton skeleton)
+    {
+        this.skeleton = skeleton;
+        working = true;
+    }
+
+    public void forward_peer_message
+    (IPeerMessage peer_message)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("forward_peer_message should not be sent in tcp-fellow");
+    }
+
+    public IPeerParticipantSet get_participant_set
+    (int lvl)
+    throws PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
+        var caller = new MyCallerInfo();
+        tasklet.ms_wait(2); // simulates network latency
+        IPeerParticipantSet ret = skeleton.get_participant_set(lvl, caller);
+        return (IPeerParticipantSet)dup_object(ret);
+    }
+
+    public IPeersRequest get_request
+    (int msg_id, IPeerTupleNode respondant)
+    throws Netsukuku.PeersUnknownMessageError, Netsukuku.PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("get_request should not be sent in tcp-fellow");
+    }
+
+    public void set_failure
+    (int msg_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_failure should not be sent in tcp-fellow");
+    }
+
+    public void set_next_destination
+    (int msg_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_next_destination should not be sent in tcp-fellow");
+    }
+
+    public void set_non_participant
+    (int msg_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_non_participant should not be sent in tcp-fellow");
+    }
+
+    public void set_participant
+    (int p_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_participant should not be sent in tcp-fellow");
+    }
+
+    public void set_redo_from_start
+    (int msg_id, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_redo_from_start should not be sent in tcp-fellow");
+    }
+
+    public void set_refuse_message
+    (int msg_id, string refuse_message, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_refuse_message should not be sent in tcp-fellow");
+    }
+
+    public void set_response
+    (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_response should not be sent in tcp-fellow");
+    }
+}
+
+public class MyPeersManagerTcpNoWaitStub : Object, IPeersManagerStub
+{
+    public bool working;
+    public Netsukuku.ModRpc.IPeersManagerSkeleton skeleton;
+    public MyPeersManagerTcpNoWaitStub(IPeersManagerSkeleton skeleton)
+    {
+        this.skeleton = skeleton;
+        working = true;
+    }
+
+    public void forward_peer_message
+    (IPeerMessage peer_message)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
+        var caller = new MyCallerInfo();
+        tasklet.ms_wait(2); // simulates network latency
+        // in a new tasklet...
+        ForwardPeerMessageTasklet ts = new ForwardPeerMessageTasklet();
+        ts.t = this;
+        ts.peer_message = (IPeerMessage)dup_object(peer_message);
+        ts.caller = caller;
+        tasklet.spawn(ts);
+    }
+    private class ForwardPeerMessageTasklet : Object, INtkdTaskletSpawnable
+    {
+        public MyPeersManagerTcpNoWaitStub t;
+        public IPeerMessage peer_message;
+        public MyCallerInfo caller;
+        public void * func()
+        {
+            t.tasklet_forward_peer_message(peer_message, caller);
+            return null;
+        }
+    }
+    private void tasklet_forward_peer_message(IPeerMessage peer_message, MyCallerInfo caller)
+    {
+        skeleton.forward_peer_message(peer_message, caller);
+    }
+
+    public IPeerParticipantSet get_participant_set
+    (int lvl)
+    throws PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("get_participant_set should not be sent in tcp-nowait");
+    }
+
+    public IPeersRequest get_request
+    (int msg_id, IPeerTupleNode respondant)
+    throws Netsukuku.PeersUnknownMessageError, Netsukuku.PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("get_request should not be sent in tcp-nowait");
+    }
+
+    public void set_failure
+    (int msg_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_failure should not be sent in tcp-nowait");
+    }
+
+    public void set_next_destination
+    (int msg_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_next_destination should not be sent in tcp-nowait");
+    }
+
+    public void set_non_participant
+    (int msg_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_non_participant should not be sent in tcp-nowait");
+    }
+
+    public void set_participant
+    (int p_id, IPeerTupleGNode tuple)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_participant should not be sent in tcp-nowait");
+    }
+
+    public void set_redo_from_start
+    (int msg_id, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_redo_from_start should not be sent in tcp-nowait");
+    }
+
+    public void set_refuse_message
+    (int msg_id, string refuse_message, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_refuse_message should not be sent in tcp-nowait");
+    }
+
+    public void set_response
+    (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+    throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
+    {
+        error("set_response should not be sent in tcp-nowait");
+    }
+}
+
+public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
+{
+    public bool working;
+    public Netsukuku.ModRpc.IPeersManagerSkeleton skeleton;
+    public MyPeersManagerTcpInsideStub(IPeersManagerSkeleton? skeleton)
     {
         if (skeleton == null) working = false;
         else
@@ -530,20 +766,14 @@ public class MyPeersManagerStub : Object, IPeersManagerStub
     (IPeerMessage peer_message)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
-        if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
-        var caller = new MyCallerInfo();
-        tasklet.ms_wait(2); // simulates network latency
-        skeleton.forward_peer_message(((IPeerMessage)dup_object(peer_message)), caller);
+        error("forward_peer_message should not be sent in tcp-inside");
     }
 
     public IPeerParticipantSet get_participant_set
     (int lvl)
     throws PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
-        if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
-        var caller = new MyCallerInfo();
-        tasklet.ms_wait(2); // simulates network latency
-        return skeleton.get_participant_set(lvl, caller);
+        error("get_participant_set should not be sent in tcp-inside");
     }
 
     public IPeersRequest get_request
@@ -553,7 +783,8 @@ public class MyPeersManagerStub : Object, IPeersManagerStub
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
-        return skeleton.get_request(msg_id, ((IPeerTupleNode)dup_object(respondant)), caller);
+        IPeersRequest ret = skeleton.get_request(msg_id, ((IPeerTupleNode)dup_object(respondant)), caller);
+        return (IPeersRequest)dup_object(ret);
     }
 
     public void set_failure
@@ -590,10 +821,7 @@ public class MyPeersManagerStub : Object, IPeersManagerStub
     (int p_id, IPeerTupleGNode tuple)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
-        if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
-        var caller = new MyCallerInfo();
-        tasklet.ms_wait(2); // simulates network latency
-        skeleton.set_participant(p_id, ((IPeerTupleGNode)dup_object(tuple)), caller);
+        error("set_participant should not be sent in tcp-inside");
     }
 
     public void set_redo_from_start
@@ -647,8 +875,32 @@ public class MyPeersManagerBroadcastStub : Object, IPeersManagerStub
         foreach (IPeersManagerSkeleton skeleton in skeletons)
         {
             var caller = new MyCallerInfo();
-            skeleton.set_participant(p_id, ((IPeerTupleGNode)dup_object(tuple)), caller);
+            // in a new tasklet...
+            SetParticipantTasklet ts = new SetParticipantTasklet();
+            ts.t = this;
+            ts.skeleton = skeleton;
+            ts.p_id = p_id;
+            ts.tuple = (IPeerTupleGNode)dup_object(tuple);
+            ts.caller = caller;
+            tasklet.spawn(ts);
         }
+    }
+    private class SetParticipantTasklet : Object, INtkdTaskletSpawnable
+    {
+        public MyPeersManagerBroadcastStub t;
+        public IPeersManagerSkeleton skeleton;
+        public int p_id;
+        public IPeerTupleGNode tuple;
+        public MyCallerInfo caller;
+        public void * func()
+        {
+            t.tasklet_set_participant(skeleton, p_id, tuple, caller);
+            return null;
+        }
+    }
+    private void tasklet_set_participant(IPeersManagerSkeleton skeleton, int p_id, IPeerTupleGNode tuple, MyCallerInfo caller)
+    {
+        skeleton.set_participant(p_id, tuple, caller);
     }
 
     public void forward_peer_message

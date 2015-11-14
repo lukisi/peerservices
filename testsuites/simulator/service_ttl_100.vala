@@ -400,7 +400,7 @@ namespace ttl_100
         private int max_keys;
         private const int default_max_keys = 200;
         private HashMap<Ttl100Key, Ttl100Record> my_records;
-        public Ttl100Service(Gee.List<int> gsizes, PeersManager peers_manager, int max_records=-1, int max_keys=-1)
+        public Ttl100Service(Gee.List<int> gsizes, PeersManager peers_manager, bool register=true, int max_records=-1, int max_keys=-1)
         {
             base(ttl_100.p_id, false);
             this.peers_manager = peers_manager;
@@ -409,10 +409,14 @@ namespace ttl_100
             this.max_keys = max_keys == -1 ? default_max_keys : max_keys;
             this.my_records = new HashMap<Ttl100Key, Ttl100Record>(Ttl100Key.hash_data, Ttl100Key.equal_data);
             this.tdd = new DatabaseDescriptor(this);
-            // launch ttl_db_on_startup in a tasklet
-            StartTtlDbHandlerTasklet ts = new StartTtlDbHandlerTasklet();
-            ts.t = this;
-            tasklet.spawn(ts);
+            if (register)
+            {
+                peers_manager.register(this);
+                // launch ttl_db_on_startup in a tasklet
+                StartTtlDbHandlerTasklet ts = new StartTtlDbHandlerTasklet();
+                ts.t = this;
+                tasklet.spawn(ts);
+            }
         }
         private class StartTtlDbHandlerTasklet : Object, INtkdTaskletSpawnable
         {
@@ -447,7 +451,7 @@ namespace ttl_100
             return peers_manager.ttl_db_on_request(tdd, req, client_tuple.size);
         }
 
-        private class DatabaseDescriptor : Object, ITemporalDatabaseDescriptor, IDatabaseDescriptor
+        private class DatabaseDescriptor : Object, IDatabaseDescriptor, ITemporalDatabaseDescriptor
         {
             private Ttl100Service t;
             public DatabaseDescriptor(Ttl100Service t)
@@ -803,6 +807,64 @@ namespace ttl_100
             assert(k is Ttl100Key);
             Ttl100Key _k = (Ttl100Key)k;
             return @"$(_k.k)".hash() % (top+1);
+        }
+        /*
+     *  * Inserisci un record k,v. Possibili eccezioni: Ttl100OutOfMemoryError, Ttl100NotFreeError.
+     *  * Modifica un record k con il nuovo valore v. Possibili eccezioni: Ttl100NotFoundError.
+     *  * Tocca un record k. E' di modifica del solo TTL. Possibili eccezioni: Ttl100NotFoundError.
+     *  * Leggi il valore di un record k. Di sola lettura. Possibili eccezioni: Ttl100NotFoundError.
+        */
+
+        public void db_insert(int k, string v) throws Ttl100OutOfMemoryError, Ttl100NotFreeError
+        {
+            IPeersResponse resp;
+            IPeersRequest r = new Ttl100InsertRecordRequest(k, v);
+            try {
+                resp = this.call(new Ttl100Key(k), r, timeout_exec_for_request(r));
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug("Ttl100Client: db_insert: Got 'no participants', throwing an 'out of memory'.");
+                throw new Ttl100OutOfMemoryError.GENERIC("Out of memory");
+            } catch (PeersDatabaseError e) {
+                debug("Ttl100Client: db_insert: Got 'database error', throwing an 'out of memory'.");
+                throw new Ttl100OutOfMemoryError.GENERIC("Out of memory");
+            }
+            if (resp is Ttl100InsertRecordNotFreeResponse)
+            {
+                debug(@"Ttl100Client: db_insert: Got 'not free'. Key was $(k).");
+                throw new Ttl100NotFreeError.GENERIC(@"$(k) not free");
+            }
+            if (resp is Ttl100InvalidRequestResponse)
+            {
+                warning(@"Ttl100Client: db_insert: Got 'invalid request', throwing an 'out of memory'. Key was $(k).");
+                throw new Ttl100OutOfMemoryError.GENERIC("Invalid request");
+            }
+            if (resp is Ttl100InsertRecordSuccessResponse)
+            {
+                return;
+            }
+            // unexpected class
+            if (resp == null)
+                warning(@"Ttl100Client: db_insert: Got unexpected null" +
+                @", throwing an 'out of memory'. Key was $(k).");
+            else
+                warning(@"Ttl100Client: db_insert: Got unexpected class $(resp.get_type().name())" +
+                @", throwing an 'out of memory'. Key was $(k).");
+            throw new Ttl100OutOfMemoryError.GENERIC("Unexpected response");
+        }
+
+        public void db_modify(int k, string v) throws Ttl100NotFoundError
+        {
+            error("not implemented yet");
+        }
+
+        public void db_touch(int k) throws Ttl100NotFoundError
+        {
+            error("not implemented yet");
+        }
+
+        public string db_read(int k) throws Ttl100NotFoundError
+        {
+            error("not implemented yet");
         }
     }
 
