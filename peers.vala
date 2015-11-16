@@ -1902,13 +1902,14 @@ namespace Netsukuku
                 tdd.dh.not_found_keys.remove(k);
         }
 
-        public void ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id)
+        public void ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id, bool new_network)
         {
             assert(services.has_key(p_id));
             TtlDbOnStartupTasklet ts = new TtlDbOnStartupTasklet();
             ts.t = this;
             ts.tdd = tdd;
             ts.p_id = p_id;
+            ts.new_network = new_network;
             tasklet.spawn(ts);
         }
         private class TtlDbOnStartupTasklet : Object, INtkdTaskletSpawnable
@@ -1916,13 +1917,14 @@ namespace Netsukuku
             public PeersManager t;
             public ITemporalDatabaseDescriptor tdd;
             public int p_id;
+            public bool new_network;
             public void * func()
             {
-                t.tasklet_ttl_db_on_startup(tdd, p_id); 
+                t.tasklet_ttl_db_on_startup(tdd, p_id, new_network); 
                 return null;
             }
         }
-        private void tasklet_ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id)
+        private void tasklet_ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id, bool new_network)
         {
             debug("starting tasklet_ttl_db_on_startup.\n");
             PeerService srv = services[p_id];
@@ -1942,14 +1944,33 @@ namespace Netsukuku
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, INtkdChannel>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.ready = true;
+            if (new_network)
+            {
+                tdd.dh.timer_default_not_exhaustive = new Timer(0);
+                debug("ending tasklet_ttl_db_on_startup: we're exhaustive because it's a new network.\n");
+                return;
+            }
             IPeersRequest r = new RequestSendKeys(tdd.ttl_db_max_records);
+            PeerTupleNode tuple_n;
+            PeerTupleNode respondant;
+            IPeersResponse _ret;
             try
             {
-                PeerTupleNode tuple_n = make_tuple_node(new HCoord(0, pos[0]), levels);
-                PeerTupleNode respondant;
+                tuple_n = make_tuple_node(new HCoord(0, pos[0]), levels);
                 debug("starting contact_peer for a request of send_keys.\n");
-                IPeersResponse _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
+                _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
                 debug("returned from contact_peer for a request of send_keys.\n");
+            } catch (PeersNoParticipantsInNetworkError e) {
+                tdd.dh.timer_default_not_exhaustive = new Timer(0);
+                debug("ending tasklet_ttl_db_on_startup: we're exhaustive because nobody participates.\n");
+                return;
+            } catch (PeersDatabaseError e) {
+                tdd.dh.timer_default_not_exhaustive = new Timer(0);
+                debug("ending tasklet_ttl_db_on_startup: we're exhaustive because nobody participates.\n");
+                return;
+            }
+            try
+            {
                 if (_ret is RequestSendKeysResponse)
                 {
                     RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
@@ -2051,6 +2072,7 @@ namespace Netsukuku
             }
             if (tdd.is_insert_request(r))
             {
+                debug("ttl_db_on_request: insert request.\n");
                 Object k = tdd.get_key_from_request(r);
                 if (tdd.my_records_contains(k))
                 {
@@ -2060,6 +2082,7 @@ namespace Netsukuku
                 }
                 if (ttl_db_is_exhaustive(tdd, k))
                 {
+                    debug("ttl_db_on_request: insert request: exhaustive for k.\n");
                     if (ttl_db_is_out_of_memory(tdd))
                     {
                         ttl_db_remove_not_found(tdd, k);
@@ -2078,6 +2101,7 @@ namespace Netsukuku
                 }
                 else
                 {
+                    debug("ttl_db_on_request: insert request: not exhaustive for k.\n");
                     if (tdd.dh.retrieving_keys.has_key(k))
                     {
                         INtkdChannel ch = tdd.dh.retrieving_keys[k];

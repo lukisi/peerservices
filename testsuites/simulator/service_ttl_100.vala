@@ -400,7 +400,7 @@ namespace ttl_100
         private int max_keys;
         private const int default_max_keys = 200;
         private HashMap<Ttl100Key, Ttl100Record> my_records;
-        public Ttl100Service(Gee.List<int> gsizes, PeersManager peers_manager, bool register=true, int max_records=-1, int max_keys=-1)
+        public Ttl100Service(Gee.List<int> gsizes, PeersManager peers_manager, bool new_network, bool register=true, int max_records=-1, int max_keys=-1)
         {
             base(ttl_100.p_id, false);
             this.peers_manager = peers_manager;
@@ -415,21 +415,23 @@ namespace ttl_100
                 // launch ttl_db_on_startup in a tasklet
                 StartTtlDbHandlerTasklet ts = new StartTtlDbHandlerTasklet();
                 ts.t = this;
+                ts.new_network = new_network;
                 tasklet.spawn(ts);
             }
         }
         private class StartTtlDbHandlerTasklet : Object, INtkdTaskletSpawnable
         {
             public Ttl100Service t;
+            public bool new_network;
             public void * func()
             {
-                t.tasklet_start_ttl_db_handler(); 
+                t.tasklet_start_ttl_db_handler(new_network); 
                 return null;
             }
         }
-        private void tasklet_start_ttl_db_handler()
+        private void tasklet_start_ttl_db_handler(bool new_network)
         {
-            peers_manager.ttl_db_on_startup(tdd, ttl_100.p_id);
+            peers_manager.ttl_db_on_startup(tdd, ttl_100.p_id, new_network);
         }
 
         private void purge()
