@@ -28,7 +28,7 @@ print_info n2
 
 print_info n3
 
-request_insert 1 primo_record query_node n2
+request_insert 1 primo_record query_node n2 with_retry
 
 wait_msec 10000
 

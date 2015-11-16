@@ -100,6 +100,7 @@ class Directive : Object
     public string req_insert_q_name;
     public int req_insert_k;
     public string req_insert_v;
+    public bool req_insert_retry;
 }
 
 string[] read_file(string path)
@@ -225,6 +226,8 @@ internal class FileTester : Object
                 dd.req_insert_v = line_pieces[2];
                 assert(line_pieces[3] == "query_node");
                 dd.req_insert_q_name = line_pieces[4];
+                dd.req_insert_retry = false;
+                if (line_pieces.length > 5 && line_pieces[5] == "with_retry") dd.req_insert_retry = true;
                 directives.add(dd);
                 data_cur++;
                 assert(data[data_cur] == "");
@@ -305,6 +308,20 @@ internal class FileTester : Object
                     print("done.\n");
                 } catch (ttl_100.Ttl100OutOfMemoryError e) {
                     print(@"out of memory: $(e.message).\n");
+                    if (dd.req_insert_retry)
+                    {
+                        print("trying again in 100 ms.\n");
+                        tasklet.ms_wait(100);
+                        print("trying again.\n");
+                        try {
+                            n.cli100.db_insert(dd.req_insert_k, dd.req_insert_v);
+                            print("done.\n");
+                        } catch (ttl_100.Ttl100OutOfMemoryError e) {
+                            print(@"out of memory: $(e.message).\n");
+                        } catch (ttl_100.Ttl100NotFreeError e) {
+                            print(@"not free: $(e.message).\n");
+                        }
+                    }
                 } catch (ttl_100.Ttl100NotFreeError e) {
                     print(@"not free: $(e.message).\n");
                 }
