@@ -29,12 +29,17 @@ namespace debugging
         DebugTupleGNode ret = new DebugTupleGNode();
         ret.s = "";
         string prefix = "";
+        for (int i = 0; i < n.top-n.tuple.size; i++)
+        {
+            ret.s += @"$(prefix)*";
+            prefix = ", ";
+        }
         foreach (int p in n.tuple)
         {
             ret.s += @"$(prefix)$(p)";
             prefix = ", ";
         }
-        ret.s = @"[$(ret.s)] with $(n.top) levels";
+        ret.s = @"[$(ret.s)]";
         return ret;
     }
 

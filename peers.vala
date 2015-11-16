@@ -1373,9 +1373,14 @@ namespace Netsukuku
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
+            int call_id = Random.int_range(0, int.MAX);
+            bool first_time = true;
+            debug(@"contact_peer called call_id=$(call_id)\n");
             bool redofromstart = true;
             while (redofromstart)
             {
+                if (first_time) first_time = false;
+                else debug(@"contact_peer redo from start call_id=$(call_id)\n");
                 redofromstart = false;
                 ArrayList<string> refuse_messages = new ArrayList<string>();
                 respondant = null;
@@ -1414,6 +1419,7 @@ namespace Netsukuku
                     HCoord? x = approximate(x_macron, exclude_gnode_list);
                     if (x == null)
                     {
+                        debug(@"contact_peer throws an error call_id=$(call_id)\n");
                         if (! refuse_messages.is_empty)
                         {
                             string err_msg = "";
@@ -1441,6 +1447,7 @@ namespace Netsukuku
                             continue; // next iteration of cicle 1.
                         }
                         respondant = make_tuple_node(new HCoord(0, pos[0]), 1);
+                        debug(@"contact_peer returns a response call_id=$(call_id)\n");
                         return response;
                     }
                     PeerMessageForwarder mf = new PeerMessageForwarder();
@@ -1455,8 +1462,10 @@ namespace Netsukuku
                     mf.pos = x.pos;
                     mf.p_id = p_id;
                     mf.msg_id = Random.int_range(0, int.MAX);
+                    debug(@"contact_peer generates msg_id=$(mf.msg_id),  call_id=$(call_id).\n");
                     foreach (PeerTupleGNode t in exclude_tuple_list.list)
                     {
+                        debug(@"exclude_tuple_list contains $(debugging.tuple_gnode(t).s).\n");
                         int @case;
                         HCoord ret;
                         convert_tuple_gnode(t, out @case, out ret);
@@ -1464,6 +1473,7 @@ namespace Netsukuku
                         {
                             if (ret.equals(x))
                             {
+                                debug(@" it is inside ($(x.lvl), $(x.pos)).\n");
                                 int eps = t.top - t.tuple.size;
                                 PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
                                 mf.exclude_tuple_list.add(_t);
@@ -1521,6 +1531,7 @@ namespace Netsukuku
                                 {
                                     exclude_gnode_list.add(ret);
                                 }
+                                debug(@"adding t=$(debugging.tuple_gnode(t).s) to exclude_tuple_list because of failure msg_id=$(mf.msg_id).\n");
                                 exclude_tuple_list.add(t);
                                 waiting_answer_map.unset(mf.msg_id);
                                 break;
@@ -1579,6 +1590,7 @@ namespace Netsukuku
                                 {
                                     exclude_gnode_list.add(ret);
                                 }
+                                debug(@"adding t=$(debugging.tuple_gnode(t).s) to exclude_tuple_list because of refuse msg_id=$(mf.msg_id).\n");
                                 exclude_tuple_list.add(t);
                                 respondant = null;
                                 waiting_answer_map.unset(mf.msg_id);
@@ -1615,7 +1627,12 @@ namespace Netsukuku
                     if (response != null)
                         break;
                 }
-                if (redofromstart) continue;
+                if (redofromstart)
+                {
+                    debug(@"got a redo_from_start,  call_id=$(call_id).\n");
+                    continue;
+                }
+                debug(@"contact_peer returns a response call_id=$(call_id)\n");
                 return response;
             }
             assert_not_reached();
@@ -1641,6 +1658,7 @@ namespace Netsukuku
             mf.pos = _pos;
             mf.p_id = p_id;
             mf.msg_id = Random.int_range(0, int.MAX);
+            debug(@"check_non_participation generates msg_id=$(mf.msg_id).\n");
             int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(lvl+1));
             WaitingAnswer waiting_answer = new WaitingAnswer(null, make_tuple_gnode(new HCoord(lvl, _pos), lvl+1));
             IPeersManagerStub gwstub;
@@ -1801,6 +1819,7 @@ namespace Netsukuku
             if (_cont.replicas.size >= _cont.q) return false;
             PeerTupleNode respondant;
             try {
+                debug("starting contact_peer for a request of replica.\n");
                 resp = contact_peer
                     (_cont.p_id, _cont.x_macron, _cont.r,
                      _cont.timeout_exec, true,
@@ -1905,6 +1924,7 @@ namespace Netsukuku
         }
         private void tasklet_ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id)
         {
+            debug("starting tasklet_ttl_db_on_startup.\n");
             PeerService srv = services[p_id];
             tdd.dh = new DatabaseHandler();
             tdd.dh.p_id = p_id;
@@ -1927,10 +1947,13 @@ namespace Netsukuku
             {
                 PeerTupleNode tuple_n = make_tuple_node(new HCoord(0, pos[0]), levels);
                 PeerTupleNode respondant;
+                debug("starting contact_peer for a request of send_keys.\n");
                 IPeersResponse _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
+                debug("returned from contact_peer for a request of send_keys.\n");
                 if (_ret is RequestSendKeysResponse)
                 {
                     RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
+                    debug(@"it is a valid response with $(ret.keys.size) keys.\n");
                     foreach (Object k in ret.keys)
                     {
                         if (! ttl_db_is_out_of_memory(tdd))
@@ -1971,6 +1994,7 @@ namespace Netsukuku
                 {
                     tasklet.ms_wait(2000);
                     respondant = null;
+                    debug("starting contact_peer for another request of send_keys.\n");
                     _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant, exclude_tuple_list);
                     if (_ret is RequestSendKeysResponse)
                     {
@@ -1999,10 +2023,13 @@ namespace Netsukuku
                     exclude_tuple_list.add(t_respondant);
                 }
             } catch (PeersNoParticipantsInNetworkError e) {
+                debug("returned from contact_peer for a request of send_keys with a PeersNoParticipantsInNetworkError.\n");
                 // Do nothing, terminates.
             } catch (PeersDatabaseError e) {
+                debug("returned from contact_peer for a request of send_keys with a PeersDatabaseError.\n");
                 // Do nothing, terminates.
             }
+            debug("ending tasklet_ttl_db_on_startup.\n");
         }
 
         public IPeersResponse
@@ -2227,22 +2254,30 @@ namespace Netsukuku
             try {
                 PeerTupleNode respondant;
                 PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
+                debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
                 IPeersResponse res = contact_peer(tdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, true, out respondant);
                 if (res is RequestWaitThenSendRecordResponse)
+                {
+                    debug(@"the request of wait_then_send_record returned a record.\n");
                     record = ((RequestWaitThenSendRecordResponse)res).record;
+                }
             } catch (PeersNoParticipantsInNetworkError e) {
+                debug(@"the request of wait_then_send_record threw a PeersNoParticipantsInNetworkError.\n");
                 // nop
             } catch (PeersDatabaseError e) {
+                debug(@"the request of wait_then_send_record threw a PeersDatabaseError.\n");
                 // nop
             }
             if (record != null && tdd.is_valid_record(k, record))
             {
+                debug(@"putting the record in my memory.\n");
                 ttl_db_remove_not_exhaustive(tdd, k);
                 ttl_db_remove_not_found(tdd, k);
                 tdd.set_record_for_key(k, record);
             }
             else
             {
+                debug(@"the request of wait_then_send_record returned a not_found.\n");
                 ttl_db_remove_not_exhaustive(tdd, k);
                 ttl_db_add_not_found(tdd, k);
             }
@@ -2386,6 +2421,7 @@ namespace Netsukuku
             try {
                 PeerTupleNode respondant;
                 PeerTupleNode h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
+                debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
                 IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, true, out respondant);
                 if (res is RequestWaitThenSendRecordResponse)
                     record = ((RequestWaitThenSendRecordResponse)res).record;
@@ -2443,6 +2479,9 @@ namespace Netsukuku
             if (! check_valid_message(mf)) return;
             if (_rpc_caller == null) return;
             // begin
+            debugging.DebugMessageForwarder deb = debugging.message_forwarder(mf);
+            debug(@"... with mf = {msg_id=$(deb.msg_id), to=$(deb.x_macron) inside ($(deb.lvl), $(deb.pos)),\n");
+            debug(@"               exclude_tuple_list=$(deb.exclude_tuple_list)}.\n");
             bool optional = false;
             bool exclude_myself = false;
             if (services.has_key(mf.p_id))
@@ -3012,6 +3051,7 @@ namespace Netsukuku
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
             PeerTupleNode respondant;
+            debug(@"starting contact_peer for a specific request from $(get_type().name()) (Key is a $(k.get_type().name())).\n");
             return
             peers_manager.contact_peer
                 (p_id,

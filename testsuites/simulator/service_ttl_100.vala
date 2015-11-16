@@ -703,6 +703,7 @@ namespace ttl_100
 
         private void handle_insert(int k, string v)
         {
+            debug(@"insert $(k), $(v)\n");
             Ttl100Key key = new Ttl100Key(k);
             my_records[key] = new Ttl100Record(k, v);
             HandleReplicaRecordTasklet ts = new HandleReplicaRecordTasklet();

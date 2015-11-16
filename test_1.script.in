@@ -12,7 +12,7 @@ wait_msec 2000
 
 add_neighbor n2 to first_node lower_pos 5 0 0 0
 
-wait_msec 2000
+wait_msec 4000
 
 print_info first_node
 
@@ -20,7 +20,7 @@ print_info n2
 
 add_neighbor n3 to first_node lower_pos 15 1 2 3 4 5
 
-wait_msec 2000
+wait_msec 6000
 
 print_info first_node
 
@@ -30,5 +30,5 @@ print_info n3
 
 request_insert 1 primo_record query_node n2
 
-wait_msec 1000
+wait_msec 10000
 

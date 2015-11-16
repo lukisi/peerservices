@@ -39,7 +39,6 @@ void print_object(Object obj)
 
 Object dup_object(Object obj)
 {
-    //print(@"dup_object...\n");
     Type type = obj.get_type();
     string t = json_string_object(obj);
     Json.Parser p = new Json.Parser();
@@ -47,7 +46,6 @@ Object dup_object(Object obj)
         assert(p.load_from_data(t));
     } catch (Error e) {assert_not_reached();}
     Object ret = Json.gobject_deserialize(type, p.get_root());
-    //print(@"dup_object done.\n");
     return ret;
 }
 
@@ -246,6 +244,7 @@ internal class FileTester : Object
         {
             if (dd.activate_node)
             {
+                print(@"activating node $(dd.name).\n");
                 // dd.lvl level of the existing g-node where we want to enter with a new lvl-1 gnode.
                 assert(dd.lvl <= levels);
                 assert(dd.lvl > 0);
@@ -277,9 +276,8 @@ internal class FileTester : Object
             }
             else if (dd.wait)
             {
-                print(@"waiting $(dd.wait_msec) msec...");
+                print(@"waiting $(dd.wait_msec) msec...\n");
                 tasklet.ms_wait(dd.wait_msec);
-                print("\n");
             }
             else if (dd.info)
             {
@@ -580,10 +578,13 @@ public class MyPeersManagerTcpFellowStub : Object, IPeersManagerStub
     (int lvl)
     throws PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug("calling get_participant_set...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
+        debug("executing get_participant_set...\n");
         IPeerParticipantSet ret = skeleton.get_participant_set(lvl, caller);
+        debug("returning data from get_participant_set.\n");
         return (IPeerParticipantSet)dup_object(ret);
     }
 
@@ -658,6 +659,7 @@ public class MyPeersManagerTcpNoWaitStub : Object, IPeersManagerStub
     (IPeerMessage peer_message)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"calling forward_peer_message $(peer_message.get_type().name())...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -667,6 +669,7 @@ public class MyPeersManagerTcpNoWaitStub : Object, IPeersManagerStub
         ts.peer_message = (IPeerMessage)dup_object(peer_message);
         ts.caller = caller;
         tasklet.spawn(ts);
+        debug("returning void from forward_peer_message.\n");
     }
     private class ForwardPeerMessageTasklet : Object, INtkdTaskletSpawnable
     {
@@ -681,6 +684,7 @@ public class MyPeersManagerTcpNoWaitStub : Object, IPeersManagerStub
     }
     private void tasklet_forward_peer_message(IPeerMessage peer_message, MyCallerInfo caller)
     {
+        debug("executing forward_peer_message...\n");
         skeleton.forward_peer_message(peer_message, caller);
     }
 
@@ -780,6 +784,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, IPeerTupleNode respondant)
     throws Netsukuku.PeersUnknownMessageError, Netsukuku.PeersInvalidRequest, zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'get_request' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -791,6 +796,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, IPeerTupleGNode tuple)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'set_failure' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -801,6 +807,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, IPeerTupleGNode tuple)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'set_next_destination' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -811,6 +818,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, IPeerTupleGNode tuple)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'set_non_participant' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -828,6 +836,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, IPeerTupleNode respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'set_redo_from_start' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -838,6 +847,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, string refuse_message, IPeerTupleNode respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'set_refuse_message' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
@@ -848,6 +858,7 @@ public class MyPeersManagerTcpInsideStub : Object, IPeersManagerStub
     (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
     throws zcd.ModRpc.StubError, zcd.ModRpc.DeserializeError
     {
+        debug(@"sending to caller 'set_response' msg_id=$(msg_id)...\n");
         if (!working) throw new zcd.ModRpc.StubError.GENERIC("not working");
         var caller = new MyCallerInfo();
         tasklet.ms_wait(2); // simulates network latency
