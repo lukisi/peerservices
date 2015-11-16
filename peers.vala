@@ -1536,10 +1536,11 @@ namespace Netsukuku
                                 {
                                     if (optional)
                                     {
-                                        if (! participant_maps.has_key(p_id))
-                                            throw new PeersNoParticipantsInNetworkError.GENERIC("");
-                                        PeerParticipantMap map = participant_maps[p_id];
-                                        map.participant_list.remove(ret);
+                                        if (participant_maps.has_key(p_id))
+                                        {
+                                            PeerParticipantMap map = participant_maps[p_id];
+                                            map.participant_list.remove(ret);
+                                        }
                                     }
                                     exclude_gnode_list.add(ret);
                                 }
@@ -1579,12 +1580,14 @@ namespace Netsukuku
                                     exclude_gnode_list.add(ret);
                                 }
                                 exclude_tuple_list.add(t);
+                                respondant = null;
                                 waiting_answer_map.unset(mf.msg_id);
                                 break;
                             }
                             else if (respondant != null && waiting_answer.redo_from_start)
                             {
                                 redofromstart = true;
+                                respondant = null;
                                 break;
                             }
                             else
@@ -1603,6 +1606,7 @@ namespace Netsukuku
                                 exclude_gnode_list.add(ret);
                             }
                             exclude_tuple_list.add(t);
+                            respondant = null;
                             waiting_answer_map.unset(mf.msg_id);
                             break;
                         }
