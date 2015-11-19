@@ -23,30 +23,32 @@ using Gee;
 namespace ttl_100
 {
     /* 
-     * Questa classe implementa un servizio non opzionale, il cui ID è 100.
-     * Si tratta di un semplice database distribuito in cui la chiave è un
-     * numero e il valore una stringa.
+     * This class implements a simple service, not optional, whose id is 100.
+     * It is a simple distributed database where for each record the key is
+     * a number and the value is a string.
      * 
-     * Il record ha un TTL di 20 secondi. La vita dei record è gestita
-     * dalla classe Ttl100Service. Viene esposto il valore del TTL perché
-     * il modulo PeerServices gestisce il tempo di ''non esaustivo''.
+     * The record has a TTL of 20 seconds.
+     * The lifecycle of a record is handled by the class Ttl100Service.
+     * The TTL of a fresh record is exposed on the due interface, because the
+     * module PeerServices handles the ''not_exhaustive'' time.
      * 
-     * Ogni singolo nodo può decidere quale sia il numero massimo di
-     * record che memorizza. Viene specificato nel costruttore di
-     * Ttl100Service. Un default è 50. Cosa analoga per il numero
-     * massimo di chiavi in memoria (ad uso interno del modulo) il cui
-     * default è 200.
+     * Each node can choose on its own the maximum number of records that it
+     * is willing to memorize. It is specified in the constructor of
+     * Ttl100Service. The default is 50. Same thing for the maximum number
+     * of keys to keep in memory (these are handled internally by the module)
+     * and it is by default 200.
      * 
-     * Le operazioni previste sono:
-     *  * Inserisci un record k,v. Possibili eccezioni: Ttl100OutOfMemoryError, Ttl100NotFreeError.
-     *  * Modifica un record k con il nuovo valore v. Possibili eccezioni: Ttl100NotFoundError.
-     *  * Tocca un record k. E' di modifica del solo TTL. Possibili eccezioni: Ttl100NotFoundError.
-     *  * Leggi il valore di un record k. Di sola lettura. Possibili eccezioni: Ttl100NotFoundError.
+     * Expected operations are:
+     *  * Insert a record k,v. Expected exceptions: Ttl100OutOfMemoryError, Ttl100NotFreeError.
+     *  * Modify a record k with a new value v. Expected exceptions: Ttl100NotFoundError.
+     *  * Touch a record k. It refreshes the TTL only. Expected exceptions: Ttl100NotFoundError.
+     *  * Delete a record k. Expected exceptions: Ttl100NotFoundError.
+     *  * Read the value of a record k. It is read-only. Expected exceptions: Ttl100NotFoundError.
      * 
-     * Per ogni scrittura, il nodo servente tenta di replicarla su 10 nodi.
+     * For any write-operation, the servant node tries and replicates it on 10 nodes.
      * 
-     * La gestione del database si avvale dei metodi ttl_db_on_startup e
-     * ttl_db_on_request forniti dal modulo PeerServices.
+     * For the management of the database the class uses methods ttl_db_on_startup and
+     * ttl_db_on_request provided by the module PeerServices.
      * 
      */
     internal const int fresh_msec_ttl = 20000;
@@ -188,6 +190,19 @@ namespace ttl_100
     {
     }
 
+    public class Ttl100DeleteRecordRequest : Object, IPeersRequest
+    {
+        public int k {get; set;}
+        public Ttl100DeleteRecordRequest(int k)
+        {
+            this.k = k;
+        }
+    }
+
+    public class Ttl100DeleteRecordSuccessResponse : Object, IPeersResponse
+    {
+    }
+
     public class Ttl100ReadRecordRequest : Object, IPeersRequest
     {
         public int k {get; set;}
@@ -254,6 +269,7 @@ namespace ttl_100
         if (r is Ttl100InsertRecordRequest) return timeout_write_operation;
         if (r is Ttl100TouchRecordRequest) return timeout_write_operation;
         if (r is Ttl100ModifyRecordRequest) return timeout_write_operation;
+        if (r is Ttl100DeleteRecordRequest) return timeout_write_operation;
         if (r is Ttl100ReadRecordRequest) return 1000;
         if (r is Ttl100ReplicaRecordRequest) return 1000;
         if (r is Ttl100ReplicaDeleteRequest) return 1000;
@@ -324,6 +340,18 @@ namespace ttl_100
             }
             assert(x0.k == 12);
             assert(x0.v == "Unbreakable");
+        }
+        {
+            Ttl100DeleteRecordRequest x0;
+            {
+                Json.Node node;
+                {
+                    Ttl100DeleteRecordRequest x = new Ttl100DeleteRecordRequest(12);
+                    node = Json.gobject_serialize(x);
+                }
+                x0 = (Ttl100DeleteRecordRequest)Json.gobject_deserialize(typeof(Ttl100DeleteRecordRequest), node);
+            }
+            assert(x0.k == 12);
         }
         {
             Ttl100ReadRecordRequest x0;
@@ -400,7 +428,8 @@ namespace ttl_100
         private int max_keys;
         private const int default_max_keys = 200;
         private HashMap<Ttl100Key, Ttl100Record> my_records;
-        public Ttl100Service(Gee.List<int> gsizes, PeersManager peers_manager, bool new_network, bool register=true, int max_records=-1, int max_keys=-1)
+        public Ttl100Service(Gee.List<int> gsizes, PeersManager peers_manager,
+                             bool new_network, bool register=true, int max_records=-1, int max_keys=-1)
         {
             base(ttl_100.p_id, false);
             this.peers_manager = peers_manager;
@@ -512,6 +541,7 @@ namespace ttl_100
             public bool my_records_contains(Object k)
             {
                 assert(k is Ttl100Key);
+                t.purge();
                 Ttl100Key _k = (Ttl100Key)k;
                 return t.my_records.has_key(_k);
             }
@@ -531,6 +561,7 @@ namespace ttl_100
                 assert(rec is Ttl100Record);
                 Ttl100Record _rec = (Ttl100Record)rec;
                 t.my_records[_k] = _rec;
+                debug(@"Service100: save record for k=$(_k.k)\n");
             }
 
             public Object get_key_from_request(IPeersRequest r)
@@ -548,6 +579,11 @@ namespace ttl_100
                 else if (r is Ttl100TouchRecordRequest)
                 {
                     Ttl100TouchRecordRequest _r = (Ttl100TouchRecordRequest)r;
+                    return new Ttl100Key(_r.k);
+                }
+                else if (r is Ttl100DeleteRecordRequest)
+                {
+                    Ttl100DeleteRecordRequest _r = (Ttl100DeleteRecordRequest)r;
                     return new Ttl100Key(_r.k);
                 }
                 else if (r is Ttl100ReadRecordRequest)
@@ -582,7 +618,10 @@ namespace ttl_100
                 {
                     return timeout_exec_for_request(r);
                 }
-                // TODO add delete
+                else if (r is Ttl100DeleteRecordRequest)
+                {
+                    return timeout_exec_for_request(r);
+                }
                 error("The module is asking for a timeout_exec when the request is not a write.");
             }
 
@@ -602,6 +641,7 @@ namespace ttl_100
             {
                 if (r is Ttl100TouchRecordRequest) return true;
                 if (r is Ttl100ModifyRecordRequest) return true;
+                if (r is Ttl100DeleteRecordRequest) return true;
                 return false;
             }
 
@@ -652,6 +692,12 @@ namespace ttl_100
                 {
                     Ttl100ReadRecordRequest _r = (Ttl100ReadRecordRequest)r;
                     return new Ttl100ReadRecordSuccessResponse(t.handle_read(_r.k));
+                }
+                else if (r is Ttl100DeleteRecordRequest)
+                {
+                    Ttl100DeleteRecordRequest _r = (Ttl100DeleteRecordRequest)r;
+                    t.handle_delete(_r.k);
+                    return new Ttl100DeleteRecordSuccessResponse();
                 }
                 else if (r is Ttl100ReplicaRecordRequest)
                 {
@@ -708,7 +754,8 @@ namespace ttl_100
             debug(@"insert $(k), $(v)\n");
             Ttl100Key key = new Ttl100Key(k);
             my_records[key] = new Ttl100Record(k, v);
-            HandleReplicaRecordTasklet ts = new HandleReplicaRecordTasklet();
+            debug(@"Service100: save record for k=$(k)\n");
+            RequestReplicaRecordTasklet ts = new RequestReplicaRecordTasklet();
             ts.t = this;
             ts.k = key;
             ts.record = my_records[key];
@@ -717,21 +764,34 @@ namespace ttl_100
 
         private void handle_touch(int k)
         {
+            debug(@"touch $(k)\n");
             Ttl100Key key = new Ttl100Key(k);
             Ttl100Record rec = my_records[key];
             rec.msec_ttl = fresh_msec_ttl;
-            HandleReplicaRecordTasklet ts = new HandleReplicaRecordTasklet();
+            RequestReplicaRecordTasklet ts = new RequestReplicaRecordTasklet();
             ts.t = this;
             ts.k = key;
             ts.record = my_records[key];
             tasklet.spawn(ts);
         }
 
+        private void handle_delete(int k)
+        {
+            debug(@"delete $(k)\n");
+            Ttl100Key key = new Ttl100Key(k);
+            my_records.unset(key);
+            RequestReplicaDeleteTasklet ts = new RequestReplicaDeleteTasklet();
+            ts.t = this;
+            ts.k = key;
+            tasklet.spawn(ts);
+        }
+
         private void handle_modify(int k, string v)
         {
+            debug(@"modify $(k), $(v)\n");
             Ttl100Key key = new Ttl100Key(k);
             my_records[key] = new Ttl100Record(k, v);
-            HandleReplicaRecordTasklet ts = new HandleReplicaRecordTasklet();
+            RequestReplicaRecordTasklet ts = new RequestReplicaRecordTasklet();
             ts.t = this;
             ts.k = key;
             ts.record = my_records[key];
@@ -748,25 +808,27 @@ namespace ttl_100
         private void handle_replica_record(Ttl100Record record)
         {
             my_records[new Ttl100Key(record.k)] = record;
+            debug(@"Service100: save record for k=$(record.k)\n");
         }
 
         private void handle_replica_delete(int k)
         {
             my_records.unset(new Ttl100Key(k));
+            debug(@"Service100: delete record for k=$(k)\n");
         }
 
-        private class HandleReplicaRecordTasklet : Object, INtkdTaskletSpawnable
+        private class RequestReplicaRecordTasklet : Object, INtkdTaskletSpawnable
         {
             public Ttl100Service t;
             public Ttl100Key k;
             public Ttl100Record record;
             public void * func()
             {
-                t.tasklet_handle_replica_record(k, record); 
+                t.tasklet_request_replica_record(k, record); 
                 return null;
             }
         }
-        private void tasklet_handle_replica_record(Ttl100Key k, Ttl100Record record)
+        private void tasklet_request_replica_record(Ttl100Key k, Ttl100Record record)
         {
             Gee.List<int> perfect_tuple = client.perfect_tuple(k);
             Ttl100ReplicaRecordRequest r = new Ttl100ReplicaRecordRequest(record);
@@ -782,19 +844,44 @@ namespace ttl_100
             }
         }
 
-        private class HandleReplicaDeleteTasklet : Object, INtkdTaskletSpawnable
+        private class RequestReplicaDeleteTasklet : Object, INtkdTaskletSpawnable
         {
             public Ttl100Service t;
             public Ttl100Key k;
             public void * func()
             {
-                t.tasklet_handle_replica_delete(k); 
+                t.tasklet_request_replica_delete(k); 
                 return null;
             }
         }
-        private void tasklet_handle_replica_delete(Ttl100Key k)
+        private void tasklet_request_replica_delete(Ttl100Key k)
         {
-            // TODO
+            Gee.List<int> perfect_tuple = client.perfect_tuple(k);
+            Ttl100ReplicaDeleteRequest r = new Ttl100ReplicaDeleteRequest(k);
+            int timeout_exec = timeout_exec_for_request(r);
+            IPeersResponse resp;
+            IPeersContinuation cont;
+            if (peers_manager.begin_replica(replica_q, p_id, perfect_tuple, r, timeout_exec, out resp, out cont))
+            {
+                while (peers_manager.next_replica(cont, out resp))
+                {
+                    // nop
+                }
+            }
+        }
+
+        /* methods used for testing purposes
+         */
+        public HashMap<int, string> get_records()
+        {
+            HashMap<int, string> ret = new HashMap<int, string>();
+            purge();
+            foreach (Ttl100Key k in my_records.keys)
+            {
+                Ttl100Record r = my_records[k];
+                ret[k.k] = r.v;
+            }
+            return ret;
         }
     }
 
@@ -811,12 +898,6 @@ namespace ttl_100
             Ttl100Key _k = (Ttl100Key)k;
             return @"$(_k.k)".hash() % (top+1);
         }
-        /*
-     *  * Inserisci un record k,v. Possibili eccezioni: Ttl100OutOfMemoryError, Ttl100NotFreeError.
-     *  * Modifica un record k con il nuovo valore v. Possibili eccezioni: Ttl100NotFoundError.
-     *  * Tocca un record k. E' di modifica del solo TTL. Possibili eccezioni: Ttl100NotFoundError.
-     *  * Leggi il valore di un record k. Di sola lettura. Possibili eccezioni: Ttl100NotFoundError.
-        */
 
         public void db_insert(int k, string v) throws Ttl100OutOfMemoryError, Ttl100NotFreeError
         {
@@ -857,17 +938,150 @@ namespace ttl_100
 
         public void db_modify(int k, string v) throws Ttl100NotFoundError
         {
-            error("not implemented yet");
+            IPeersResponse resp;
+            IPeersRequest r = new Ttl100ModifyRecordRequest(k, v);
+            try {
+                resp = this.call(new Ttl100Key(k), r, timeout_exec_for_request(r));
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug("Ttl100Client: db_modify: Got 'no participants', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            } catch (PeersDatabaseError e) {
+                debug("Ttl100Client: db_modify: Got 'database error', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            }
+            if (resp is Ttl100SearchRecordNotFoundResponse)
+            {
+                debug(@"Ttl100Client: db_modify: Got 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC(@"$(k) not found");
+            }
+            if (resp is Ttl100InvalidRequestResponse)
+            {
+                warning(@"Ttl100Client: db_modify: Got 'invalid request', throwing an 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC("Invalid request");
+            }
+            if (resp is Ttl100ModifyRecordSuccessResponse)
+            {
+                return;
+            }
+            // unexpected class
+            if (resp == null)
+                warning(@"Ttl100Client: db_modify: Got unexpected null" +
+                @", throwing an 'not found'. Key was $(k).");
+            else
+                warning(@"Ttl100Client: db_modify: Got unexpected class $(resp.get_type().name())" +
+                @", throwing an 'not found'. Key was $(k).");
+            throw new Ttl100NotFoundError.GENERIC("Unexpected response");
         }
 
         public void db_touch(int k) throws Ttl100NotFoundError
         {
-            error("not implemented yet");
+            IPeersResponse resp;
+            IPeersRequest r = new Ttl100TouchRecordRequest(k);
+            try {
+                resp = this.call(new Ttl100Key(k), r, timeout_exec_for_request(r));
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug("Ttl100Client: db_touch: Got 'no participants', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            } catch (PeersDatabaseError e) {
+                debug("Ttl100Client: db_touch: Got 'database error', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            }
+            if (resp is Ttl100SearchRecordNotFoundResponse)
+            {
+                debug(@"Ttl100Client: db_touch: Got 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC(@"$(k) not found");
+            }
+            if (resp is Ttl100InvalidRequestResponse)
+            {
+                warning(@"Ttl100Client: db_touch: Got 'invalid request', throwing an 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC("Invalid request");
+            }
+            if (resp is Ttl100TouchRecordSuccessResponse)
+            {
+                return;
+            }
+            // unexpected class
+            if (resp == null)
+                warning(@"Ttl100Client: db_touch: Got unexpected null" +
+                @", throwing an 'not found'. Key was $(k).");
+            else
+                warning(@"Ttl100Client: db_touch: Got unexpected class $(resp.get_type().name())" +
+                @", throwing an 'not found'. Key was $(k).");
+            throw new Ttl100NotFoundError.GENERIC("Unexpected response");
+        }
+
+        public void db_delete(int k) throws Ttl100NotFoundError
+        {
+            IPeersResponse resp;
+            IPeersRequest r = new Ttl100DeleteRecordRequest(k);
+            try {
+                resp = this.call(new Ttl100Key(k), r, timeout_exec_for_request(r));
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug("Ttl100Client: db_delete: Got 'no participants', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            } catch (PeersDatabaseError e) {
+                debug("Ttl100Client: db_delete: Got 'database error', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            }
+            if (resp is Ttl100SearchRecordNotFoundResponse)
+            {
+                debug(@"Ttl100Client: db_delete: Got 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC(@"$(k) not found");
+            }
+            if (resp is Ttl100InvalidRequestResponse)
+            {
+                warning(@"Ttl100Client: db_delete: Got 'invalid request', throwing an 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC("Invalid request");
+            }
+            if (resp is Ttl100DeleteRecordSuccessResponse)
+            {
+                return;
+            }
+            // unexpected class
+            if (resp == null)
+                warning(@"Ttl100Client: db_delete: Got unexpected null" +
+                @", throwing an 'not found'. Key was $(k).");
+            else
+                warning(@"Ttl100Client: db_delete: Got unexpected class $(resp.get_type().name())" +
+                @", throwing an 'not found'. Key was $(k).");
+            throw new Ttl100NotFoundError.GENERIC("Unexpected response");
         }
 
         public string db_read(int k) throws Ttl100NotFoundError
         {
-            error("not implemented yet");
+            IPeersResponse resp;
+            IPeersRequest r = new Ttl100ReadRecordRequest(k);
+            try {
+                resp = this.call(new Ttl100Key(k), r, timeout_exec_for_request(r));
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug("Ttl100Client: db_read: Got 'no participants', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            } catch (PeersDatabaseError e) {
+                debug("Ttl100Client: db_read: Got 'database error', throwing an 'not found'.");
+                throw new Ttl100NotFoundError.GENERIC("Not found");
+            }
+            if (resp is Ttl100SearchRecordNotFoundResponse)
+            {
+                debug(@"Ttl100Client: db_read: Got 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC(@"$(k) not found");
+            }
+            if (resp is Ttl100InvalidRequestResponse)
+            {
+                warning(@"Ttl100Client: db_read: Got 'invalid request', throwing an 'not found'. Key was $(k).");
+                throw new Ttl100NotFoundError.GENERIC("Invalid request");
+            }
+            if (resp is Ttl100ReadRecordSuccessResponse)
+            {
+                return ((Ttl100ReadRecordSuccessResponse)resp).v;
+            }
+            // unexpected class
+            if (resp == null)
+                warning(@"Ttl100Client: db_read: Got unexpected null" +
+                @", throwing an 'not found'. Key was $(k).");
+            else
+                warning(@"Ttl100Client: db_read: Got unexpected class $(resp.get_type().name())" +
+                @", throwing an 'not found'. Key was $(k).");
+            throw new Ttl100NotFoundError.GENERIC("Unexpected response");
         }
     }
 

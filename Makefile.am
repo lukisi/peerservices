@@ -13,6 +13,8 @@ noinst_PROGRAMS =  \
 TESTS = \
 	test_serialization \
 	test_1 \
+	test_2 \
+	test_3 \
 	$(NULL)
 
 check_PROGRAMS = \
@@ -62,6 +64,7 @@ libpeers_la_LIBADD = \
 test_serialization_SOURCES = \
 	testsuites/test_serialization/test_serialization.vala \
 	testsuites/test_serialization/peers.vala \
+	testsuites/test_serialization/peers_debug.vala \
 	testsuites/test_serialization/serialize_helpers.vala \
 	$(NULL)
 

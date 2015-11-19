@@ -749,7 +749,7 @@ namespace Netsukuku
         // for TTL-based services
         internal HashMap<Object,Timer> not_exhaustive_keys;
         internal ArrayList<Object> not_found_keys;
-        internal Timer timer_default_not_exhaustive;
+        internal Timer? timer_default_not_exhaustive;
         // for few-fixed-keys services
         internal ArrayList<Object> not_completed_keys;
     }
@@ -1376,6 +1376,7 @@ namespace Netsukuku
             int call_id = Random.int_range(0, int.MAX);
             bool first_time = true;
             debug(@"contact_peer called call_id=$(call_id)\n");
+            debug(@"hash_node for call_id=$(call_id) is $(debugging.tuple_node(x_macron).s).\n");
             bool redofromstart = true;
             while (redofromstart)
             {
@@ -1448,6 +1449,7 @@ namespace Netsukuku
                         }
                         respondant = make_tuple_node(new HCoord(0, pos[0]), 1);
                         debug(@"contact_peer returns a response call_id=$(call_id)\n");
+                        debug(@"response for call_id=$(call_id) was provided by $(debugging.tuple_node(respondant).s).\n");
                         return response;
                     }
                     PeerMessageForwarder mf = new PeerMessageForwarder();
@@ -1633,6 +1635,7 @@ namespace Netsukuku
                     continue;
                 }
                 debug(@"contact_peer returns a response call_id=$(call_id)\n");
+                debug(@"response for call_id=$(call_id) was provided by $(debugging.tuple_node(respondant).s).\n");
                 return response;
             }
             assert_not_reached();
@@ -1849,8 +1852,14 @@ namespace Netsukuku
                 assert(! (tdd.dh.not_exhaustive_keys.has_key(k)));
                 return true;
             }
-            if (tdd.dh.timer_default_not_exhaustive.is_expired())
+            if (tdd.dh.timer_default_not_exhaustive == null)
                 return true;
+            if (tdd.dh.timer_default_not_exhaustive.is_expired())
+            {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("TemporalDatabase becomes default_exhaustive\n");
+                return true;
+            }
             return false;
         }
 
@@ -1876,6 +1885,7 @@ namespace Netsukuku
                 return;
             }
             tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
+            debug("TemporalDatabase becomes default_not_exhaustive\n");
             tdd.dh.not_exhaustive_keys.clear();
         }
 
@@ -1920,13 +1930,14 @@ namespace Netsukuku
             public bool new_network;
             public void * func()
             {
-                t.tasklet_ttl_db_on_startup(tdd, p_id, new_network); 
+                debug("starting tasklet_ttl_db_on_startup.\n");
+                t.tasklet_ttl_db_on_startup(tdd, p_id, new_network);
+                debug("ending tasklet_ttl_db_on_startup.\n");
                 return null;
             }
         }
         private void tasklet_ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id, bool new_network)
         {
-            debug("starting tasklet_ttl_db_on_startup.\n");
             PeerService srv = services[p_id];
             tdd.dh = new DatabaseHandler();
             tdd.dh.p_id = p_id;
@@ -1946,8 +1957,8 @@ namespace Netsukuku
             tdd.dh.ready = true;
             if (new_network)
             {
-                tdd.dh.timer_default_not_exhaustive = new Timer(0);
-                debug("ending tasklet_ttl_db_on_startup: we're exhaustive because it's a new network.\n");
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because it's a new network.\n");
                 return;
             }
             IPeersRequest r = new RequestSendKeys(tdd.ttl_db_max_records);
@@ -1961,14 +1972,15 @@ namespace Netsukuku
                 _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
                 debug("returned from contact_peer for a request of send_keys.\n");
             } catch (PeersNoParticipantsInNetworkError e) {
-                tdd.dh.timer_default_not_exhaustive = new Timer(0);
-                debug("ending tasklet_ttl_db_on_startup: we're exhaustive because nobody participates.\n");
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because nobody participates.\n");
                 return;
             } catch (PeersDatabaseError e) {
-                tdd.dh.timer_default_not_exhaustive = new Timer(0);
-                debug("ending tasklet_ttl_db_on_startup: we're exhaustive because nobody participates.\n");
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because nobody participates.\n");
                 return;
             }
+            Timer timer_startup = new Timer(tdd.ttl_db_msec_ttl / 10);
             try
             {
                 if (_ret is RequestSendKeysResponse)
@@ -1990,30 +2002,21 @@ namespace Netsukuku
                                     {
                                         ttl_db_start_retrieve(tdd, k);
                                         tasklet.ms_wait(2000);
+                                        if (timer_startup.is_expired()) return;
                                     }
                                 }
                             }
                         }
                     }
                 }
-                int @case;
-                HCoord n0;
-                convert_tuple_gnode(tuple_node_to_tuple_gnode(respondant), out @case, out n0);
-                int l_n0 = n0.lvl;
-                int p_n0 = n0.pos;
-                tuple_n = make_tuple_node(new HCoord(0, pos[0]), l_n0+1);
-                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer(l_n0+1);
-                for (int i = 0; i < gsizes[l_n0]; i++) if (i != p_n0)
-                {
-                    HCoord gn = new HCoord(l_n0, i);
-                    PeerTupleGNode t = make_tuple_gnode(gn, l_n0+1);
-                    exclude_tuple_list.add(t);
-                }
-                PeerTupleGNode t_respondant = new PeerTupleGNode(respondant.tuple.slice(0, l_n0+1), l_n0+1);
+                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer(levels);
+                PeerTupleGNode t_respondant = new PeerTupleGNode(respondant.tuple, levels);
                 exclude_tuple_list.add(t_respondant);
-                while (! ttl_db_is_out_of_memory(tdd))
+                while (true)
                 {
+                    if (ttl_db_is_out_of_memory(tdd)) return;
                     tasklet.ms_wait(2000);
+                    if (timer_startup.is_expired()) return;
                     respondant = null;
                     debug("starting contact_peer for another request of send_keys.\n");
                     _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant, exclude_tuple_list);
@@ -2028,29 +2031,31 @@ namespace Netsukuku
                                     (! ttl_db_is_exhaustive(tdd, k)) &&
                                     (! tdd.dh.retrieving_keys.has_key(k)))
                                 {
-                                    PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k).slice(0, tuple_n.top));
+                                    PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
                                     if (dist(h_p_k, tuple_n) < dist(h_p_k, respondant))
                                     {
                                         ttl_db_start_retrieve(tdd, k);
-                                        if (ttl_db_is_out_of_memory(tdd)) break;
+                                        if (ttl_db_is_out_of_memory(tdd)) return;
                                         tasklet.ms_wait(2000);
+                                        if (timer_startup.is_expired()) return;
                                     }
                                 }
                             }
                         }
-                        if (ttl_db_is_out_of_memory(tdd)) break;
+                        if (ttl_db_is_out_of_memory(tdd)) return;
                     }
                     t_respondant = tuple_node_to_tuple_gnode(respondant);
                     exclude_tuple_list.add(t_respondant);
                 }
             } catch (PeersNoParticipantsInNetworkError e) {
-                debug("returned from contact_peer for a request of send_keys with a PeersNoParticipantsInNetworkError.\n");
-                // Do nothing, terminates.
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because we got answers from every participant.\n");
+                return;
             } catch (PeersDatabaseError e) {
-                debug("returned from contact_peer for a request of send_keys with a PeersDatabaseError.\n");
-                // Do nothing, terminates.
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because we got answers from every participant.\n");
+                return;
             }
-            debug("ending tasklet_ttl_db_on_startup.\n");
         }
 
         public IPeersResponse
