@@ -2002,7 +2002,11 @@ namespace Netsukuku
                                     {
                                         ttl_db_start_retrieve(tdd, k);
                                         tasklet.ms_wait(2000);
-                                        if (timer_startup.is_expired()) return;
+                                        if (timer_startup.is_expired())
+                                        {
+                                            debug("we're not exhaustive, but the time is over.\n");
+                                            return;
+                                        }
                                     }
                                 }
                             }
@@ -2014,9 +2018,17 @@ namespace Netsukuku
                 exclude_tuple_list.add(t_respondant);
                 while (true)
                 {
-                    if (ttl_db_is_out_of_memory(tdd)) return;
+                    if (ttl_db_is_out_of_memory(tdd))
+                    {
+                        debug("we're not exhaustive, but the memory is over.\n");
+                        return;
+                    }
                     tasklet.ms_wait(2000);
-                    if (timer_startup.is_expired()) return;
+                    if (timer_startup.is_expired())
+                    {
+                        debug("we're not exhaustive, but the time is over.\n");
+                        return;
+                    }
                     respondant = null;
                     debug("starting contact_peer for another request of send_keys.\n");
                     _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant, exclude_tuple_list);
@@ -2035,14 +2047,26 @@ namespace Netsukuku
                                     if (dist(h_p_k, tuple_n) < dist(h_p_k, respondant))
                                     {
                                         ttl_db_start_retrieve(tdd, k);
-                                        if (ttl_db_is_out_of_memory(tdd)) return;
+                                        if (ttl_db_is_out_of_memory(tdd))
+                                        {
+                                            debug("we're not exhaustive, but the memory is over.\n");
+                                            return;
+                                        }
                                         tasklet.ms_wait(2000);
-                                        if (timer_startup.is_expired()) return;
+                                        if (timer_startup.is_expired())
+                                        {
+                                            debug("we're not exhaustive, but the time is over.\n");
+                                            return;
+                                        }
                                     }
                                 }
                             }
                         }
-                        if (ttl_db_is_out_of_memory(tdd)) return;
+                        if (ttl_db_is_out_of_memory(tdd))
+                        {
+                            debug("we're not exhaustive, but the memory is over.\n");
+                            return;
+                        }
                     }
                     t_respondant = tuple_node_to_tuple_gnode(respondant);
                     exclude_tuple_list.add(t_respondant);

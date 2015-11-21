@@ -1,0 +1,145 @@
+topology
+2 2 2 2 2 2 2 2 2 2 2 2
+
+first_node
+1 0 0 0 0 0 1 0 1 1 1 0
+
+add_neighbor n1 to first_node lower_pos 0 1 0 0 0 0 1 1 1 0 0 0
+
+add_neighbor n2 to n1 lower_pos 0 1 1 1 1 0 1 1 0 0 0
+
+add_neighbor n3 to n1 lower_pos 1 0 0 0 1 1 1 0 1 1
+
+add_neighbor n4 to n3 lower_pos 1 1 0 1 1 0 0 0 1
+
+add_neighbor n5 to n3 lower_pos 1 0 1 0 1 0 1 0
+
+add_neighbor n6 to first_node lower_pos 1 0 0 1 1 0 1 1 0 1 0
+
+add_neighbor n7 to n5 lower_pos 1 1 1 1 1 1 0
+
+add_neighbor n8 to n6 lower_pos 1 1 1 0 0 1 1 0 1 0
+
+add_neighbor n9 to n3 lower_pos 1 1 1 1 0 1 0
+
+add_neighbor n10 to n6 lower_pos 1 0 1 1 1 0 1 0 1
+
+add_neighbor n11 to n8 lower_pos 0 1 1 1 0 0 1 1 1
+
+add_neighbor n12 to n2 lower_pos 0 0 0 0 0 1 0 0 1 1
+
+add_neighbor n13 to n11 lower_pos 0 0 1 1 0 1 0 0
+
+add_neighbor n14 to n11 lower_pos 0 1 1 0 0 1 1
+
+add_neighbor n15 to n13 lower_pos 1 1 1 0 0 0 0
+
+add_neighbor n16 to n4 lower_pos 0 1 0 1 0 1 0 0
+
+add_neighbor n17 to n6 lower_pos 0 0 1 0 1 0 0 1
+
+add_neighbor n18 to n15 lower_pos 0 0 1 0 1 1
+
+add_neighbor n19 to n4 lower_pos 1 0 0 0 0 0 0
+
+add_neighbor n20 to n13 lower_pos 0 1 1 0 0 1
+
+add_neighbor n21 to n6 lower_pos 0 1 0 0 1 0 0
+
+add_neighbor n22 to n2 lower_pos 0 0 0 1 0 0 1 1 0
+
+add_neighbor n23 to n21 lower_pos 0 1 0 0 0 1
+
+add_neighbor n24 to n16 lower_pos 0 0 1 0 0 0 0
+
+add_neighbor n25 to n17 lower_pos 1 0 0 0 1 1 1
+
+add_neighbor n26 to n20 lower_pos 0 1 0 1 0
+
+add_neighbor n27 to n25 lower_pos 1 1 1 1 0 0
+
+add_neighbor n28 to n9 lower_pos 0 1 0 0 0 0
+
+add_neighbor n29 to n10 lower_pos 1 0 0 1 0 0 0 0
+
+add_neighbor n30 to n19 lower_pos 1 0 0 1 1 0
+
+add_neighbor n31 to n9 lower_pos 0 0 1 0 0
+
+add_neighbor n32 to n8 lower_pos 0 0 0 0 0 0 0 1
+
+add_neighbor n33 to n5 lower_pos 0 0 1 1 1 1
+
+add_neighbor n34 to n11 lower_pos 0 0 1 1 1 1
+
+add_neighbor n35 to n26 lower_pos 0 0 1 0
+
+add_neighbor n36 to n27 lower_pos 0 1 0 0 1
+
+add_neighbor n37 to n26 lower_pos 1 0 1
+
+add_neighbor n38 to n31 lower_pos 1 0 0 0
+
+add_neighbor n39 to n31 lower_pos 0 1 0
+
+add_neighbor n40 to n32 lower_pos 1 0 0 1 0 0 1
+
+add_neighbor n41 to n25 lower_pos 1 0 0 0 0
+
+add_neighbor n42 to n20 lower_pos 0 1 0 0
+
+add_neighbor n43 to n37 lower_pos 1 1
+
+add_neighbor n44 to n22 lower_pos 1 0 1 0 1 0 0 0
+
+add_neighbor n45 to n1 lower_pos 1 0 1 1 1 0 0 1 0
+
+add_neighbor n46 to n26 lower_pos 0 1
+
+add_neighbor n47 to n43 lower_pos 0
+
+add_neighbor n48 to first_node lower_pos 1 0 0 1 0 0 0 0 0 1
+
+add_neighbor n49 to n13 lower_pos 0 1 1 0 1
+
+wait_msec 7000
+
+request_insert 942328652 primo_record query_node n12 with_retry
+assert ok
+
+request_insert 942328652 secondo_tentativo query_node n32 with_retry
+assert not_free
+
+wait_msec 4000
+
+request_insert 664916498 persistent_one query_node n41 with_retry
+assert ok
+
+wait_msec 1000
+
+request_read 942328652 query_node n17
+assert ok
+expect primo_record
+
+request_read 664916498 query_node n17
+assert ok
+expect persistent_one
+
+request_read 123456 query_node n17
+assert not_found
+
+wait_msec 10000
+
+request_touch 664916498 query_node n17
+assert ok
+
+wait_msec 10000
+
+request_read 942328652 query_node n17
+assert not_found
+
+request_read 664916498 query_node n17
+assert ok
+expect persistent_one
+
+

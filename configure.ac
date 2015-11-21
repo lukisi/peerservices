@@ -26,6 +26,6 @@ PKG_CHECK_MODULES([NTKDRPC], [ntkdrpc zcd-tasklet-system])
 PKG_CHECK_MODULES([TASKLET], [tasklet])
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile peers.pc test_1.script test_2.script test_3.script])
+AC_CONFIG_FILES([Makefile peers.pc test_1.script test_2.script test_3.script test_4.script])
 AC_OUTPUT
 

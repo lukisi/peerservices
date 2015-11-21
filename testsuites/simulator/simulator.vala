@@ -412,6 +412,7 @@ internal class FileTester : Object
                 assert(dd.lvl <= levels);
                 assert(dd.lvl > 0);
                 var neighbor_n = nodes[dd.neighbor_name];
+                while (neighbor_n.peers_manager == null) tasklet.ms_wait(10);
                 nodes[dd.name] = new SimulatorNode();
                 SimulatorNode n = nodes[dd.name];
                 n.name = dd.name;

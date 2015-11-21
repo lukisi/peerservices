@@ -185,6 +185,8 @@ assert not_found
 request_delete 942328652 query_node n16
 assert not_found
 
+wait_msec 2000
+
 print_info first_node
 
 print_info n2

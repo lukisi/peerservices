@@ -15,6 +15,7 @@ TESTS = \
 	test_1 \
 	test_2 \
 	test_3 \
+	test_4 \
 	$(NULL)
 
 check_PROGRAMS = \
