@@ -2381,7 +2381,7 @@ namespace Netsukuku
             foreach (Object k in k_set)
             {
                 fixed_keys_db_start_retrieve(fkdd, k);
-                tasklet.ms_wait(2000);
+                tasklet.ms_wait(200);
             }
         }
 
@@ -2427,7 +2427,7 @@ namespace Netsukuku
                 }
                 else
                 {
-                    assert(fkdd.dh.retrieving_keys.has_key(k));
+                    while (! fkdd.dh.retrieving_keys.has_key(k)) tasklet.ms_wait(200);
                     INtkdChannel ch = fkdd.dh.retrieving_keys[k];
                     try {
                         ch.recv_with_timeout(fkdd.get_timeout_exec(r) - 1000);
@@ -2471,17 +2471,22 @@ namespace Netsukuku
         {
             Object? record = null;
             IPeersRequest r = new RequestWaitThenSendRecord(k);
-            try {
-                PeerTupleNode respondant;
-                PeerTupleNode h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
-                debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
-                IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, true, out respondant);
-                if (res is RequestWaitThenSendRecordResponse)
-                    record = ((RequestWaitThenSendRecordResponse)res).record;
-            } catch (PeersNoParticipantsInNetworkError e) {
-                // nop
-            } catch (PeersDatabaseError e) {
-                // nop
+            int timeout_exec = RequestWaitThenSendRecord.timeout_exec;
+            while (true)
+            {
+                try {
+                    PeerTupleNode respondant;
+                    PeerTupleNode h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
+                    debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
+                    IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, timeout_exec, true, out respondant);
+                    if (res is RequestWaitThenSendRecordResponse)
+                        record = ((RequestWaitThenSendRecordResponse)res).record;
+                    break;
+                } catch (PeersNoParticipantsInNetworkError e) {
+                    break;
+                } catch (PeersDatabaseError e) {
+                    tasklet.ms_wait(200);
+                }
             }
             if (record != null && fkdd.is_valid_record(k, record))
             {
