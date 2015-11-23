@@ -1450,7 +1450,7 @@ namespace Netsukuku
                             exclude_gnode_list.add(new HCoord(0, pos[0]));
                             continue; // next iteration of cicle 1.
                         }
-                        respondant = make_tuple_node(new HCoord(0, pos[0]), 1);
+                        respondant = make_tuple_node(new HCoord(0, pos[0]), target_levels);
                         debug(@"contact_peer returns a response call_id=$(call_id)\n");
                         debug(@"response for call_id=$(call_id) was provided by $(debugging.tuple_node(respondant).s).\n");
                         return response;
@@ -2006,14 +2006,23 @@ namespace Netsukuku
                                     (! tdd.dh.retrieving_keys.has_key(k)))
                                 {
                                     PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
-                                    if (dist(h_p_k, tuple_n) < dist(h_p_k, respondant))
+                                    int l = h_p_k.tuple.size;
+                                    int @case;
+                                    HCoord gn;
+                                    convert_tuple_gnode(tuple_node_to_tuple_gnode(respondant), out @case, out gn);
+                                    if (gn.lvl <= l)
                                     {
-                                        ttl_db_start_retrieve(tdd, k);
-                                        tasklet.ms_wait(2000);
-                                        if (timer_startup.is_expired())
+                                        PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
+                                        PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
+                                        if (dist(h_p_k, tuple_n_inside_l) < dist(h_p_k, respondant_inside_l))
                                         {
-                                            debug("we're not exhaustive, but the time is over.\n");
-                                            return;
+                                            ttl_db_start_retrieve(tdd, k);
+                                            tasklet.ms_wait(2000);
+                                            if (timer_startup.is_expired())
+                                            {
+                                                debug("we're not exhaustive, but the time is over.\n");
+                                                return;
+                                            }
                                         }
                                     }
                                 }
@@ -2052,19 +2061,28 @@ namespace Netsukuku
                                     (! tdd.dh.retrieving_keys.has_key(k)))
                                 {
                                     PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
-                                    if (dist(h_p_k, tuple_n) < dist(h_p_k, respondant))
+                                    int l = h_p_k.tuple.size;
+                                    int @case;
+                                    HCoord gn;
+                                    convert_tuple_gnode(tuple_node_to_tuple_gnode(respondant), out @case, out gn);
+                                    if (gn.lvl <= l)
                                     {
-                                        ttl_db_start_retrieve(tdd, k);
-                                        if (ttl_db_is_out_of_memory(tdd))
+                                        PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
+                                        PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
+                                        if (dist(h_p_k, tuple_n) < dist(h_p_k, respondant))
                                         {
-                                            debug("we're not exhaustive, but the memory is over.\n");
-                                            return;
-                                        }
-                                        tasklet.ms_wait(2000);
-                                        if (timer_startup.is_expired())
-                                        {
-                                            debug("we're not exhaustive, but the time is over.\n");
-                                            return;
+                                            ttl_db_start_retrieve(tdd, k);
+                                            if (ttl_db_is_out_of_memory(tdd))
+                                            {
+                                                debug("we're not exhaustive, but the memory is over.\n");
+                                                return;
+                                            }
+                                            tasklet.ms_wait(2000);
+                                            if (timer_startup.is_expired())
+                                            {
+                                                debug("we're not exhaustive, but the time is over.\n");
+                                                return;
+                                            }
                                         }
                                     }
                                 }

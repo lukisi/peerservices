@@ -25,7 +25,7 @@ namespace fk_101
     /* 
      * This class implements a simple service, not optional, whose id is 101.
      * It is a simple distributed database where for each record the key is
-     * an integer number between 0 and 9, and the value is a string.
+     * an integer number between 1 and 10, and the value is a string.
      * 
      * The records have a validity on the g-node of level ''k'' where ''k'' is
      * the key. So, if node ''n'' save/search the record for key 2, then it
@@ -305,7 +305,7 @@ namespace fk_101
                 if (k is Fk101Key)
                 {
                     int _k = ((Fk101Key)k).k;
-                    if (_k >= 0 && _k <= 9) return true;
+                    if (_k >= 1 && _k <= 10) return true;
                 }
                 return false;
             }
@@ -458,7 +458,7 @@ namespace fk_101
             public Gee.List<Object> get_full_key_domain()
             {
                 var ret = new ArrayList<Object>();
-                for (int i = 0; i < 10; i++) ret.add(new Fk101Key(i));
+                for (int i = 1; i <= 10; i++) ret.add(new Fk101Key(i));
                 return ret;
             }
 
@@ -562,6 +562,16 @@ namespace fk_101
             // hash of 64 bits (always a even number, but who cares) from the integer:
             uint64 hash = fnv_32(@"$(_k.k)_$(_k.k)_$(_k.k)".data) * 2;
             return hash % (top+1);
+        }
+
+        public override Gee.List<int> perfect_tuple(Object k)
+        {
+            assert(k is Fk101Key);
+            Fk101Key _k = (Fk101Key)k;
+            int l = _k.k;
+            Gee.List<int> ret = base.perfect_tuple(k);
+            if (l < ret.size) ret = ret.slice(0, l);
+            return ret;
         }
 
         public void db_modify(int k, string v)
