@@ -15,6 +15,9 @@ testsuites/test_serialization/serialize_helpers.c
 testsuites/simulator/simulator.c
 testsuites/simulator/simulator_debug.c
 testsuites/simulator/service_ttl_100.c
+testsuites/simulator2/simulator2.c
+testsuites/simulator2/simulator2_debug.c
+testsuites/simulator2/service_fk_101.c
 *.lo
 *.la
 .deps

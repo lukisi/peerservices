@@ -875,7 +875,9 @@ namespace Netsukuku
             public int lvl;
             public void * func()
             {
+                debug("calling retrieve_participant_set\n");
                 bool ret = t.retrieve_participant_set(lvl);
+                debug("done retrieve_participant_set\n");
                 if (ret)
                 {
                     t.participant_maps_retrieved = true;
@@ -1420,13 +1422,14 @@ namespace Netsukuku
                     HCoord? x = approximate(x_macron, exclude_gnode_list);
                     if (x == null)
                     {
-                        debug(@"contact_peer throws an error call_id=$(call_id)\n");
                         if (! refuse_messages.is_empty)
                         {
                             string err_msg = "";
                             foreach (string msg in refuse_messages) err_msg += @"$(msg) - ";
+                            debug(@"contact_peer throws PeersDatabaseError call_id=$(call_id)\n");
                             throw new PeersDatabaseError.GENERIC(err_msg);
                         }
+                        debug(@"contact_peer throws PeersNoParticipantsInNetworkError call_id=$(call_id)\n");
                         throw new PeersNoParticipantsInNetworkError.GENERIC("");
                     }
                     if (x.lvl == 0 && x.pos == pos[0])
@@ -1946,7 +1949,11 @@ namespace Netsukuku
             {
                 while (! participant_maps_retrieved)
                 {
-                    if (participant_maps_failed) return;
+                    if (participant_maps_failed)
+                    {
+                        debug("participant_maps_failed.\n");
+                        return;
+                    }
                     tasklet.ms_wait(1000);
                 }
             }
@@ -1955,6 +1962,7 @@ namespace Netsukuku
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, INtkdChannel>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.ready = true;
+            debug("database handler is ready.\n");
             if (new_network)
             {
                 tdd.dh.timer_default_not_exhaustive = null;
@@ -2355,7 +2363,9 @@ namespace Netsukuku
             public int p_id;
             public void * func()
             {
+                debug("starting tasklet_fixed_keys_db_on_startup.\n");
                 t.tasklet_fixed_keys_db_on_startup(fkdd, p_id); 
+                debug("ending tasklet_fixed_keys_db_on_startup.\n");
                 return null;
             }
         }
@@ -2369,7 +2379,11 @@ namespace Netsukuku
             {
                 while (! participant_maps_retrieved)
                 {
-                    if (participant_maps_failed) return;
+                    if (participant_maps_failed)
+                    {
+                        debug("participant_maps_failed.\n");
+                        return;
+                    }
                     tasklet.ms_wait(1000);
                 }
             }
@@ -2378,6 +2392,7 @@ namespace Netsukuku
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
             fkdd.dh.not_completed_keys.add_all(k_set);
             fkdd.dh.ready = true;
+            debug("database handler is ready.\n");
             foreach (Object k in k_set)
             {
                 fixed_keys_db_start_retrieve(fkdd, k);

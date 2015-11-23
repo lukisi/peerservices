@@ -58,8 +58,8 @@ public class SimulatorNode : Object
     public MyPeersBackStubFactory back_factory;
     public MyPeersNeighborsFactory neighbor_factory;
     public PeersManager peers_manager;
-    public ttl_100.Ttl100Service srv100;
-    public ttl_100.Ttl100Client cli100;
+    public fk_101.Fk101Service srv101;
+    public fk_101.Fk101Client cli101;
 }
 
 INtkdTasklet tasklet;
@@ -69,7 +69,7 @@ void main(string[] args)
     MyTaskletSystem.init();
     tasklet = MyTaskletSystem.get_ntkd();
 
-    ttl_100.serialization_tests();
+    fk_101.serialization_tests();
 
     // pass tasklet system to modules
     PeersManager.init(tasklet);
@@ -95,20 +95,10 @@ class Directive : Object
     // Info
     public bool info = false;
     public string info_name;
-    // A node requests a 'insert'
-    public bool req_insert = false;
-    public string req_insert_q_name;
-    public int req_insert_k;
-    public string req_insert_v;
-    public bool req_insert_retry;
-    public bool req_insert_assertok;
-    public bool req_insert_assertnotfree;
     // A node requests a 'read'
     public bool req_read = false;
     public string req_read_q_name;
     public int req_read_k;
-    public bool req_read_assertok;
-    public bool req_read_assertnotfound;
     public bool req_read_expect;
     public string req_read_expect_v;
     // A node requests a 'modify'
@@ -116,20 +106,6 @@ class Directive : Object
     public string req_modify_q_name;
     public int req_modify_k;
     public string req_modify_v;
-    public bool req_modify_assertok;
-    public bool req_modify_assertnotfound;
-    // A node requests a 'touch'
-    public bool req_touch = false;
-    public string req_touch_q_name;
-    public int req_touch_k;
-    public bool req_touch_assertok;
-    public bool req_touch_assertnotfound;
-    // A node requests a 'delete'
-    public bool req_delete = false;
-    public string req_delete_q_name;
-    public int req_delete_k;
-    public bool req_delete_assertok;
-    public bool req_delete_assertnotfound;
 }
 
 string[] read_file(string path)
@@ -194,7 +170,7 @@ internal class FileTester : Object
                                      levels,
                                      n.back_factory,
                                      n.neighbor_factory);
-            n.srv100 = new ttl_100.Ttl100Service(gsizes, n.peers_manager, true);
+            n.srv101 = new fk_101.Fk101Service(gsizes, n.peers_manager);
         }
 
         while (true)
@@ -245,36 +221,6 @@ internal class FileTester : Object
                 data_cur++;
                 assert(data[data_cur] == "");
             }
-            else if (data[data_cur] != null && data[data_cur].has_prefix("request_insert"))
-            {
-                string line = data[data_cur];
-                string[] line_pieces = line.split(" ");
-                Directive dd = new Directive();
-                dd.req_insert = true;
-                dd.req_insert_k = int.parse(line_pieces[1]);
-                dd.req_insert_v = line_pieces[2];
-                assert(line_pieces[3] == "query_node");
-                dd.req_insert_q_name = line_pieces[4];
-                dd.req_insert_retry = false;
-                if (line_pieces.length > 5 && line_pieces[5] == "with_retry") dd.req_insert_retry = true;
-                dd.req_insert_assertok = false;
-                dd.req_insert_assertnotfree = false;
-                directives.add(dd);
-                data_cur++;
-                while (data[data_cur] != "")
-                {
-                    if (data[data_cur].has_prefix("assert"))
-                    {
-                        line = data[data_cur];
-                        line_pieces = line.split(" ");
-                        if (line_pieces[1] == "ok") dd.req_insert_assertok = true;
-                        if (line_pieces[1] == "not_free") dd.req_insert_assertnotfree = true;
-                    }
-                    else error(@"malformed file at line $(data_cur)");
-                    data_cur++;
-                }
-                assert(data[data_cur] == "");
-            }
             else if (data[data_cur] != null && data[data_cur].has_prefix("request_read"))
             {
                 string line = data[data_cur];
@@ -284,21 +230,12 @@ internal class FileTester : Object
                 dd.req_read_k = int.parse(line_pieces[1]);
                 assert(line_pieces[2] == "query_node");
                 dd.req_read_q_name = line_pieces[3];
-                dd.req_read_assertnotfound = false;
-                dd.req_read_assertok = false;
                 dd.req_read_expect = false;
                 directives.add(dd);
                 data_cur++;
                 while (data[data_cur] != "")
                 {
-                    if (data[data_cur].has_prefix("assert"))
-                    {
-                        line = data[data_cur];
-                        line_pieces = line.split(" ");
-                        if (line_pieces[1] == "ok") dd.req_read_assertok = true;
-                        if (line_pieces[1] == "not_found") dd.req_read_assertnotfound = true;
-                    }
-                    else if (data[data_cur].has_prefix("expect"))
+                    if (data[data_cur].has_prefix("expect"))
                     {
                         line = data[data_cur];
                         line_pieces = line.split(" ");
@@ -320,76 +257,8 @@ internal class FileTester : Object
                 dd.req_modify_v = line_pieces[2];
                 assert(line_pieces[3] == "query_node");
                 dd.req_modify_q_name = line_pieces[4];
-                dd.req_modify_assertok = false;
-                dd.req_modify_assertnotfound = false;
                 directives.add(dd);
                 data_cur++;
-                while (data[data_cur] != "")
-                {
-                    if (data[data_cur].has_prefix("assert"))
-                    {
-                        line = data[data_cur];
-                        line_pieces = line.split(" ");
-                        if (line_pieces[1] == "ok") dd.req_modify_assertok = true;
-                        if (line_pieces[1] == "not_found") dd.req_modify_assertnotfound = true;
-                    }
-                    else error(@"malformed file at line $(data_cur)");
-                    data_cur++;
-                }
-                assert(data[data_cur] == "");
-            }
-            else if (data[data_cur] != null && data[data_cur].has_prefix("request_touch"))
-            {
-                string line = data[data_cur];
-                string[] line_pieces = line.split(" ");
-                Directive dd = new Directive();
-                dd.req_touch = true;
-                dd.req_touch_k = int.parse(line_pieces[1]);
-                assert(line_pieces[2] == "query_node");
-                dd.req_touch_q_name = line_pieces[3];
-                dd.req_touch_assertok = false;
-                dd.req_touch_assertnotfound = false;
-                directives.add(dd);
-                data_cur++;
-                while (data[data_cur] != "")
-                {
-                    if (data[data_cur].has_prefix("assert"))
-                    {
-                        line = data[data_cur];
-                        line_pieces = line.split(" ");
-                        if (line_pieces[1] == "ok") dd.req_touch_assertok = true;
-                        if (line_pieces[1] == "not_found") dd.req_touch_assertnotfound = true;
-                    }
-                    else error(@"malformed file at line $(data_cur)");
-                    data_cur++;
-                }
-                assert(data[data_cur] == "");
-            }
-            else if (data[data_cur] != null && data[data_cur].has_prefix("request_delete"))
-            {
-                string line = data[data_cur];
-                string[] line_pieces = line.split(" ");
-                Directive dd = new Directive();
-                dd.req_delete = true;
-                dd.req_delete_k = int.parse(line_pieces[1]);
-                assert(line_pieces[2] == "query_node");
-                dd.req_delete_q_name = line_pieces[3];
-                dd.req_delete_assertok = false;
-                dd.req_delete_assertnotfound = false;
-                directives.add(dd);
-                data_cur++;
-                while (data[data_cur] != "")
-                {
-                    if (data[data_cur].has_prefix("assert"))
-                    {
-                        line = data[data_cur];
-                        line_pieces = line.split(" ");
-                        if (line_pieces[1] == "ok") dd.req_delete_assertok = true;
-                        if (line_pieces[1] == "not_found") dd.req_delete_assertnotfound = true;
-                    }
-                    else error(@"malformed file at line $(data_cur)");
-                    data_cur++;
-                }
                 assert(data[data_cur] == "");
             }
             else if (data_cur >= data.length)
@@ -456,110 +325,32 @@ internal class FileTester : Object
                     mypos_next = ", ";
                 }
                 print(@"  my_pos: $(mypos)\n");
-                HashMap<int,string> recs = n.srv100.get_records();
+                HashMap<int,string> recs = n.srv101.get_records();
                 if (! recs.is_empty)
                 {
                     foreach (int k in recs.keys)
-                        print(@"  srv100: record $(k), $(recs[k])\n");
+                        print(@"  srv101: record $(k), $(recs[k])\n");
                 }
                 print("\n");
-            }
-            else if (dd.req_insert)
-            {
-                print(@"request from node $(dd.req_insert_q_name).\n");
-                print(@"insert $(dd.req_insert_k), $(dd.req_insert_v).\n");
-                SimulatorNode n = nodes[dd.req_insert_q_name];
-                n.cli100 = new ttl_100.Ttl100Client(gsizes, n.peers_manager);
-                try {
-                    n.cli100.db_insert(dd.req_insert_k, dd.req_insert_v);
-                    print("done.\n");
-                    assert(! dd.req_insert_assertnotfree);
-                } catch (ttl_100.Ttl100OutOfMemoryError e) {
-                    print(@"out of memory: $(e.message).\n");
-                    if (dd.req_insert_retry)
-                    {
-                        print("trying again in 100 ms.\n");
-                        tasklet.ms_wait(100);
-                        print("trying again.\n");
-                        try {
-                            n.cli100.db_insert(dd.req_insert_k, dd.req_insert_v);
-                            print("done.\n");
-                            assert(! dd.req_insert_assertnotfree);
-                        } catch (ttl_100.Ttl100OutOfMemoryError e) {
-                            print(@"out of memory: $(e.message).\n");
-                            assert(! dd.req_insert_assertok);
-                            assert(! dd.req_insert_assertnotfree);
-                        } catch (ttl_100.Ttl100NotFreeError e) {
-                            print(@"not free: $(e.message).\n");
-                            assert(! dd.req_insert_assertok);
-                        }
-                    }
-                } catch (ttl_100.Ttl100NotFreeError e) {
-                    print(@"not free: $(e.message).\n");
-                    assert(! dd.req_insert_assertok);
-                }
             }
             else if (dd.req_read)
             {
                 print(@"request from node $(dd.req_read_q_name).\n");
                 print(@"read $(dd.req_read_k).\n");
                 SimulatorNode n = nodes[dd.req_read_q_name];
-                n.cli100 = new ttl_100.Ttl100Client(gsizes, n.peers_manager);
-                try {
-                    string v = n.cli100.db_read(dd.req_read_k);
-                    print(@"done. content: $(v)\n");
-                    assert(! dd.req_read_assertnotfound);
-                    if (dd.req_read_expect) assert(dd.req_read_expect_v == v);
-                } catch (ttl_100.Ttl100NotFoundError e) {
-                    print(@"not found: $(e.message).\n");
-                    assert(! dd.req_read_assertok);
-                    assert(! dd.req_read_expect);
-                }
+                n.cli101 = new fk_101.Fk101Client(gsizes, n.peers_manager);
+                string v = n.cli101.db_read(dd.req_read_k);
+                print(@"done. content: $(v)\n");
+                if (dd.req_read_expect) assert(dd.req_read_expect_v == v);
             }
             else if (dd.req_modify)
             {
                 print(@"request from node $(dd.req_modify_q_name).\n");
                 print(@"modify $(dd.req_modify_k), $(dd.req_modify_v).\n");
                 SimulatorNode n = nodes[dd.req_modify_q_name];
-                n.cli100 = new ttl_100.Ttl100Client(gsizes, n.peers_manager);
-                try {
-                    n.cli100.db_modify(dd.req_modify_k, dd.req_modify_v);
-                    print(@"done.\n");
-                    assert(! dd.req_modify_assertnotfound);
-                } catch (ttl_100.Ttl100NotFoundError e) {
-                    print(@"not found: $(e.message).\n");
-                    assert(! dd.req_modify_assertok);
-                }
-            }
-            else if (dd.req_delete)
-            {
-                print(@"request from node $(dd.req_delete_q_name).\n");
-                print(@"delete $(dd.req_delete_k).\n");
-                SimulatorNode n = nodes[dd.req_delete_q_name];
-                n.cli100 = new ttl_100.Ttl100Client(gsizes, n.peers_manager);
-                try {
-                    n.cli100.db_delete(dd.req_delete_k);
-                    print(@"done.\n");
-                    assert(! dd.req_delete_assertnotfound);
-                } catch (ttl_100.Ttl100NotFoundError e) {
-                    print(@"not found: $(e.message).\n");
-                    assert(! dd.req_delete_assertok);
-                }
-            }
-            else if (dd.req_touch)
-            {
-                print(@"request from node $(dd.req_touch_q_name).\n");
-                print(@"touch $(dd.req_touch_k).\n");
-                SimulatorNode n = nodes[dd.req_touch_q_name];
-                n.cli100 = new ttl_100.Ttl100Client(gsizes, n.peers_manager);
-                try {
-                    n.cli100.db_touch(dd.req_touch_k);
-                    print(@"done.\n");
-                    assert(! dd.req_touch_assertnotfound);
-                } catch (ttl_100.Ttl100NotFoundError e) {
-                    print(@"not found: $(e.message).\n");
-                    assert(! dd.req_touch_assertok);
-                }
+                n.cli101 = new fk_101.Fk101Client(gsizes, n.peers_manager);
+                n.cli101.db_modify(dd.req_modify_k, dd.req_modify_v);
+                print(@"done.\n");
             }
             else error("not implemented yet");
         }
@@ -586,7 +377,7 @@ internal class FileTester : Object
                                  dd.lvl-1,
                                  n.back_factory,
                                  n.neighbor_factory);
-        n.srv100 = new ttl_100.Ttl100Service(gsizes, n.peers_manager, false);
+        n.srv101 = new fk_101.Fk101Service(gsizes, n.peers_manager);
 
         tasklet.ms_wait(100); // simulate little wait before ETPs reach fellows
         start_update_their_maps(dd.neighbor_name, dd.name);

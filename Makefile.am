@@ -16,11 +16,13 @@ TESTS = \
 	test_2 \
 	test_3 \
 	test_4 \
+	test_5 \
 	$(NULL)
 
 check_PROGRAMS = \
 	test_serialization \
 	simulator \
+	simulator2 \
 	$(NULL)
 
 libpeers_la_SOURCES = \
@@ -128,6 +130,45 @@ simulator_CPPFLAGS = \
 	$(NULL)
 
 simulator_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(TASKLET_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(builddir)/libpeers.la \
+	$(NULL)
+
+simulator2_SOURCES =  \
+	testsuites/simulator2/simulator2.vala \
+	testsuites/simulator2/tasklet_system_tasklet.vala \
+	testsuites/simulator2/service_fk_101.vala \
+	testsuites/simulator2/simulator2_debug.vala \
+	peers.vapi \
+	$(NULL)
+
+simulator2_VALAFLAGS = \
+	--pkg gee-0.8 \
+	--pkg ntkd-tasklet-system \
+	--pkg tasklet \
+	--pkg ntkdrpc \
+	--pkg zcd-tasklet-system \
+	--pkg json-glib-1.0 \
+	$(NULL)
+
+simulator2_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(TASKLET_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+simulator2_LDADD = \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
