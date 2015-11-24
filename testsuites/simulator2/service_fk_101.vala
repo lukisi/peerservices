@@ -242,7 +242,7 @@ namespace fk_101
         private DatabaseDescriptor fkdd;
         private HashMap<Fk101Key, Fk101Record> my_records;
         public Fk101Service(Gee.List<int> gsizes, PeersManager peers_manager,
-                            bool register=true)
+                            int level_new_gnode, bool register=true)
         {
             base(fk_101.p_id, false);
             this.peers_manager = peers_manager;
@@ -256,21 +256,23 @@ namespace fk_101
                 // launch fixed_keys_db_on_startup in a tasklet
                 StartFixedKeysDbHandlerTasklet ts = new StartFixedKeysDbHandlerTasklet();
                 ts.t = this;
+                ts.level_new_gnode = level_new_gnode;
                 tasklet.spawn(ts);
             }
         }
         private class StartFixedKeysDbHandlerTasklet : Object, INtkdTaskletSpawnable
         {
             public Fk101Service t;
+            public int level_new_gnode;
             public void * func()
             {
-                t.tasklet_start_fixed_keys_db_handler(); 
+                t.tasklet_start_fixed_keys_db_handler(level_new_gnode); 
                 return null;
             }
         }
-        private void tasklet_start_fixed_keys_db_handler()
+        private void tasklet_start_fixed_keys_db_handler(int level_new_gnode)
         {
-            peers_manager.fixed_keys_db_on_startup(fkdd, fk_101.p_id);
+            peers_manager.fixed_keys_db_on_startup(fkdd, fk_101.p_id, level_new_gnode);
         }
 
         public override IPeersResponse exec
@@ -570,6 +572,7 @@ namespace fk_101
             Fk101Key _k = (Fk101Key)k;
             int l = _k.k;
             Gee.List<int> ret = base.perfect_tuple(k);
+            if (l == 10) return ret;
             if (l < ret.size) ret = ret.slice(0, l);
             return ret;
         }

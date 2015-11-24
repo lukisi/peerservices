@@ -170,7 +170,7 @@ internal class FileTester : Object
                                      levels,
                                      n.back_factory,
                                      n.neighbor_factory);
-            n.srv101 = new fk_101.Fk101Service(gsizes, n.peers_manager);
+            n.srv101 = new fk_101.Fk101Service(gsizes, n.peers_manager, levels);
         }
 
         while (true)
@@ -377,7 +377,7 @@ internal class FileTester : Object
                                  dd.lvl-1,
                                  n.back_factory,
                                  n.neighbor_factory);
-        n.srv101 = new fk_101.Fk101Service(gsizes, n.peers_manager);
+        n.srv101 = new fk_101.Fk101Service(gsizes, n.peers_manager, dd.lvl-1);
 
         tasklet.ms_wait(100); // simulate little wait before ETPs reach fellows
         start_update_their_maps(dd.neighbor_name, dd.name);

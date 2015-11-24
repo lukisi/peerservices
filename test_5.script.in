@@ -6,13 +6,13 @@ first_node
 
 # first_node is the name (fixed) of first implicit node.
 
-wait_msec 3000
+wait_msec 200
 
 print_info first_node
 
 add_neighbor n2 to first_node lower_pos 5 0 0
 
-wait_msec 3000
+wait_msec 200
 
 print_info first_node
 
@@ -22,7 +22,7 @@ request_read 2 query_node n2
 
 add_neighbor n3 to first_node lower_pos 15 1 2 3 4
 
-wait_msec 3000
+wait_msec 200
 
 print_info first_node
 
@@ -32,5 +32,5 @@ print_info n3
 
 request_read 1 query_node first_node
 
-wait_msec 3000
+wait_msec 200
 

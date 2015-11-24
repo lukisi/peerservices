@@ -2069,7 +2069,7 @@ namespace Netsukuku
                                     {
                                         PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
                                         PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
-                                        if (dist(h_p_k, tuple_n) < dist(h_p_k, respondant))
+                                        if (dist(h_p_k, tuple_n_inside_l) < dist(h_p_k, respondant_inside_l))
                                         {
                                             ttl_db_start_retrieve(tdd, k);
                                             if (ttl_db_is_out_of_memory(tdd))
@@ -2365,13 +2365,14 @@ namespace Netsukuku
             while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
         }
 
-        public void fixed_keys_db_on_startup(IFixedKeysDatabaseDescriptor fkdd, int p_id)
+        public void fixed_keys_db_on_startup(IFixedKeysDatabaseDescriptor fkdd, int p_id, int level_new_gnode)
         {
             assert(services.has_key(p_id));
             FixedKeysDbOnStartupTasklet ts = new FixedKeysDbOnStartupTasklet();
             ts.t = this;
             ts.fkdd = fkdd;
             ts.p_id = p_id;
+            ts.level_new_gnode = level_new_gnode;
             tasklet.spawn(ts);
         }
         private class FixedKeysDbOnStartupTasklet : Object, INtkdTaskletSpawnable
@@ -2379,15 +2380,16 @@ namespace Netsukuku
             public PeersManager t;
             public IFixedKeysDatabaseDescriptor fkdd;
             public int p_id;
+            public int level_new_gnode;
             public void * func()
             {
                 debug("starting tasklet_fixed_keys_db_on_startup.\n");
-                t.tasklet_fixed_keys_db_on_startup(fkdd, p_id); 
+                t.tasklet_fixed_keys_db_on_startup(fkdd, p_id, level_new_gnode); 
                 debug("ending tasklet_fixed_keys_db_on_startup.\n");
                 return null;
             }
         }
-        private void tasklet_fixed_keys_db_on_startup(IFixedKeysDatabaseDescriptor fkdd, int p_id)
+        private void tasklet_fixed_keys_db_on_startup(IFixedKeysDatabaseDescriptor fkdd, int p_id, int level_new_gnode)
         {
             PeerService srv = services[p_id];
             fkdd.dh = new DatabaseHandler();
@@ -2410,11 +2412,22 @@ namespace Netsukuku
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
             fkdd.dh.not_completed_keys.add_all(k_set);
             fkdd.dh.ready = true;
+            bool wait_before_network_activity = false;
             debug("database handler is ready.\n");
             foreach (Object k in k_set)
             {
-                fixed_keys_db_start_retrieve(fkdd, k);
-                tasklet.ms_wait(200);
+                int l = fkdd.evaluate_hash_node(k).size;
+                if (level_new_gnode >= l)
+                {
+                    fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
+                    fkdd.dh.not_completed_keys.remove(k);
+                }
+                else
+                {
+                    if (wait_before_network_activity) tasklet.ms_wait(200);
+                    fixed_keys_db_start_retrieve(fkdd, k);
+                    wait_before_network_activity = true;
+                }
             }
         }
 
