@@ -23,6 +23,27 @@ using LibPeersInternals;
 
 namespace Netsukuku
 {
+    internal string json_string_object(Object obj)
+    {
+        Json.Node n = Json.gobject_serialize(obj);
+        Json.Generator g = new Json.Generator();
+        g.root = n;
+        string ret = g.to_data(null);
+        return ret;
+    }
+
+    internal Object dup_object(Object obj)
+    {
+        Type type = obj.get_type();
+        string t = json_string_object(obj);
+        Json.Parser p = new Json.Parser();
+        try {
+            assert(p.load_from_data(t));
+        } catch (Error e) {assert_not_reached();}
+        Object ret = Json.gobject_deserialize(type, p.get_root());
+        return ret;
+    }
+
     public errordomain PeersNonexistentDestinationError {
         GENERIC
     }
@@ -1435,7 +1456,10 @@ namespace Netsukuku
                     if (x.lvl == 0 && x.pos == pos[0])
                     {
                         try {
-                            response = services[p_id].exec(request, new ArrayList<int>());
+                            IPeersRequest copied_request = (IPeersRequest)dup_object(request);
+                            IPeersResponse response_to_be_copied
+                                = services[p_id].exec(copied_request, new ArrayList<int>());
+                            response = (IPeersResponse)dup_object(response_to_be_copied);
                         } catch (PeersRedoFromStartError e) {
                             redofromstart = true;
                             break;
