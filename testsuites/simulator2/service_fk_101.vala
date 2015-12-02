@@ -557,12 +557,24 @@ namespace fk_101
             return hval;
         }
 
+        /** 64 bit Fowler/Noll/Vo hash
+          */
+        private uint64 fnv_64(uint8[] buf)
+        {
+            uint64 hval = (uint64)0xcbf29ce484222325;
+            foreach (uint8 c in buf)
+            {
+                hval += (hval<<1) + (hval<<4) + (hval<<5) + (hval<<7) + (hval<<8) + (hval<<40);
+                hval ^= c;
+            }
+            return hval;
+        }
+
         protected override uint64 hash_from_key(Object k, uint64 top)
         {
             assert(k is Fk101Key);
             Fk101Key _k = (Fk101Key)k;
-            // hash of 64 bits (always a even number, but who cares) from the integer:
-            uint64 hash = fnv_32(@"$(_k.k)_$(_k.k)_$(_k.k)".data) * 2;
+            uint64 hash = fnv_64(@"$(_k.k)_$(_k.k)_$(_k.k)".data);
             return hash % (top+1);
         }
 
