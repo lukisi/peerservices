@@ -1,4 +1,3 @@
-m4/*
 peers.c
 peers_debug.c
 serialize_helpers.c
