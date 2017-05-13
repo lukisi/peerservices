@@ -17,7 +17,7 @@
  */
 
 using Netsukuku;
-using Netsukuku.ModRpc;
+using Netsukuku.PeerServices;
 using Gee;
 
 namespace LibPeersInternals

@@ -17,11 +17,10 @@
  */
 
 using Gee;
-using Netsukuku.ModRpc;
-using zcd.ModRpc;
+using TaskletSystem;
 using LibPeersInternals;
 
-namespace Netsukuku
+namespace Netsukuku.PeerServices
 {
     internal string json_string_object(Object obj)
     {
@@ -79,7 +78,7 @@ namespace Netsukuku
         public abstract bool i_peers_exists(int level, int pos);
         public abstract IPeersManagerStub i_peers_gateway
             (int level, int pos,
-             zcd.ModRpc.CallerInfo? received_from=null,
+             CallerInfo? received_from=null,
              IPeersManagerStub? failed=null)
             throws PeersNonexistentDestinationError;
         public abstract IPeersManagerStub i_peers_fellow(int level)
@@ -327,6 +326,7 @@ namespace Netsukuku
 
     internal class PeerMessageForwarder : Object, Json.Serializable, IPeerMessage
     {
+        public int inside_level {get; set;}
         public PeerTupleNode n {get; set;}
         public PeerTupleNode? x_macron {get; set;}
         public int lvl {get; set;}
@@ -365,6 +365,8 @@ namespace Netsukuku
                     return false;
                 }
                 break;
+            case "inside-level":
+            case "inside_level":
             case "lvl":
             case "pos":
             case "p-id":
@@ -416,6 +418,8 @@ namespace Netsukuku
             case "x-macron":
             case "x_macron":
                 return serialize_nullable_peer_tuple_node((PeerTupleNode?)@value);
+            case "inside-level":
+            case "inside_level":
             case "lvl":
             case "pos":
             case "p-id":
@@ -437,7 +441,7 @@ namespace Netsukuku
 
     internal class WaitingAnswer : Object
     {
-        public INtkdChannel ch;
+        public IChannel ch;
         public IPeersRequest? request;
         public PeerTupleGNode min_target;
         public PeerTupleGNode? exclude_gnode;
@@ -766,7 +770,7 @@ namespace Netsukuku
         }
         internal int p_id;
         internal bool ready;
-        internal HashMap<Object,INtkdChannel> retrieving_keys;
+        internal HashMap<Object,IChannel> retrieving_keys;
         // for TTL-based services
         internal HashMap<Object,Timer> not_exhaustive_keys;
         internal ArrayList<Object> not_found_keys;
@@ -822,11 +826,11 @@ namespace Netsukuku
         public abstract Object get_default_record_for_key(Object k);
     }
 
-    internal INtkdTasklet tasklet;
+    internal ITasklet tasklet;
     public class PeersManager : Object,
                                 IPeersManagerSkeleton
     {
-        public static void init(INtkdTasklet _tasklet)
+        public static void init(ITasklet _tasklet)
         {
             // Register serializable types
             typeof(PeerTupleNode).class_peek();
@@ -890,7 +894,7 @@ namespace Netsukuku
             }
         }
 
-        private class RetrieveParticipantSetTasklet : Object, INtkdTaskletSpawnable
+        private class RetrieveParticipantSetTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public int lvl;
@@ -927,10 +931,10 @@ namespace Netsukuku
             } catch (PeersInvalidRequest e) {
                 debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
                 return false;
-            } catch (zcd.ModRpc.StubError e) {
+            } catch (StubError e) {
                 debug(@"retrieve_participant_set: Failed to get because StubError $(e.message)");
                 return false;
-            } catch (zcd.ModRpc.DeserializeError e) {
+            } catch (DeserializeError e) {
                 debug(@"retrieve_participant_set: Failed to get because DeserializeError $(e.message)");
                 return false;
             }
@@ -1412,13 +1416,10 @@ namespace Netsukuku
                 var exclude_gnode_list = new ArrayList<HCoord>();
                 bool optional = false;
                 if (services.has_key(p_id))
-                {
                     optional = services[p_id].p_is_optional;
-                    if (! services[p_id].is_ready())
-                        exclude_myself = true;
-                }
                 else
                     optional = true;
+                // TODO check (if optional) target_levels vs . In case,  exclude_myself = true;
                 exclude_gnode_list.add_all(get_non_participant_gnodes(p_id));
                 if (exclude_myself)
                     exclude_gnode_list.add(new HCoord(0, pos[0]));
@@ -1480,6 +1481,7 @@ namespace Netsukuku
                         return response;
                     }
                     PeerMessageForwarder mf = new PeerMessageForwarder();
+                    mf.inside_level = target_levels;
                     mf.n = make_tuple_node(new HCoord(0, pos[0]), x.lvl+1);
                     // That is n0·n1·...·nj, where j = x.lvl
                     if (x.lvl == 0)
@@ -1530,10 +1532,10 @@ namespace Netsukuku
                         }
                         try {
                             gwstub.forward_peer_message(mf);
-                        } catch (zcd.ModRpc.StubError e) {
+                        } catch (StubError e) {
                             failed = gwstub;
                             continue;
-                        } catch (zcd.ModRpc.DeserializeError e) {
+                        } catch (DeserializeError e) {
                             assert_not_reached();
                         }
                         break;
@@ -1635,7 +1637,7 @@ namespace Netsukuku
                             {
                                 // A new destination (min_target) is found, nothing to do.
                             }
-                        } catch (NtkdChannelError e) {
+                        } catch (ChannelError e) {
                             // TIMEOUT_EXPIRED
                             PeerTupleGNode t = rebase_tuple_gnode(waiting_answer.min_target, target_levels);
                             // t represents the same g-node of waiting_answer.min_target, but with top=target_levels
@@ -1682,6 +1684,7 @@ namespace Netsukuku
             }
             PeerTupleNode n = make_tuple_node(new HCoord(0, pos[0]), lvl+1);
             PeerMessageForwarder mf = new PeerMessageForwarder();
+            mf.inside_level = levels;
             mf.n = n;
             mf.x_macron = x_macron;
             mf.lvl = lvl;
@@ -1703,10 +1706,10 @@ namespace Netsukuku
                 }
                 try {
                     gwstub.forward_peer_message(mf);
-                } catch (zcd.ModRpc.StubError e) {
+                } catch (StubError e) {
                     failed = gwstub;
                     continue;
-                } catch (zcd.ModRpc.DeserializeError e) {
+                } catch (DeserializeError e) {
                     assert_not_reached();
                 }
                 break;
@@ -1744,7 +1747,7 @@ namespace Netsukuku
                     waiting_answer_map.unset(mf.msg_id);
                     return false;
                 }
-            } catch (NtkdChannelError e) {
+            } catch (ChannelError e) {
                 // TIMEOUT_EXPIRED
                 waiting_answer_map.unset(mf.msg_id);
                 return false;
@@ -1768,15 +1771,15 @@ namespace Netsukuku
                     mgr.neighbors_factory.i_peers_get_tcp(missing_arc);
                 try {
                     stub.set_participant(p_id, tuple);
-                } catch (zcd.ModRpc.StubError e) {
+                } catch (StubError e) {
                     // ignore
-                } catch (zcd.ModRpc.DeserializeError e) {
+                } catch (DeserializeError e) {
                     // ignore
                 }
             }
         }
 
-        private class PublishMyParticipationTasklet : Object, INtkdTaskletSpawnable
+        private class PublishMyParticipationTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public int p_id;
@@ -1799,9 +1802,9 @@ namespace Netsukuku
                 IPeersManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
                 try {
                     br_stub.set_participant(p_id, gn);
-                } catch (zcd.ModRpc.StubError e) {
+                } catch (StubError e) {
                     // ignore
-                } catch (zcd.ModRpc.DeserializeError e) {
+                } catch (DeserializeError e) {
                     // ignore
                 }
                 tasklet.ms_wait(timeout);
@@ -1949,7 +1952,7 @@ namespace Netsukuku
             ts.new_network = new_network;
             tasklet.spawn(ts);
         }
-        private class TtlDbOnStartupTasklet : Object, INtkdTaskletSpawnable
+        private class TtlDbOnStartupTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public ITemporalDatabaseDescriptor tdd;
@@ -1984,7 +1987,7 @@ namespace Netsukuku
             tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
             tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
-            tdd.dh.retrieving_keys = new HashMap<Object, INtkdChannel>(tdd.key_hash_data, tdd.key_equal_data);
+            tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.ready = true;
             debug("database handler is ready.\n");
             if (new_network)
@@ -2183,10 +2186,10 @@ namespace Netsukuku
                     debug("ttl_db_on_request: insert request: not exhaustive for k.\n");
                     if (tdd.dh.retrieving_keys.has_key(k))
                     {
-                        INtkdChannel ch = tdd.dh.retrieving_keys[k];
+                        IChannel ch = tdd.dh.retrieving_keys[k];
                         try {
                             ch.recv_with_timeout(tdd.get_timeout_exec(r) - 1000);
-                        } catch (NtkdChannelError e) {
+                        } catch (ChannelError e) {
                         }
                         throw new PeersRedoFromStartError.GENERIC("");
                     }
@@ -2264,10 +2267,10 @@ namespace Netsukuku
                 {
                     if (tdd.dh.retrieving_keys.has_key(k))
                     {
-                        INtkdChannel ch = tdd.dh.retrieving_keys[k];
+                        IChannel ch = tdd.dh.retrieving_keys[k];
                         try {
                             ch.recv_with_timeout(tdd.get_timeout_exec(r) - 1000);
-                        } catch (NtkdChannelError e) {
+                        } catch (ChannelError e) {
                         }
                         throw new PeersRedoFromStartError.GENERIC("");
                     }
@@ -2329,7 +2332,7 @@ namespace Netsukuku
 
         internal void ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k)
         {
-            INtkdChannel ch = tasklet.get_channel();
+            IChannel ch = tasklet.get_channel();
             tdd.dh.retrieving_keys[k] = ch;
             TtlDbStartRetrieveTasklet ts = new TtlDbStartRetrieveTasklet();
             ts.t = this;
@@ -2338,19 +2341,19 @@ namespace Netsukuku
             ts.ch = ch;
             tasklet.spawn(ts);
         }
-        private class TtlDbStartRetrieveTasklet : Object, INtkdTaskletSpawnable
+        private class TtlDbStartRetrieveTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public ITemporalDatabaseDescriptor tdd;
             public Object k;
-            public INtkdChannel ch;
+            public IChannel ch;
             public void * func()
             {
                 t.tasklet_ttl_db_start_retrieve(tdd, k, ch); 
                 return null;
             }
         }
-        private void tasklet_ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k, INtkdChannel ch)
+        private void tasklet_ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k, IChannel ch)
         {
             Object? record = null;
             IPeersRequest r = new RequestWaitThenSendRecord(k);
@@ -2384,7 +2387,7 @@ namespace Netsukuku
                 ttl_db_remove_not_exhaustive(tdd, k);
                 ttl_db_add_not_found(tdd, k);
             }
-            INtkdChannel temp_ch = tdd.dh.retrieving_keys[k];
+            IChannel temp_ch = tdd.dh.retrieving_keys[k];
             tdd.dh.retrieving_keys.unset(k);
             while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
         }
@@ -2399,7 +2402,7 @@ namespace Netsukuku
             ts.level_new_gnode = level_new_gnode;
             tasklet.spawn(ts);
         }
-        private class FixedKeysDbOnStartupTasklet : Object, INtkdTaskletSpawnable
+        private class FixedKeysDbOnStartupTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public IFixedKeysDatabaseDescriptor fkdd;
@@ -2432,7 +2435,7 @@ namespace Netsukuku
                 }
             }
             fkdd.dh.not_completed_keys = new ArrayList<Object>(fkdd.key_equal_data);
-            fkdd.dh.retrieving_keys = new HashMap<Object, INtkdChannel>(fkdd.key_hash_data, fkdd.key_equal_data);
+            fkdd.dh.retrieving_keys = new HashMap<Object, IChannel>(fkdd.key_hash_data, fkdd.key_equal_data);
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
             fkdd.dh.not_completed_keys.add_all(k_set);
             fkdd.dh.ready = true;
@@ -2498,10 +2501,10 @@ namespace Netsukuku
                 else
                 {
                     while (! fkdd.dh.retrieving_keys.has_key(k)) tasklet.ms_wait(200);
-                    INtkdChannel ch = fkdd.dh.retrieving_keys[k];
+                    IChannel ch = fkdd.dh.retrieving_keys[k];
                     try {
                         ch.recv_with_timeout(fkdd.get_timeout_exec(r) - 1000);
-                    } catch (NtkdChannelError e) {
+                    } catch (ChannelError e) {
                     }
                     throw new PeersRedoFromStartError.GENERIC("");
                 }
@@ -2516,7 +2519,7 @@ namespace Netsukuku
 
         internal void fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k)
         {
-            INtkdChannel ch = tasklet.get_channel();
+            IChannel ch = tasklet.get_channel();
             fkdd.dh.retrieving_keys[k] = ch;
             FixedKeysDbStartRetrieveTasklet ts = new FixedKeysDbStartRetrieveTasklet();
             ts.t = this;
@@ -2525,19 +2528,19 @@ namespace Netsukuku
             ts.ch = ch;
             tasklet.spawn(ts);
         }
-        private class FixedKeysDbStartRetrieveTasklet : Object, INtkdTaskletSpawnable
+        private class FixedKeysDbStartRetrieveTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public IFixedKeysDatabaseDescriptor fkdd;
             public Object k;
-            public INtkdChannel ch;
+            public IChannel ch;
             public void * func()
             {
                 t.tasklet_fixed_keys_db_start_retrieve(fkdd, k, ch); 
                 return null;
             }
         }
-        private void tasklet_fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k, INtkdChannel ch)
+        private void tasklet_fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k, IChannel ch)
         {
             Object? record = null;
             IPeersRequest r = new RequestWaitThenSendRecord(k);
@@ -2566,7 +2569,7 @@ namespace Netsukuku
             {
                 fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
             }
-            INtkdChannel temp_ch = fkdd.dh.retrieving_keys[k];
+            IChannel temp_ch = fkdd.dh.retrieving_keys[k];
             fkdd.dh.retrieving_keys.unset(k);
             while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
             fkdd.dh.not_completed_keys.remove(k);
@@ -2575,7 +2578,7 @@ namespace Netsukuku
         /* Remotable methods */
 
         public IPeerParticipantSet get_participant_set
-        (int lvl, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int lvl, CallerInfo? _rpc_caller=null)
         throws PeersInvalidRequest
         {
             // check payload
@@ -2599,7 +2602,7 @@ namespace Netsukuku
         }
 
         public void forward_peer_message
-        (IPeerMessage peer_message, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (IPeerMessage peer_message, CallerInfo? _rpc_caller=null)
         {
             // check payload
             if (! (peer_message is PeerMessageForwarder)) return;
@@ -2613,12 +2616,10 @@ namespace Netsukuku
             bool optional = false;
             bool exclude_myself = false;
             if (services.has_key(mf.p_id))
-            {
                 optional = services[mf.p_id].p_is_optional;
-                exclude_myself = ! services[mf.p_id].is_ready();
-            }
             else
                 optional = true;
+            // TODO check (if optional) mf.inside_level vs . In case,  exclude_myself = true;
             if (pos[mf.lvl] == mf.pos)
             {
                 if (! my_gnode_participates(mf.p_id, mf.lvl))
@@ -2628,9 +2629,9 @@ namespace Netsukuku
                     PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                     try {
                         nstub.set_non_participant(mf.msg_id, gn);
-                    } catch (zcd.ModRpc.StubError e) {
+                    } catch (StubError e) {
                         // ignore
-                    } catch (zcd.ModRpc.DeserializeError e) {
+                    } catch (DeserializeError e) {
                         // ignore
                     }
                 }
@@ -2661,16 +2662,16 @@ namespace Netsukuku
                             PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                             try {
                                 nstub.set_failure(mf.msg_id, gn);
-                            } catch (zcd.ModRpc.StubError e) {
+                            } catch (StubError e) {
                                 // ignore
-                            } catch (zcd.ModRpc.DeserializeError e) {
+                            } catch (DeserializeError e) {
                                 // ignore
                             }
                             break;
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
-                            Netsukuku.ModRpc.IPeersManagerStub nstub
+                            IPeersManagerStub nstub
                                 = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
                             PeerTupleNode tuple_respondant = make_tuple_node(new HCoord(0, pos[0]), mf.n.tuple.size);
                             try {
@@ -2682,9 +2683,9 @@ namespace Netsukuku
                                 } catch (PeersRedoFromStartError e) {
                                     try {
                                         nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
-                                    } catch (zcd.ModRpc.StubError e) {
+                                    } catch (StubError e) {
                                         // ignore
-                                    } catch (zcd.ModRpc.DeserializeError e) {
+                                    } catch (DeserializeError e) {
                                         // ignore
                                     }
                                 } catch (PeersRefuseExecutionError e) {
@@ -2698,9 +2699,9 @@ namespace Netsukuku
                                                 err_message = "GENERIC: ";
                                         err_message += e.message;
                                         nstub.set_refuse_message(mf.msg_id, err_message, tuple_respondant);
-                                    } catch (zcd.ModRpc.StubError e) {
+                                    } catch (StubError e) {
                                         // ignore
-                                    } catch (zcd.ModRpc.DeserializeError e) {
+                                    } catch (DeserializeError e) {
                                         // ignore
                                     }
                                 }
@@ -2708,9 +2709,9 @@ namespace Netsukuku
                                 // ignore
                             } catch (PeersInvalidRequest e) {
                                 // ignore
-                            } catch (zcd.ModRpc.StubError e) {
+                            } catch (StubError e) {
                                 // ignore
-                            } catch (zcd.ModRpc.DeserializeError e) {
+                            } catch (DeserializeError e) {
                                 // ignore
                             }
                             break;
@@ -2759,10 +2760,10 @@ namespace Netsukuku
                                 }
                                 try {
                                     gwstub.forward_peer_message(mf2);
-                                } catch (zcd.ModRpc.StubError e) {
+                                } catch (StubError e) {
                                     failed = gwstub;
                                     continue;
-                                } catch (zcd.ModRpc.DeserializeError e) {
+                                } catch (DeserializeError e) {
                                     assert_not_reached();
                                 }
                                 delivered = true;
@@ -2771,9 +2772,9 @@ namespace Netsukuku
                                 PeerTupleGNode gn = make_tuple_gnode(x, mf.n.tuple.size);
                                 try {
                                     nstub.set_next_destination(mf.msg_id, gn);
-                                } catch (zcd.ModRpc.StubError e) {
+                                } catch (StubError e) {
                                     // ignore
-                                } catch (zcd.ModRpc.DeserializeError e) {
+                                } catch (DeserializeError e) {
                                     // ignore
                                 }
                                 break;
@@ -2796,10 +2797,10 @@ namespace Netsukuku
                     }
                     try {
                         gwstub.forward_peer_message(mf);
-                    } catch (zcd.ModRpc.StubError e) {
+                    } catch (StubError e) {
                         failed = gwstub;
                         continue;
-                    } catch (zcd.ModRpc.DeserializeError e) {
+                    } catch (DeserializeError e) {
                         assert_not_reached();
                     }
                     break;
@@ -2826,7 +2827,7 @@ namespace Netsukuku
                 }
             }
         }
-        private class CheckNonParticipationTasklet : Object, INtkdTaskletSpawnable
+        private class CheckNonParticipationTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public HCoord ret;
@@ -2841,7 +2842,7 @@ namespace Netsukuku
         }
 
         public IPeersRequest get_request
-        (int msg_id, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
         throws PeersUnknownMessageError, PeersInvalidRequest
         {
             if (! waiting_answer_map.has_key(msg_id))
@@ -2871,7 +2872,7 @@ namespace Netsukuku
         }
 
         public void set_response
-        (int msg_id, IPeersResponse response, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeersResponse response, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -2909,7 +2910,7 @@ namespace Netsukuku
         }
 
         public void set_refuse_message
-        (int msg_id, string refuse_message, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, string refuse_message, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -2948,7 +2949,7 @@ namespace Netsukuku
         }
 
         public void set_redo_from_start
-        (int msg_id, IPeerTupleNode _respondant, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -2986,7 +2987,7 @@ namespace Netsukuku
         }
 
         public void set_next_destination
-        (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode _tuple, CallerInfo? _rpc_caller=null)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -3017,7 +3018,7 @@ namespace Netsukuku
         }
 
         public void set_failure
-        (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode _tuple, CallerInfo? _rpc_caller=null)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -3048,7 +3049,7 @@ namespace Netsukuku
         }
 
         public void set_non_participant
-        (int msg_id, IPeerTupleGNode _tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode _tuple, CallerInfo? _rpc_caller=null)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -3079,7 +3080,7 @@ namespace Netsukuku
         }
 
         public void set_participant
-        (int p_id, IPeerTupleGNode tuple, zcd.ModRpc.CallerInfo? _rpc_caller=null)
+        (int p_id, IPeerTupleGNode tuple, CallerInfo? _rpc_caller=null)
         {
             // check payload
             if (! (tuple is PeerTupleGNode)) return;
@@ -3101,9 +3102,9 @@ namespace Netsukuku
             IPeersManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
             try {
                 br_stub.set_participant(p_id, ret_gn);
-            } catch (zcd.ModRpc.StubError e) {
+            } catch (StubError e) {
                 // ignore
-            } catch (zcd.ModRpc.DeserializeError e) {
+            } catch (DeserializeError e) {
                 // ignore
             }
             RecentPublishedListRemoveTasklet ts = new RecentPublishedListRemoveTasklet();
@@ -3111,7 +3112,7 @@ namespace Netsukuku
             ts.ret = ret;
             tasklet.spawn(ts);
         }
-        private class RecentPublishedListRemoveTasklet : Object, INtkdTaskletSpawnable
+        private class RecentPublishedListRemoveTasklet : Object, ITaskletSpawnable
         {
             public PeersManager t;
             public HCoord ret;
@@ -3132,11 +3133,6 @@ namespace Netsukuku
         {
             this.p_id = p_id;
             this.p_is_optional = p_is_optional;
-        }
-
-        public virtual bool is_ready()
-        {
-            return true;
         }
 
         public abstract IPeersResponse
