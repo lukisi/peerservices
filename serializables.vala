@@ -163,6 +163,159 @@ namespace Netsukuku.PeerServices
         }
     }
 
+    internal class PeerMessageForwarder : Object, Json.Serializable, IPeerMessage
+    {
+        public int inside_level {get; set;}
+        public PeerTupleNode n {get; set;}
+        public PeerTupleNode? x_macron {get; set;}
+        public int lvl {get; set;}
+        public int pos {get; set;}
+        public int p_id {get; set;}
+        public int msg_id {get; set;}
+        public Gee.List<PeerTupleGNode> exclude_tuple_list {get; set;}
+        public Gee.List<PeerTupleGNode> non_participant_tuple_list {get; set;}
+
+        public PeerMessageForwarder()
+        {
+            exclude_tuple_list = new ArrayList<PeerTupleGNode>();
+            non_participant_tuple_list = new ArrayList<PeerTupleGNode>();
+        }
+
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
+        {
+            @value = 0;
+            switch (property_name) {
+            case "n":
+                try {
+                    @value = deserialize_peer_tuple_node(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "x-macron":
+            case "x_macron":
+                try {
+                    @value = deserialize_nullable_peer_tuple_node(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "inside-level":
+            case "inside_level":
+            case "lvl":
+            case "pos":
+            case "p-id":
+            case "p_id":
+            case "msg-id":
+            case "msg_id":
+                try {
+                    @value = deserialize_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "exclude-tuple-list":
+            case "exclude_tuple_list":
+                try {
+                    @value = deserialize_list_peer_tuple_gnode(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "non_participant_tuple_list":
+            case "non-participant-tuple-list":
+                try {
+                    @value = deserialize_list_peer_tuple_gnode(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
+        }
+
+        public unowned GLib.ParamSpec find_property
+        (string name)
+        {
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "n":
+                return serialize_peer_tuple_node((PeerTupleNode)@value);
+            case "x-macron":
+            case "x_macron":
+                return serialize_nullable_peer_tuple_node((PeerTupleNode?)@value);
+            case "inside-level":
+            case "inside_level":
+            case "lvl":
+            case "pos":
+            case "p-id":
+            case "p_id":
+            case "msg-id":
+            case "msg_id":
+                return serialize_int((int)@value);
+            case "exclude-tuple-list":
+            case "exclude_tuple_list":
+                return serialize_list_peer_tuple_gnode((Gee.List<PeerTupleGNode>)@value);
+            case "non_participant_tuple_list":
+            case "non-participant-tuple-list":
+                return serialize_list_peer_tuple_gnode((Gee.List<PeerTupleGNode>)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
+        }
+
+        public bool check_valid(int levels, int[] gsizes)
+        {
+            if (! this.n.check_valid(levels, gsizes)) return false;
+            if (this.lvl < 0) return false;
+            if (this.lvl >= levels) return false;
+            if (this.pos < 0) return false;
+            if (this.pos >= gsizes[this.lvl]) return false;
+            if (this.n.tuple.size <= this.lvl) return false;
+            if (this.x_macron != null)
+            {
+                if (! this.x_macron.check_valid(levels, gsizes)) return false;
+                if (this.x_macron.tuple.size != this.lvl) return false;
+            }
+            if (! this.exclude_tuple_list.is_empty)
+            {
+                foreach (PeerTupleGNode gn in this.exclude_tuple_list)
+                {
+                    if (! gn.check_valid(levels, gsizes)) return false;
+                    if (gn.top != this.lvl) return false;
+                }
+            }
+            if (! this.non_participant_tuple_list.is_empty)
+            {
+                PeerTupleGNode gn;
+                gn = this.non_participant_tuple_list[0];
+                if (! gn.check_valid(levels, gsizes)) return false;
+                if (gn.top <= this.lvl) return false;
+                int first_top = gn.top;
+                for (int i = 1; i < this.non_participant_tuple_list.size; i++)
+                {
+                    gn = this.non_participant_tuple_list[i];
+                    if (! gn.check_valid(levels, gsizes)) return false;
+                    if (gn.top != first_top) return false;
+                }
+            }
+            return true;
+        }
+    }
+
     internal errordomain HelperDeserializeError {
         GENERIC
     }
@@ -311,7 +464,6 @@ namespace Netsukuku.PeerServices
         return ret;
     }
 
-/*
     internal PeerTupleNode deserialize_peer_tuple_node(Json.Node property_node)
     throws HelperDeserializeError
     {
@@ -333,16 +485,14 @@ namespace Netsukuku.PeerServices
     {
         return serialize_object(n);
     }
-*/
 
-/*
     internal Gee.List<HCoord> deserialize_list_hcoord(Json.Node property_node)
     throws HelperDeserializeError
     {
         ListDeserializer<HCoord> c = new ListDeserializer<HCoord>();
         var first_ret = c.deserialize_list_object(property_node);
         // N.B. list of HCoord must be searchable.
-        var ret = new ArrayList<HCoord>(equal_func(a, b) => a.equals(b));
+        var ret = new ArrayList<HCoord>((a, b) => a.equals(b));
         ret.add_all(first_ret);
         return ret;
     }
@@ -351,9 +501,7 @@ namespace Netsukuku.PeerServices
     {
         return serialize_list_object(lst);
     }
-*/
 
-     /*
     internal Gee.List<PeerTupleGNode> deserialize_list_peer_tuple_gnode(Json.Node property_node)
     throws HelperDeserializeError
     {
@@ -365,7 +513,6 @@ namespace Netsukuku.PeerServices
     {
         return serialize_list_object(lst);
     }
-*/
 
      /*
     internal HashMap<int, PeerParticipantMap> deserialize_map_int_peer_participant_map(Json.Node property_node)

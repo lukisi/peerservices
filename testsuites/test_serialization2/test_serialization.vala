@@ -88,6 +88,108 @@ class PeersTester : Object
         assert(!n3.check_valid(5, {5,2,3,4,5}));
     }
 
+    public void test_message()
+    {
+        PeerMessageForwarder mf0;
+        {
+            Json.Node node;
+            {
+                PeerMessageForwarder mf = new PeerMessageForwarder();
+                mf.inside_level = 5;
+                Gee.List<int> nums = new ArrayList<int>();
+                nums.add_all_array({1, 2, 3, 4});
+                mf.n = new PeerTupleNode(nums);
+                nums = new ArrayList<int>();
+                nums.add_all_array({1, 2, 3});
+                mf.x_macron = new PeerTupleNode(nums);
+                mf.lvl = 3;
+                mf.pos = 2;
+                mf.msg_id = 12345;
+                mf.p_id = 12;
+                nums = new ArrayList<int>();
+                nums.add_all_array({4});
+                mf.exclude_tuple_list.add(new PeerTupleGNode(nums, 3));
+                nums = new ArrayList<int>();
+                nums.add_all_array({0});
+                mf.non_participant_tuple_list.add(new PeerTupleGNode(nums, 5));
+                nums = new ArrayList<int>();
+                nums.add_all_array({3, 6});
+                mf.non_participant_tuple_list.add(new PeerTupleGNode(nums, 5));
+                nums = new ArrayList<int>();
+                nums.add_all_array({4, 6});
+                mf.non_participant_tuple_list.add(new PeerTupleGNode(nums, 5));
+                nums = new ArrayList<int>();
+                nums.add_all_array({3, 2, 5, 6});
+                mf.non_participant_tuple_list.add(new PeerTupleGNode(nums, 5));
+                node = Json.gobject_serialize(mf);
+            }
+            mf0 = (PeerMessageForwarder)Json.gobject_deserialize(typeof(PeerMessageForwarder), node);
+        }
+        assert(mf0.inside_level == 5);
+        assert(mf0.n.tuple.size == 4 &&
+               mf0.n.tuple[0] == 1 &&
+               mf0.n.tuple[1] == 2 &&
+               mf0.n.tuple[2] == 3 &&
+               mf0.n.tuple[3] == 4);
+        assert(mf0.x_macron.tuple.size == 3 &&
+               mf0.x_macron.tuple[0] == 1 &&
+               mf0.x_macron.tuple[1] == 2 &&
+               mf0.x_macron.tuple[2] == 3);
+        assert(mf0.lvl == 3);
+        assert(mf0.pos == 2);
+        assert(mf0.p_id == 12);
+        assert(mf0.msg_id == 12345);
+        assert(mf0.exclude_tuple_list.size == 1);
+        bool found = false;
+        foreach (PeerTupleGNode gn in mf0.exclude_tuple_list)
+        {
+            if (gn.top == 3 &&
+                gn.tuple.size == 1 &&
+                gn.tuple[0] == 4) found = true;
+        }
+        assert(found);
+        assert(mf0.non_participant_tuple_list.size == 4);
+        found = false;
+        foreach (PeerTupleGNode gn in mf0.non_participant_tuple_list)
+        {
+            if (gn.top == 5 &&
+                gn.tuple.size == 1 &&
+                gn.tuple[0] == 0) found = true;
+        }
+        assert(found);
+        found = false;
+        foreach (PeerTupleGNode gn in mf0.non_participant_tuple_list)
+        {
+            if (gn.top == 5 &&
+                gn.tuple.size == 2 &&
+                gn.tuple[0] == 3 &&
+                gn.tuple[1] == 6) found = true;
+        }
+        assert(found);
+        found = false;
+        foreach (PeerTupleGNode gn in mf0.non_participant_tuple_list)
+        {
+            if (gn.top == 5 &&
+                gn.tuple.size == 2 &&
+                gn.tuple[0] == 4 &&
+                gn.tuple[1] == 6) found = true;
+        }
+        assert(found);
+        found = false;
+        foreach (PeerTupleGNode gn in mf0.non_participant_tuple_list)
+        {
+            if (gn.top == 5 &&
+                gn.tuple.size == 4 &&
+                gn.tuple[0] == 3 &&
+                gn.tuple[1] == 2 &&
+                gn.tuple[2] == 5 &&
+                gn.tuple[3] == 6) found = true;
+        }
+        assert(found);
+        // check_valid
+        assert(mf0.check_valid(5, {5,5,5,6,7}));
+    }
+
     public static int main(string[] args)
     {
         GLib.Test.init(ref args);
@@ -101,6 +203,12 @@ class PeersTester : Object
             var x = new PeersTester();
             x.set_up();
             x.test_gnode();
+            x.tear_down();
+        });
+        GLib.Test.add_func ("/Serializables/MessageForwarder", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_message();
             x.tear_down();
         });
         GLib.Test.run();
