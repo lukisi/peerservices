@@ -46,6 +46,24 @@ class PeersTester : Object
         assert(n0.tuple[2] == 3);
     }
 
+    public void test_gnode()
+    {
+        PeerTupleGNode gn0;
+        {
+            Json.Node node;
+            {
+                Gee.List<int> nums = new ArrayList<int>();
+                nums.add_all_array({1, 2, 3, 4});
+                PeerTupleGNode gn = new PeerTupleGNode(nums, 5);
+                node = Json.gobject_serialize(gn);
+            }
+            gn0 = (PeerTupleGNode)Json.gobject_deserialize(typeof(PeerTupleGNode), node);
+        }
+        assert(gn0.tuple.size == 4);
+        assert(gn0.tuple[2] == 3);
+        assert(gn0.top == 5);
+    }
+
     public static int main(string[] args)
     {
         GLib.Test.init(ref args);
@@ -53,6 +71,12 @@ class PeersTester : Object
             var x = new PeersTester();
             x.set_up();
             x.test_node();
+            x.tear_down();
+        });
+        GLib.Test.add_func ("/Serializables/TupleGNode", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_gnode();
             x.tear_down();
         });
         GLib.Test.run();

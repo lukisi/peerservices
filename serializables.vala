@@ -76,6 +76,67 @@ namespace Netsukuku.PeerServices
         }
     }
 
+    internal class PeerTupleGNode : Object, Json.Serializable, IPeerTupleGNode
+    {
+        public Gee.List<int> tuple {get; set;}
+        public int top {get; set;}
+        public PeerTupleGNode(Gee.List<int> tuple, int top)
+        {
+            this._tuple = new ArrayList<int>();
+            this._tuple.add_all(tuple);
+            this.top = top;
+        }
+
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
+        {
+            @value = 0;
+            switch (property_name) {
+            case "tuple":
+                try {
+                    @value = deserialize_list_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "top":
+                try {
+                    @value = deserialize_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
+        }
+
+        public unowned GLib.ParamSpec find_property
+        (string name)
+        {
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "tuple":
+                return serialize_list_int((Gee.List<int>)@value);
+            case "top":
+                return serialize_int((int)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
+        }
+    }
+
     internal errordomain HelperDeserializeError {
         GENERIC
     }
