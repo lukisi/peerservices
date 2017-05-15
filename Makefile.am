@@ -6,6 +6,14 @@ noinst_LTLIBRARIES = \
 	libpeers.la \
 	$(NULL)
 
+TESTS = \
+	test_serialization \
+	$(NULL)
+
+check_PROGRAMS = \
+	test_serialization \
+	$(NULL)
+
 # noinst_PROGRAMS =  \
 # 	peersclient \
 # 	$(NULL)
@@ -28,6 +36,7 @@ noinst_LTLIBRARIES = \
 
 libpeers_la_SOURCES = \
 	peers.vala \
+	serializables.vala \
 	peers_debug.vala \
 	serialize_helpers.vala \
 	$(NULL)
@@ -63,6 +72,41 @@ libpeers_la_LIBADD = \
 	$(JSONGLIB_LIBS) \
 	$(NTKDCOMMON_LIBS) \
 	$(TASKLETSYSTEM_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+# test_serialization does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
+test_serialization_SOURCES = \
+	testsuites/test_serialization2/test_serialization.vala \
+	testsuites/test_serialization2/serializables.vala \
+	$(NULL)
+
+test_serialization_VALAFLAGS = \
+	--vapidir $(GEE_PREFIX)/share/vala/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--pkg gee-0.8 \
+	--pkg json-glib-1.0 \
+	--pkg ntkd-common \
+	--pkg ntkdrpc \
+	$(NULL)
+
+test_serialization_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+test_serialization_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
 	$(NTKDRPC_LIBS) \
 	$(NULL)
 
@@ -160,6 +204,12 @@ simulator2_SOURCES =  \
 	$(NULL)
 
 simulator2_VALAFLAGS = \
+	--vapidir $(GEE_PREFIX)/share/vala/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
+	--vapidir $(PTHTASKLET_VAPIDIR) \
+	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--vapidir $(NTKDRPC_VAPIDIR) \
 	--pkg gee-0.8 \
 	--pkg ntkd-tasklet-system \
 	--pkg tasklet \

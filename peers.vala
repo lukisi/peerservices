@@ -1,6 +1,6 @@
 /*
  *  This file is part of Netsukuku.
- *  Copyright (C) 2014-2015 Luca Dionisi aka lukisi <luca.dionisi@gmail.com>
+ *  Copyright (C) 2014-2017 Luca Dionisi aka lukisi <luca.dionisi@gmail.com>
  *
  *  Netsukuku is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -112,62 +112,6 @@ namespace Netsukuku.PeerServices
 
     public interface IPeersContinuation : Object
     {
-    }
-
-    internal class PeerTupleNode : Object, Json.Serializable, IPeerTupleNode
-    {
-        public Gee.List<int> tuple {get; set;}
-        public int top {get {return tuple.size;}}
-        public PeerTupleNode(Gee.List<int> tuple)
-        {
-            this.tuple = new ArrayList<int>();
-            this.tuple.add_all(tuple);
-        }
-
-        public bool deserialize_property
-        (string property_name,
-         out GLib.Value @value,
-         GLib.ParamSpec pspec,
-         Json.Node property_node)
-        {
-            @value = 0;
-            switch (property_name) {
-            case "top":
-                // get-only dynamic property
-                return false;
-            case "tuple":
-                try {
-                    @value = deserialize_list_int(property_node);
-                } catch (HelperDeserializeError e) {
-                    return false;
-                }
-                break;
-            default:
-                return false;
-            }
-            return true;
-        }
-
-        public unowned GLib.ParamSpec find_property
-        (string name)
-        {
-            return get_class().find_property(name);
-        }
-
-        public Json.Node serialize_property
-        (string property_name,
-         GLib.Value @value,
-         GLib.ParamSpec pspec)
-        {
-            switch (property_name) {
-            case "top":
-                return serialize_int(0); // get-only dynamic property
-            case "tuple":
-                return serialize_list_int((Gee.List<int>)@value);
-            default:
-                error(@"wrong param $(property_name)");
-            }
-        }
     }
 
     internal class PeerTupleGNode : Object, Json.Serializable, IPeerTupleGNode

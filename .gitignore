@@ -1,4 +1,5 @@
 peers.c
+serializables.c
 peers_debug.c
 serialize_helpers.c
 peers.h
@@ -11,6 +12,8 @@ Makefile
 testsuites/test_serialization/test_serialization.c
 testsuites/test_serialization/peers.c
 testsuites/test_serialization/serialize_helpers.c
+testsuites/test_serialization2/test_serialization.c
+testsuites/test_serialization2/serializables.c
 testsuites/simulator/simulator.c
 testsuites/simulator/simulator_debug.c
 testsuites/simulator/service_ttl_100.c
