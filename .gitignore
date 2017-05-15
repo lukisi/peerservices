@@ -1,5 +1,6 @@
 peers.c
 serializables.c
+data_structs.c
 peers_debug.c
 serialize_helpers.c
 peers.h
@@ -14,6 +15,9 @@ testsuites/test_serialization/peers.c
 testsuites/test_serialization/serialize_helpers.c
 testsuites/test_serialization2/test_serialization.c
 testsuites/test_serialization2/serializables.c
+testsuites/data_structs/test_data_structs.c
+testsuites/data_structs/data_structs.c
+testsuites/data_structs/serializables.c
 testsuites/simulator/simulator.c
 testsuites/simulator/simulator_debug.c
 testsuites/simulator/service_ttl_100.c

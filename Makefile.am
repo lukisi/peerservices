@@ -8,10 +8,12 @@ noinst_LTLIBRARIES = \
 
 TESTS = \
 	test_serialization \
+	test_data_structs \
 	$(NULL)
 
 check_PROGRAMS = \
 	test_serialization \
+	test_data_structs \
 	$(NULL)
 
 # noinst_PROGRAMS =  \
@@ -37,6 +39,7 @@ check_PROGRAMS = \
 libpeers_la_SOURCES = \
 	peers.vala \
 	serializables.vala \
+	data_structs.vala \
 	peers_debug.vala \
 	serialize_helpers.vala \
 	$(NULL)
@@ -87,6 +90,7 @@ test_serialization_VALAFLAGS = \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
 	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--vapidir $(NTKDRPC_VAPIDIR) \
 	--pkg gee-0.8 \
 	--pkg json-glib-1.0 \
 	--pkg ntkd-common \
@@ -103,6 +107,43 @@ test_serialization_CPPFLAGS = \
 	$(NULL)
 
 test_serialization_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+# test_data_structs does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
+test_data_structs_SOURCES = \
+	testsuites/data_structs/test_data_structs.vala \
+	testsuites/data_structs/data_structs.vala \
+	testsuites/data_structs/serializables.vala \
+	$(NULL)
+
+test_data_structs_VALAFLAGS = \
+	--vapidir $(GEE_PREFIX)/share/vala/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--vapidir $(NTKDRPC_VAPIDIR) \
+	--pkg gee-0.8 \
+	--pkg json-glib-1.0 \
+	--pkg ntkd-common \
+	--pkg ntkdrpc \
+	$(NULL)
+
+test_data_structs_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+test_data_structs_LDADD = \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
