@@ -907,28 +907,12 @@ namespace Netsukuku.PeerServices
 
         private bool check_valid_tuple_node(PeerTupleNode n)
         {
-            if (n.tuple.size == 0) return false;
-            if (n.tuple.size > levels) return false;
-            for (int i = 0; i < n.tuple.size; i++)
-            {
-                if (n.tuple[i] < 0) return false;
-                if (n.tuple[i] >= gsizes[i]) return false;
-            }
-            return true;
+            return n.check_valid(levels, gsizes);
         }
 
         private bool check_valid_tuple_gnode(PeerTupleGNode gn)
         {
-            if (gn.tuple.size == 0) return false;
-            if (gn.top > levels) return false;
-            if (gn.tuple.size > gn.top) return false;
-            for (int i = 0; i < gn.tuple.size; i++)
-            {
-                int eps = gn.top - gn.tuple.size;
-                if (gn.tuple[i] < 0) return false;
-                if (gn.tuple[i] >= gsizes[eps+i]) return false;
-            }
-            return true;
+            return gn.check_valid(levels, gsizes);
         }
 
         private bool check_valid_participant_map(PeerParticipantMap m)

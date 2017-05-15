@@ -74,6 +74,18 @@ namespace Netsukuku.PeerServices
                 error(@"wrong param $(property_name)");
             }
         }
+
+        public bool check_valid(int levels, int[] gsizes)
+        {
+            if (this.tuple.size == 0) return false;
+            if (this.tuple.size > levels) return false;
+            for (int i = 0; i < this.tuple.size; i++)
+            {
+                if (this.tuple[i] < 0) return false;
+                if (this.tuple[i] >= gsizes[i]) return false;
+            }
+            return true;
+        }
     }
 
     internal class PeerTupleGNode : Object, Json.Serializable, IPeerTupleGNode
@@ -134,6 +146,20 @@ namespace Netsukuku.PeerServices
             default:
                 error(@"wrong param $(property_name)");
             }
+        }
+
+        public bool check_valid(int levels, int[] gsizes)
+        {
+            if (this.tuple.size == 0) return false;
+            if (this.top > levels) return false;
+            if (this.tuple.size > this.top) return false;
+            for (int i = 0; i < this.tuple.size; i++)
+            {
+                int eps = this.top - this.tuple.size;
+                if (this.tuple[i] < 0) return false;
+                if (this.tuple[i] >= gsizes[eps+i]) return false;
+            }
+            return true;
         }
     }
 
