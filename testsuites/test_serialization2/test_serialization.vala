@@ -17,6 +17,7 @@
  */
 
 using Gee;
+using Netsukuku;
 using Netsukuku.PeerServices;
 
 class PeersTester : Object
@@ -190,6 +191,40 @@ class PeersTester : Object
         assert(mf0.check_valid(5, {5,5,5,6,7}));
     }
 
+    public void test_participant()
+    {
+        PeerParticipantSet s0;
+        {
+            Json.Node node;
+            {
+                PeerParticipantMap m12 = new PeerParticipantMap();
+                m12.participant_list.add(new HCoord(3, 2));
+                m12.participant_list.add(new HCoord(4, 1));
+                m12.participant_list.add(new HCoord(0, 2));
+                PeerParticipantMap m15 = new PeerParticipantMap();
+                m15.participant_list.add(new HCoord(3, 5));
+                PeerParticipantSet s = new PeerParticipantSet();
+                s.participant_set[12] = m12;
+                s.participant_set[15] = m15;
+                node = Json.gobject_serialize(s);
+            }
+            s0 = (PeerParticipantSet)Json.gobject_deserialize(typeof(PeerParticipantSet), node);
+        }
+        assert(s0.participant_set.size == 2);
+        assert(s0.participant_set.has_key(12));
+        PeerParticipantMap m = s0.participant_set[12];
+        assert(m.participant_list.size == 3);
+        assert(m.participant_list.contains(new HCoord(3, 2)));
+        assert(m.participant_list.contains(new HCoord(4, 1)));
+        assert(m.participant_list.contains(new HCoord(0, 2)));
+        assert(s0.participant_set.has_key(15));
+        m = s0.participant_set[15];
+        assert(m.participant_list.size == 1);
+        assert(m.participant_list.contains(new HCoord(3, 5)));
+        // check_valid
+        assert(s0.check_valid(5, {5,5,5,6,7}));
+    }
+
     public static int main(string[] args)
     {
         GLib.Test.init(ref args);
@@ -209,6 +244,12 @@ class PeersTester : Object
             var x = new PeersTester();
             x.set_up();
             x.test_message();
+            x.tear_down();
+        });
+        GLib.Test.add_func ("/Serializables/ParticipantSet", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_participant();
             x.tear_down();
         });
         GLib.Test.run();

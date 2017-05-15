@@ -316,6 +316,131 @@ namespace Netsukuku.PeerServices
         }
     }
 
+    internal class PeerParticipantMap : Object, Json.Serializable
+    {
+        public Gee.List<HCoord> participant_list {get; set;}
+
+        public PeerParticipantMap()
+        {
+            participant_list = new ArrayList<HCoord>((a,b) => a.equals(b));
+        }
+
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
+        {
+            @value = 0;
+            switch (property_name) {
+            case "participant-list":
+            case "participant_list":
+                try {
+                    @value = deserialize_list_hcoord(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
+        }
+
+        public unowned GLib.ParamSpec find_property
+        (string name)
+        {
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "participant-list":
+            case "participant_list":
+                return serialize_list_hcoord((Gee.List<HCoord>)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
+        }
+
+        public bool check_valid(int levels, int[] gsizes)
+        {
+            foreach (HCoord h in this.participant_list)
+            {
+                if (h.lvl < 0) return false;
+                if (h.lvl > levels) return false;
+                if (h.pos < 0) return false;
+                if (h.pos > gsizes[h.lvl]) return false;
+            }
+            return true;
+        }
+    }
+
+    internal class PeerParticipantSet : Object, Json.Serializable, IPeerParticipantSet
+    {
+        public HashMap<int, PeerParticipantMap> participant_set {get; set;}
+
+        public PeerParticipantSet()
+        {
+            participant_set = new HashMap<int, PeerParticipantMap>();
+        }
+
+        public bool deserialize_property
+        (string property_name,
+         out GLib.Value @value,
+         GLib.ParamSpec pspec,
+         Json.Node property_node)
+        {
+            @value = 0;
+            switch (property_name) {
+            case "participant-set":
+            case "participant_set":
+                try {
+                    @value = deserialize_map_int_peer_participant_map(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            default:
+                return false;
+            }
+            return true;
+        }
+
+        public unowned GLib.ParamSpec find_property
+        (string name)
+        {
+            return get_class().find_property(name);
+        }
+
+        public Json.Node serialize_property
+        (string property_name,
+         GLib.Value @value,
+         GLib.ParamSpec pspec)
+        {
+            switch (property_name) {
+            case "participant_set":
+            case "participant-set":
+                return serialize_map_int_peer_participant_map((HashMap<int, PeerParticipantMap>)@value);
+            default:
+                error(@"wrong param $(property_name)");
+            }
+        }
+
+        public bool check_valid(int levels, int[] gsizes)
+        {
+            foreach (int pid in this.participant_set.keys)
+            {
+                if (! this.participant_set[pid].check_valid(levels, gsizes)) return false;
+            }
+            return true;
+        }
+    }
+
     internal errordomain HelperDeserializeError {
         GENERIC
     }
@@ -514,7 +639,6 @@ namespace Netsukuku.PeerServices
         return serialize_list_object(lst);
     }
 
-     /*
     internal HashMap<int, PeerParticipantMap> deserialize_map_int_peer_participant_map(Json.Node property_node)
     throws HelperDeserializeError
     {
@@ -565,8 +689,7 @@ namespace Netsukuku.PeerServices
         b.end_object();
         return b.get_root();
     }
-*/
-     
+
     internal Gee.List<int> deserialize_list_int(Json.Node property_node)
     throws HelperDeserializeError
     {
