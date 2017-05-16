@@ -11,10 +11,7 @@ tasklet_system_tasklet.c
 Makefile.in
 Makefile
 testsuites/test_serialization/test_serialization.c
-testsuites/test_serialization/peers.c
-testsuites/test_serialization/serialize_helpers.c
-testsuites/test_serialization2/test_serialization.c
-testsuites/test_serialization2/serializables.c
+testsuites/test_serialization/serializables.c
 testsuites/data_structs/test_data_structs.c
 testsuites/data_structs/data_structs.c
 testsuites/data_structs/serializables.c

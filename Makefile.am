@@ -82,8 +82,8 @@ libpeers_la_LIBADD = \
 #  it with source files, not with the convenience library. The source files
 #  are symbolic links to avoid name clashes with vala-generated C files.
 test_serialization_SOURCES = \
-	testsuites/test_serialization2/test_serialization.vala \
-	testsuites/test_serialization2/serializables.vala \
+	testsuites/test_serialization/test_serialization.vala \
+	testsuites/test_serialization/serializables.vala \
 	$(NULL)
 
 test_serialization_VALAFLAGS = \
@@ -150,46 +150,6 @@ test_data_structs_LDADD = \
 	$(NTKDCOMMON_LIBS) \
 	$(NTKDRPC_LIBS) \
 	$(NULL)
-
-# # test_serialization does some tests on internal classes, hence we need to compile
-# #  it with source files, not with the convenience library. The source files
-# #  are symbolic links to avoid name clashes with vala-generated C files.
-# test_serialization_SOURCES = \
-# 	testsuites/test_serialization/test_serialization.vala \
-# 	testsuites/test_serialization/peers.vala \
-# 	testsuites/test_serialization/peers_debug.vala \
-# 	testsuites/test_serialization/serialize_helpers.vala \
-# 	$(NULL)
-# 
-# test_serialization_VALAFLAGS = \
-# 	--pkg gee-0.8 \
-# 	--pkg json-glib-1.0 \
-# 	--pkg ntkd-common \
-# 	--pkg ntkd-tasklet-system \
-# 	--pkg ntkdrpc\
-# 	--pkg zcd-tasklet-system \
-# 	$(NULL)
-# 
-# test_serialization_CPPFLAGS = \
-# 	-w \
-# 	$(GOBJECT_CFLAGS) \
-# 	$(GEE_CFLAGS) \
-# 	$(JSONGLIB_CFLAGS) \
-# 	$(NTKDCOMMON_CFLAGS) \
-# 	$(TASKLETSYSTEM_CFLAGS) \
-# 	$(TASKLET_CFLAGS) \
-# 	$(NTKDRPC_CFLAGS) \
-# 	$(NULL)
-# 
-# test_serialization_LDADD = \
-# 	$(GOBJECT_LIBS) \
-# 	$(GEE_LIBS) \
-# 	$(JSONGLIB_LIBS) \
-# 	$(NTKDCOMMON_LIBS) \
-# 	$(TASKLETSYSTEM_LIBS) \
-# 	$(TASKLET_LIBS) \
-# 	$(NTKDRPC_LIBS) \
-# 	$(NULL)
 
 simulator_SOURCES =  \
 	testsuites/simulator/simulator.vala \
