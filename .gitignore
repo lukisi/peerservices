@@ -2,7 +2,6 @@ peers.c
 serializables.c
 data_structs.c
 peers_debug.c
-serialize_helpers.c
 peers.h
 peers.vapi
 main.c

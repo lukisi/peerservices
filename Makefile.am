@@ -41,7 +41,6 @@ libpeers_la_SOURCES = \
 	serializables.vala \
 	data_structs.vala \
 	peers_debug.vala \
-	serialize_helpers.vala \
 	$(NULL)
 
 libpeers_la_VALAFLAGS = \
