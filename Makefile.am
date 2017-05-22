@@ -9,11 +9,13 @@ noinst_LTLIBRARIES = \
 TESTS = \
 	test_serialization \
 	test_data_structs \
+	test_map_handler \
 	$(NULL)
 
 check_PROGRAMS = \
 	test_serialization \
 	test_data_structs \
+	test_map_handler \
 	$(NULL)
 
 # noinst_PROGRAMS =  \
@@ -40,6 +42,7 @@ libpeers_la_SOURCES = \
 	peers.vala \
 	serializables.vala \
 	data_structs.vala \
+	map_handler.vala \
 	peers_debug.vala \
 	$(NULL)
 
@@ -146,6 +149,51 @@ test_data_structs_LDADD = \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+# test_map_handler does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
+test_map_handler_SOURCES = \
+	testsuites/map_handler/test_map_handler.vala \
+	testsuites/map_handler/map_handler.vala \
+	testsuites/map_handler/serializables.vala \
+	$(NULL)
+
+test_map_handler_VALAFLAGS = \
+	--vapidir $(GEE_PREFIX)/share/vala/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
+	--vapidir $(PTHTASKLET_VAPIDIR) \
+	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--vapidir $(NTKDRPC_VAPIDIR) \
+	--pkg gee-0.8 \
+	--pkg json-glib-1.0 \
+	--pkg tasklet-system \
+	--pkg pth-tasklet \
+	--pkg ntkd-common \
+	--pkg ntkdrpc \
+	$(NULL)
+
+test_map_handler_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(PTHTASKLET_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+test_map_handler_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(PTHTASKLET_LIBS) \
 	$(NTKDCOMMON_LIBS) \
 	$(NTKDRPC_LIBS) \
 	$(NULL)

@@ -80,8 +80,9 @@ namespace Netsukuku.PeerServices
              CallerInfo? received_from=null,
              IPeersManagerStub? failed=null)
             throws PeersNonexistentDestinationError;
-        public abstract IPeersManagerStub i_peers_fellow(int level)
-            throws PeersNonexistentFellowError;
+        public abstract IPeersManagerStub? i_peers_neighbor_at_level
+            (int level,
+             IPeersManagerStub? failed=null);
     }
 
     public interface IPeersBackStubFactory : Object
@@ -258,20 +259,22 @@ namespace Netsukuku.PeerServices
         private HashMap<int, WaitingAnswer> waiting_answer_map;
         private HashMap<int, PeerParticipantMap> participant_maps;
         private ArrayList<HCoord> recent_published_list;
-        public int level_new_gnode {get; private set;}
-        public bool participant_maps_retrieved {get; private set;}
-        public bool participant_maps_failed {get; private set;}
-
-        // The maps of participants are now ready.
-        public signal void participant_maps_ready();
-        // The retrieve of maps of participants failed.
-        public signal void participant_maps_failure();
+        public int guest_gnode_level {get; private set;}
+        public int host_gnode_level {get; private set;}
+        public int maps_retrieved_below_level {
+            get {
+                return map_handler.maps_retrieved_below_level;
+            }
+        }
+        private MapHandler.MapHandler map_handler;
 
         public PeersManager
-            (IPeersMapPaths map_paths,
-             int level_new_gnode,
-             IPeersBackStubFactory back_stub_factory,
-             IPeersNeighborsFactory neighbors_factory)
+        (PeersManager? old_identity,
+        int guest_gnode_level,
+        int host_gnode_level,
+        IPeersMapPaths map_paths,
+        IPeersBackStubFactory back_stub_factory,
+        IPeersNeighborsFactory neighbors_factory)
         {
             this.map_paths = map_paths;
             levels = map_paths.i_peers_get_levels();
@@ -288,83 +291,25 @@ namespace Netsukuku.PeerServices
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
-            this.level_new_gnode = level_new_gnode;
-            participant_maps_retrieved = true;
-            participant_maps_failed = false;
-            if (level_new_gnode < levels)
+            this.guest_gnode_level = guest_gnode_level;
+            this.host_gnode_level = host_gnode_level;
+            map_handler = new MapHandler.MapHandler
+                (levels,
+                 /*ClearMapsAtLevel*/ (lvl) => {/*TODO*/},
+                 /*AddParticipant*/ (p_id, h) => {/*TODO*/},
+                 /*RemoveParticipant*/ (p_id, h) => {/*TODO*/},
+                 /*ProduceMapsCopy*/ () => {
+                     var ret = new PeerParticipantSet();/*TODO*/
+                     return ret;
+                 });
+            if (old_identity == null)
             {
-                participant_maps_retrieved = false;
-                RetrieveParticipantSetTasklet ts = new RetrieveParticipantSetTasklet();
-                ts.t = this;
-                ts.lvl = level_new_gnode + 1;
-                tasklet.spawn(ts);
+                map_handler.create_net();
             }
-        }
-
-        private class RetrieveParticipantSetTasklet : Object, ITaskletSpawnable
-        {
-            public PeersManager t;
-            public int lvl;
-            public void * func()
+            else
             {
-                debug("calling retrieve_participant_set\n");
-                bool ret = t.retrieve_participant_set(lvl);
-                debug("done retrieve_participant_set\n");
-                if (ret)
-                {
-                    t.participant_maps_retrieved = true;
-                    t.participant_maps_ready();
-                }
-                else
-                {
-                    t.participant_maps_failed = true;
-                    t.participant_maps_failure();
-                }
-                return null;
+                map_handler.enter_net(old_identity.map_handler, guest_gnode_level, host_gnode_level);
             }
-        }
-        private bool retrieve_participant_set(int lvl)
-        {
-            IPeersManagerStub f_stub;
-            try {
-                f_stub = map_paths.i_peers_fellow(lvl);
-            } catch (PeersNonexistentFellowError e) {
-                debug(@"retrieve_participant_set: Failed to get because PeersNonexistentFellowError");
-                return false;
-            }
-            IPeerParticipantSet ret;
-            try {
-                ret = f_stub.get_participant_set(lvl);
-            } catch (PeersInvalidRequest e) {
-                debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
-                return false;
-            } catch (StubError e) {
-                debug(@"retrieve_participant_set: Failed to get because StubError $(e.message)");
-                return false;
-            } catch (DeserializeError e) {
-                debug(@"retrieve_participant_set: Failed to get because DeserializeError $(e.message)");
-                return false;
-            }
-            if (! (ret is PeerParticipantSet)) {
-                debug("retrieve_participant_set: Failed to get because unknown class");
-                return false;
-            }
-            PeerParticipantSet participant_set = (PeerParticipantSet)ret;
-            if (! check_valid_participant_set(participant_set)) {
-                debug("retrieve_participant_set: Failed to get because not valid data");
-                return false;
-            }
-            // copy
-            participant_maps = new HashMap<int, PeerParticipantMap>();
-            foreach (int p_id in participant_set.participant_set.keys)
-            {
-                PeerParticipantMap my_map = new PeerParticipantMap();
-                participant_maps[p_id] = my_map;
-                PeerParticipantMap map = participant_set.participant_set[p_id];
-                foreach (HCoord hc in map.participant_list)
-                    my_map.participant_list.add(hc);
-            }
-            return true;
         }
 
         public void register(PeerService p)
@@ -1321,14 +1266,11 @@ namespace Netsukuku.PeerServices
             tdd.dh.ready = false;
             if (srv.p_is_optional)
             {
-                while (! participant_maps_retrieved)
+                // TODO search a mechanism to validate the situation
+                //   where maps_retrieved_below_level < levels.
+                if (maps_retrieved_below_level < levels)
                 {
-                    if (participant_maps_failed)
-                    {
-                        debug("participant_maps_failed.\n");
-                        return;
-                    }
-                    tasklet.ms_wait(1000);
+                    error("not implemented yet");
                 }
             }
             tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
@@ -1771,14 +1713,11 @@ namespace Netsukuku.PeerServices
             fkdd.dh.ready = false;
             if (srv.p_is_optional)
             {
-                while (! participant_maps_retrieved)
+                // TODO search a mechanism to validate the situation
+                //   where maps_retrieved_below_level < levels.
+                if (maps_retrieved_below_level < levels)
                 {
-                    if (participant_maps_failed)
-                    {
-                        debug("participant_maps_failed.\n");
-                        return;
-                    }
-                    tasklet.ms_wait(1000);
+                    error("not implemented yet");
                 }
             }
             fkdd.dh.not_completed_keys = new ArrayList<Object>(fkdd.key_equal_data);

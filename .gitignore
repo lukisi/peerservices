@@ -1,6 +1,7 @@
 peers.c
 serializables.c
 data_structs.c
+map_handler.c
 peers_debug.c
 peers.h
 peers.vapi
@@ -14,6 +15,9 @@ testsuites/test_serialization/serializables.c
 testsuites/data_structs/test_data_structs.c
 testsuites/data_structs/data_structs.c
 testsuites/data_structs/serializables.c
+testsuites/map_handler/map_handler.c
+testsuites/map_handler/serializables.c
+testsuites/map_handler/test_map_handler.c
 testsuites/simulator/simulator.c
 testsuites/simulator/simulator_debug.c
 testsuites/simulator/service_ttl_100.c
