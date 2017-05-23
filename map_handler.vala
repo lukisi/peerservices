@@ -33,6 +33,10 @@ namespace Netsukuku.PeerServices.MapHandler
     /* Produce a [copy of the] set of the participation maps for all the services.
      */
     internal delegate PeerParticipantSet ProduceMapsCopy();
+    /* Get a stub to talk to a neighbor which has a given level as maximum distinct g-node
+     * with respect to our address. If we have such a neighbor; otherwise return null.
+     */
+    internal delegate IPeersManagerStub? GetNeighborAtLevel(int lvl, IPeersManagerStub? failing_stub);
 
     internal class MapHandler : Object
     {
@@ -43,6 +47,7 @@ namespace Netsukuku.PeerServices.MapHandler
         private unowned AddParticipant add_participant;
         private unowned RemoveParticipant remove_participant;
         private unowned ProduceMapsCopy produce_maps;
+        private unowned GetNeighborAtLevel get_neighbor_at_level;
         public int maps_retrieved_below_level {get; private set;}
 
         public MapHandler
@@ -50,13 +55,15 @@ namespace Netsukuku.PeerServices.MapHandler
          ClearMapsAtLevel clear_maps_at_level,
          AddParticipant add_participant,
          RemoveParticipant remove_participant,
-         ProduceMapsCopy produce_maps)
+         ProduceMapsCopy produce_maps,
+         GetNeighborAtLevel get_neighbor_at_level)
         {
             this.levels = levels;
             this.clear_maps_at_level = clear_maps_at_level;
             this.add_participant = add_participant;
             this.remove_participant = remove_participant;
             this.produce_maps = produce_maps;
+            this.get_neighbor_at_level = get_neighbor_at_level;
         }
 
         /* Produce a [copy of the] set of the participation maps for all the services
@@ -115,6 +122,23 @@ namespace Netsukuku.PeerServices.MapHandler
         }
         private void retrieve_participant_set()
         {
+            IPeersManagerStub? n_stub = null;
+            while (true) {
+                n_stub = get_neighbor_at_level(host_gnode_level - 1, n_stub);
+                if (n_stub == null)
+                {
+                    debug(@"retrieve_participant_set: no more neighbors at level $(host_gnode_level - 1)");
+                    return;
+                }
+                debug(@"retrieve_participant_set: contacting a neighbor at level $(host_gnode_level - 1)");
+                int ret_maps_retrieved_below_level;
+                IPeerParticipantSet ret_maps;
+                // TODO ret_maps, ret_maps_retrieved_below_level = n_stub.ask_participant_maps...
+
+                // TODO copy for levels greater than maps_retrieved_below_level
+
+                //
+            }
             // TODO
             /*
             IPeersManagerStub? n_stub = null;

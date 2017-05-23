@@ -301,6 +301,10 @@ namespace Netsukuku.PeerServices
                  /*ProduceMapsCopy*/ () => {
                      var ret = new PeerParticipantSet();/*TODO*/
                      return ret;
+                 },
+                 /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
+                     IPeersManagerStub? nstub = null;/*TODO*/
+                     return nstub;
                  });
             if (old_identity == null)
             {
