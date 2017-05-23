@@ -382,6 +382,7 @@ namespace Netsukuku.PeerServices
 
     internal class PeerParticipantSet : Object, Json.Serializable, IPeerParticipantSet
     {
+        public int retrieved_below_level {get; set;}
         public HashMap<int, PeerParticipantMap> participant_set {get; set;}
 
         public PeerParticipantSet()
@@ -401,6 +402,14 @@ namespace Netsukuku.PeerServices
             case "participant_set":
                 try {
                     @value = deserialize_map_int_peer_participant_map(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "retrieved-below-level":
+            case "retrieved_below_level":
+                try {
+                    @value = deserialize_int(property_node);
                 } catch (HelperDeserializeError e) {
                     return false;
                 }
@@ -426,6 +435,9 @@ namespace Netsukuku.PeerServices
             case "participant_set":
             case "participant-set":
                 return serialize_map_int_peer_participant_map((HashMap<int, PeerParticipantMap>)@value);
+            case "retrieved-below-level":
+            case "retrieved_below_level":
+                return serialize_int((int)@value);
             default:
                 error(@"wrong param $(property_name)");
             }

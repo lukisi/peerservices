@@ -206,10 +206,12 @@ class PeersTester : Object
                 PeerParticipantSet s = new PeerParticipantSet();
                 s.participant_set[12] = m12;
                 s.participant_set[15] = m15;
+                s.retrieved_below_level = 5;
                 node = Json.gobject_serialize(s);
             }
             s0 = (PeerParticipantSet)Json.gobject_deserialize(typeof(PeerParticipantSet), node);
         }
+        assert(s0.retrieved_below_level == 5);
         assert(s0.participant_set.size == 2);
         assert(s0.participant_set.has_key(12));
         PeerParticipantMap m = s0.participant_set[12];

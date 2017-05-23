@@ -305,6 +305,10 @@ namespace Netsukuku.PeerServices
                  /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
                      IPeersManagerStub? nstub = null;/*TODO*/
                      return nstub;
+                 },
+                 /*GetBroadcastNeighbors*/ () => {
+                     IPeersManagerStub nstub = null;/*TODO*/
+                     return nstub;
                  });
             if (old_identity == null)
             {
@@ -1889,6 +1893,18 @@ namespace Netsukuku.PeerServices
                 ret.participant_set[p_id] = map;
             }
             return ret;
+        }
+
+        public IPeerParticipantSet ask_participant_maps
+        (CallerInfo? _rpc_caller=null)
+        {
+            error("not yet implemented");
+        }
+
+        public void give_participant_maps
+        (IPeerParticipantSet maps, CallerInfo? _rpc_caller=null)
+        {
+            error("not yet implemented");
         }
 
         public void forward_peer_message

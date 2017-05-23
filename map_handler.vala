@@ -37,6 +37,9 @@ namespace Netsukuku.PeerServices.MapHandler
      * with respect to our address. If we have such a neighbor; otherwise return null.
      */
     internal delegate IPeersManagerStub? GetNeighborAtLevel(int lvl, IPeersManagerStub? failing_stub);
+    /* Get a stub to transmit in broadcast to all neighbors.
+     */
+    internal delegate IPeersManagerStub GetBroadcastNeighbors();
 
     internal class MapHandler : Object
     {
@@ -48,6 +51,7 @@ namespace Netsukuku.PeerServices.MapHandler
         private unowned RemoveParticipant remove_participant;
         private unowned ProduceMapsCopy produce_maps;
         private unowned GetNeighborAtLevel get_neighbor_at_level;
+        private unowned GetBroadcastNeighbors get_groadcast_neighbors;
         public int maps_retrieved_below_level {get; private set;}
 
         public MapHandler
@@ -56,7 +60,8 @@ namespace Netsukuku.PeerServices.MapHandler
          AddParticipant add_participant,
          RemoveParticipant remove_participant,
          ProduceMapsCopy produce_maps,
-         GetNeighborAtLevel get_neighbor_at_level)
+         GetNeighborAtLevel get_neighbor_at_level,
+         GetBroadcastNeighbors get_groadcast_neighbors)
         {
             this.levels = levels;
             this.clear_maps_at_level = clear_maps_at_level;
@@ -64,6 +69,7 @@ namespace Netsukuku.PeerServices.MapHandler
             this.remove_participant = remove_participant;
             this.produce_maps = produce_maps;
             this.get_neighbor_at_level = get_neighbor_at_level;
+            this.get_groadcast_neighbors = get_groadcast_neighbors;
         }
 
         /* Produce a [copy of the] set of the participation maps for all the services
@@ -131,74 +137,41 @@ namespace Netsukuku.PeerServices.MapHandler
                     return;
                 }
                 debug(@"retrieve_participant_set: contacting a neighbor at level $(host_gnode_level - 1)");
-                int ret_maps_retrieved_below_level;
-                IPeerParticipantSet ret_maps;
-                // TODO ret_maps, ret_maps_retrieved_below_level = n_stub.ask_participant_maps...
 
-                // TODO copy for levels greater than maps_retrieved_below_level
-
-                //
-            }
-            // TODO
-            /*
-            IPeersManagerStub? n_stub = null;
-            while (true) {
-                n_stub = this.map_paths.i_peers_neighbor_at_level(host_gnode_level - 1, n_stub);
-                if (n_stub == null)
-                {
-                    debug(@"retrieve_participant_set: no more neighbors at level $(host_gnode_level - 1)");
-                    return;
+                PeerParticipantSet ret_maps;
+                try {
+                    IPeerParticipantSet resp = n_stub.ask_participant_maps();
+                    ret_maps = (PeerParticipantSet)resp;
+                    // includes ret_maps.retrieved_below_level.
+                } catch (StubError e) {
+                    debug(@"retrieve_participant_set: Failed call to ask_participant_maps: StubError $(e.message)");
+                    continue;
+                } catch (DeserializeError e) {
+                    debug(@"retrieve_participant_set: Failed call to ask_participant_maps: DeserializeError $(e.message)");
+                    continue;
                 }
-                debug(@"retrieve_participant_set: contacting a neighbor at level $(host_gnode_level - 1)");
-                int ret_maps_retrieved_below_level;
-                IPeerParticipantSet ret_maps;
-                // TODO ret_maps, ret_maps_retrieved_below_level = n_stub.ask_participant_maps...
-
-                // TODO copy for levels greater than maps_retrieved_below_level
-
-                //
+                // copy for levels greater than maps_retrieved_below_level
+                for (int lvl = maps_retrieved_below_level; lvl < ret_maps.retrieved_below_level; lvl++)
+                {
+                    foreach (int p_id in ret_maps.participant_set.keys)
+                    {
+                        PeerParticipantMap map = ret_maps.participant_set[p_id];
+                        foreach (HCoord hc in map.participant_list) if (hc.lvl == lvl)
+                            add_participant(p_id, hc);
+                    }
+                }
+                maps_retrieved_below_level = ret_maps.retrieved_below_level;
+                // get a stub for broadcast, no wait.
+                IPeersManagerStub broadcast_stub = get_groadcast_neighbors();
+                try {
+                    broadcast_stub.give_participant_maps(produce_maps_below_level(maps_retrieved_below_level));
+                } catch (StubError e) {
+                    assert_not_reached();
+                } catch (DeserializeError e) {
+                    assert_not_reached();
+                }
+                break;
             }
-            IPeersManagerStub f_stub;
-            try {
-                f_stub = map_paths.i_peers_fellow(lvl);
-            } catch (PeersNonexistentFellowError e) {
-                debug(@"retrieve_participant_set: Failed to get because PeersNonexistentFellowError");
-                return false;
-            }
-            IPeerParticipantSet ret;
-            try {
-                ret = f_stub.get_participant_set(lvl);
-            } catch (PeersInvalidRequest e) {
-                debug(@"retrieve_participant_set: Failed to get because PeersInvalidRequest $(e.message)");
-                return false;
-            } catch (StubError e) {
-                debug(@"retrieve_participant_set: Failed to get because StubError $(e.message)");
-                return false;
-            } catch (DeserializeError e) {
-                debug(@"retrieve_participant_set: Failed to get because DeserializeError $(e.message)");
-                return false;
-            }
-            if (! (ret is PeerParticipantSet)) {
-                debug("retrieve_participant_set: Failed to get because unknown class");
-                return false;
-            }
-            PeerParticipantSet participant_set = (PeerParticipantSet)ret;
-            if (! check_valid_participant_set(participant_set)) {
-                debug("retrieve_participant_set: Failed to get because not valid data");
-                return false;
-            }
-            // copy
-            participant_maps = new HashMap<int, PeerParticipantMap>();
-            foreach (int p_id in participant_set.participant_set.keys)
-            {
-                PeerParticipantMap my_map = new PeerParticipantMap();
-                participant_maps[p_id] = my_map;
-                PeerParticipantMap map = participant_set.participant_set[p_id];
-                foreach (HCoord hc in map.participant_list)
-                    my_map.participant_list.add(hc);
-            }
-            return true;
-            */
         }
     }
 }

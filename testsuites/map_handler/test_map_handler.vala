@@ -71,6 +71,10 @@ class PeersTester : Object
                  string s_f_s = (failing_nstub == null) ? "null" : "[object]";
                  print(@"map_handler_1: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
                  return id1.get_neighbor_at_level(lvl, failing_nstub);
+             },
+             /*GetBroadcastNeighbors*/ () => {
+                 print(@"map_handler_1: Call to get_broadcast_neighbors().\n");
+                 return id1.get_broadcast_neighbors();
              });
         map_handler_1.create_net();
 
@@ -110,6 +114,10 @@ class PeersTester : Object
                  string s_f_s = (failing_nstub == null) ? "null" : "[object]";
                  print(@"map_handler_2: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
                  return id2.get_neighbor_at_level(lvl, failing_nstub);
+             },
+             /*GetBroadcastNeighbors*/ () => {
+                 print(@"map_handler_2: Call to get_broadcast_neighbors().\n");
+                 return id2.get_broadcast_neighbors();
              });
         map_handler_2.enter_net(map_handler_1, 0, 1);
     }
@@ -168,6 +176,11 @@ class PeersTester : Object
         public IPeersManagerStub? get_neighbor_at_level(int lvl, IPeersManagerStub? failing_stub)
         {
              IPeersManagerStub? nstub = null;/*TODO*/
+             return nstub;
+        }
+        public IPeersManagerStub get_broadcast_neighbors()
+        {
+             IPeersManagerStub nstub = null;/*TODO*/
              return nstub;
         }
     }
