@@ -85,6 +85,7 @@ namespace Netsukuku.PeerServices.MapHandler
                 foreach (HCoord h in m.participant_list) if (h.lvl >= below_level) to_del.add(h);
                 m.participant_list.remove_all(to_del);
             }
+            ret.retrieved_below_level = below_level;
             return ret;
         }
 
@@ -151,26 +152,40 @@ namespace Netsukuku.PeerServices.MapHandler
                     continue;
                 }
                 // copy for levels greater than maps_retrieved_below_level
-                for (int lvl = maps_retrieved_below_level; lvl < ret_maps.retrieved_below_level; lvl++)
+                if (maps_retrieved_below_level < ret_maps.retrieved_below_level)
                 {
-                    foreach (int p_id in ret_maps.participant_set.keys)
-                    {
-                        PeerParticipantMap map = ret_maps.participant_set[p_id];
-                        foreach (HCoord hc in map.participant_list) if (hc.lvl == lvl)
-                            add_participant(p_id, hc);
-                    }
-                }
-                maps_retrieved_below_level = ret_maps.retrieved_below_level;
-                // get a stub for broadcast, no wait.
-                IPeersManagerStub broadcast_stub = get_groadcast_neighbors();
-                try {
-                    broadcast_stub.give_participant_maps(produce_maps_below_level(maps_retrieved_below_level));
-                } catch (StubError e) {
-                    assert_not_reached();
-                } catch (DeserializeError e) {
-                    assert_not_reached();
+                    copy_and_forward(ret_maps);
                 }
                 break;
+            }
+        }
+
+        public void give_participant_maps(PeerParticipantSet maps)
+        {
+            if (maps.retrieved_below_level <= maps_retrieved_below_level) return; // Ignore this data.
+            copy_and_forward(maps);
+        }
+
+        void copy_and_forward(PeerParticipantSet maps)
+        {
+            for (int lvl = maps_retrieved_below_level; lvl < maps.retrieved_below_level; lvl++)
+            {
+                foreach (int p_id in maps.participant_set.keys)
+                {
+                    PeerParticipantMap map = maps.participant_set[p_id];
+                    foreach (HCoord hc in map.participant_list) if (hc.lvl == lvl)
+                        add_participant(p_id, hc);
+                }
+            }
+            maps_retrieved_below_level = maps.retrieved_below_level;
+            // get a stub for broadcast, no wait.
+            IPeersManagerStub broadcast_stub = get_groadcast_neighbors();
+            try {
+                broadcast_stub.give_participant_maps(produce_maps_below_level(maps_retrieved_below_level));
+            } catch (StubError e) {
+                assert_not_reached();
+            } catch (DeserializeError e) {
+                assert_not_reached();
             }
         }
     }

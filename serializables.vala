@@ -445,6 +445,8 @@ namespace Netsukuku.PeerServices
 
         public bool check_valid(int levels, int[] gsizes)
         {
+            if (this.retrieved_below_level < 0) return false;
+            if (this.retrieved_below_level > levels) return false;
             foreach (int pid in this.participant_set.keys)
             {
                 if (! this.participant_set[pid].check_valid(levels, gsizes)) return false;
