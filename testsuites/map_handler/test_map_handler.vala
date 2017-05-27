@@ -61,90 +61,16 @@ class PeersTester : Object
         /* Node 01. Identity 01. Its address is 1·0·1. It's alone in the network N1.
          * It participates in service #1.
          */
-        MapHolder no1id1 = new MapHolder(new ArrayList<int>.wrap({1,0,1}));
+        MapHolder no1id1 = new MapHolder("no1id1", new ArrayList<int>.wrap({1,0,1}));
         no1id1.participate(1);
-        no1id1.handler = new MapHandler.MapHandler
-            (levels,
-             /*ClearMapsAtLevel*/ (lvl) => {
-                 print(@"map_handler_no1id1: Call to clear_maps_at_level($(lvl)).\n");
-                 no1id1.clear_maps_at_level(lvl);
-             },
-             /*AddParticipant*/ (p_id, h) => {
-                 print(@"map_handler_no1id1: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == no1id1.pos[h.lvl])
-                 {
-                     print ("Ignore because it is my position.\n");
-                     return;
-                 }
-                 no1id1.add_participant(p_id, h);
-             },
-             /*RemoveParticipant*/ (p_id, h) => {
-                 print(@"map_handler_no1id1: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == no1id1.pos[h.lvl])
-                 {
-                     print ("Ignore because it is my position.\n");
-                     return;
-                 }
-                 no1id1.remove_participant(p_id, h);
-             },
-             /*ProduceMapsCopy*/ () => {
-                 print(@"map_handler_no1id1: Call to produce_maps().\n");
-                 return no1id1.produce_maps_copy();
-             },
-             /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
-                 string s_f_s = (failing_nstub == null) ? "null" : "[object]";
-                 print(@"map_handler_no1id1: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-                 return no1id1.get_neighbor_at_level(lvl, failing_nstub);
-             },
-             /*GetBroadcastNeighbors*/ () => {
-                 print(@"map_handler_no1id1: Call to get_broadcast_neighbors().\n");
-                 return no1id1.get_broadcast_neighbors();
-             });
         no1id1.handler.create_net();
         tasklet.ms_wait(10);
 
         /* Node 02. Identity 01. Its address is 0·0·0. It's alone in the network N2.
          * It participates in service #1.
          */
-        MapHolder no2id1 = new MapHolder(new ArrayList<int>.wrap({0,0,0}));
+        MapHolder no2id1 = new MapHolder("no2id1", new ArrayList<int>.wrap({0,0,0}));
         no2id1.participate(1);
-        no2id1.handler = new MapHandler.MapHandler
-            (levels,
-             /*ClearMapsAtLevel*/ (lvl) => {
-                 print(@"map_handler_no2id1: Call to clear_maps_at_level($(lvl)).\n");
-                 no2id1.clear_maps_at_level(lvl);
-             },
-             /*AddParticipant*/ (p_id, h) => {
-                 print(@"map_handler_no2id1: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == no2id1.pos[h.lvl])
-                 {
-                     print ("Ignore because it is my position.\n");
-                     return;
-                 }
-                 no2id1.add_participant(p_id, h);
-             },
-             /*RemoveParticipant*/ (p_id, h) => {
-                 print(@"map_handler_no2id1: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == no2id1.pos[h.lvl])
-                 {
-                     print ("Ignore because it is my position.\n");
-                     return;
-                 }
-                 no2id1.remove_participant(p_id, h);
-             },
-             /*ProduceMapsCopy*/ () => {
-                 print(@"map_handler_no2id1: Call to produce_maps().\n");
-                 return no2id1.produce_maps_copy();
-             },
-             /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
-                 string s_f_s = (failing_nstub == null) ? "null" : "[object]";
-                 print(@"map_handler_no2id1: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-                 return no2id1.get_neighbor_at_level(lvl, failing_nstub);
-             },
-             /*GetBroadcastNeighbors*/ () => {
-                 print(@"map_handler_no2id1: Call to get_broadcast_neighbors().\n");
-                 return no2id1.get_broadcast_neighbors();
-             });
         no2id1.handler.create_net();
         tasklet.ms_wait(10);
 
@@ -153,65 +79,40 @@ class PeersTester : Object
          * It participates in service #1.
          * A new arc is formed between no1id2 and no2id1.
          */
-        MapHolder no1id2 = new MapHolder(new ArrayList<int>.wrap({1,0,0}));
+        MapHolder no1id2 = new MapHolder("no1id2", new ArrayList<int>.wrap({1,0,0}));
         no1id2.participate(1);
         no1id2.set_neighbor(no2id1);
         no2id1.set_neighbor(no1id2);
-        no1id2.handler = new MapHandler.MapHandler
-            (levels,
-             /*ClearMapsAtLevel*/ (lvl) => {
-                 print(@"map_handler_no1id2: Call to clear_maps_at_level($(lvl)).\n");
-                 no1id2.clear_maps_at_level(lvl);
-             },
-             /*AddParticipant*/ (p_id, h) => {
-                 print(@"map_handler_no1id2: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == no1id2.pos[h.lvl])
-                 {
-                     print ("Ignore because it is my position.\n");
-                     return;
-                 }
-                 no1id2.add_participant(p_id, h);
-             },
-             /*RemoveParticipant*/ (p_id, h) => {
-                 print(@"map_handler_no1id2: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == no1id2.pos[h.lvl])
-                 {
-                     print ("Ignore because it is my position.\n");
-                     return;
-                 }
-                 no1id2.remove_participant(p_id, h);
-             },
-             /*ProduceMapsCopy*/ () => {
-                 print(@"map_handler_no1id2: Call to produce_maps().\n");
-                 return no1id2.produce_maps_copy();
-             },
-             /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
-                 string s_f_s = (failing_nstub == null) ? "null" : "[object]";
-                 print(@"map_handler_no1id2: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-                 return no1id2.get_neighbor_at_level(lvl, failing_nstub);
-             },
-             /*GetBroadcastNeighbors*/ () => {
-                 print(@"map_handler_no1id2: Call to get_broadcast_neighbors().\n");
-                 return no1id2.get_broadcast_neighbors();
-             });
         no1id2.handler.enter_net(no1id1.handler, 0, 1);
         tasklet.ms_wait(100);
     }
 
     class MapHolder : Object
     {
+        public string name;
         public ArrayList<int> pos;
         public PeerParticipantSet map;
         public int levels;
         public HashMap<int, ArrayList<MapHolder>> neighbors;
-        public MapHolder(ArrayList<int> pos)
+        public MapHandler.MapHandler handler;
+        public MapHolder(string name, ArrayList<int> pos)
         {
+            this.name = name;
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
             this.levels = pos.size;
             map = new PeerParticipantSet();
             neighbors = new HashMap<int, ArrayList<MapHolder>>();
+            handler = new MapHandler.MapHandler
+                (levels,
+                 callback_clear_maps_at_level,
+                 callback_add_participant,
+                 callback_remove_participant,
+                 callback_produce_maps_copy,
+                 callback_get_neighbor_at_level,
+                 callback_get_broadcast_neighbors);
         }
+
         public void participate(int p_id)
         {
             if (! map.participant_set.has_key(p_id))
@@ -219,6 +120,7 @@ class PeersTester : Object
             for (int lvl = 0; lvl < levels; lvl++)
                 map.participant_set[p_id].participant_list.add(new HCoord(lvl, pos[lvl]));
         }
+
         public void set_neighbor(MapHolder n)
         {
             int lvl = levels -1;
@@ -231,6 +133,7 @@ class PeersTester : Object
                 neighbors[lvl] = new ArrayList<MapHolder>();
             neighbors[lvl].add(n);
         }
+
         public void unset_neighbor(MapHolder n)
         {
             int lvl = levels -1;
@@ -246,7 +149,47 @@ class PeersTester : Object
             }
         }
 
-        public MapHandler.MapHandler handler;
+        private void callback_clear_maps_at_level(int lvl)
+        {
+             print(@"$(name): Call to clear_maps_at_level($(lvl)).\n");
+             clear_maps_at_level(lvl);
+        }
+        private void callback_add_participant(int p_id, HCoord h)
+        {
+             print(@"$(name): Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+             if (h.pos == pos[h.lvl])
+             {
+                 print ("Ignore because it is my position.\n");
+                 return;
+             }
+             add_participant(p_id, h);
+        }
+        private void callback_remove_participant(int p_id, HCoord h)
+        {
+             print(@"$(name): Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+             if (h.pos == pos[h.lvl])
+             {
+                 print ("Ignore because it is my position.\n");
+                 return;
+             }
+             remove_participant(p_id, h);
+        }
+        private PeerParticipantSet callback_produce_maps_copy()
+        {
+             print(@"$(name): Call to produce_maps().\n");
+             return produce_maps_copy();
+        }
+        private IPeersManagerStub? callback_get_neighbor_at_level(int lvl, IPeersManagerStub? failing_stub)
+        {
+             string s_f_s = (failing_stub == null) ? "null" : "[object]";
+             print(@"$(name): Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
+             return get_neighbor_at_level(lvl, failing_stub);
+        }
+        private IPeersManagerStub callback_get_broadcast_neighbors()
+        {
+             print(@"$(name): Call to get_broadcast_neighbors().\n");
+             return get_broadcast_neighbors();
+        }
 
         public void clear_maps_at_level(int lvl)
         {
