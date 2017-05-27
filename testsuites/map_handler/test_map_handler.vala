@@ -36,90 +36,144 @@ class PeersTester : Object
         int levels = 3;
         ArrayList<int> gsizes = new ArrayList<int>.wrap({2,2,2});
 
-        // My first address is 1·0·1. I am alone in the network. I participate in service #1.
-        MapHolder id1 = new MapHolder(new ArrayList<int>.wrap({1,0,1}));
-        id1.participate(1);
-        MapHandler.MapHandler map_handler_1 = new MapHandler.MapHandler
+        /* Node 01. Identity 01. Its address is 1·0·1. It's alone in the network N1.
+         * It participates in service #1.
+         */
+        MapHolder no1id1 = new MapHolder(new ArrayList<int>.wrap({1,0,1}));
+        no1id1.participate(1);
+        no1id1.handler = new MapHandler.MapHandler
             (levels,
              /*ClearMapsAtLevel*/ (lvl) => {
-                 print(@"map_handler_1: Call to clear_maps_at_level($(lvl)).\n");
-                 id1.clear_maps_at_level(lvl);
+                 print(@"map_handler_no1id1: Call to clear_maps_at_level($(lvl)).\n");
+                 no1id1.clear_maps_at_level(lvl);
              },
              /*AddParticipant*/ (p_id, h) => {
-                 print(@"map_handler_1: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == id1.pos[h.lvl])
+                 print(@"map_handler_no1id1: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                 if (h.pos == no1id1.pos[h.lvl])
                  {
                      print ("Ignore because it is my position.\n");
                      return;
                  }
-                 id1.add_participant(p_id, h);
+                 no1id1.add_participant(p_id, h);
              },
              /*RemoveParticipant*/ (p_id, h) => {
-                 print(@"map_handler_1: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == id1.pos[h.lvl])
+                 print(@"map_handler_no1id1: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                 if (h.pos == no1id1.pos[h.lvl])
                  {
                      print ("Ignore because it is my position.\n");
                      return;
                  }
-                 id1.remove_participant(p_id, h);
+                 no1id1.remove_participant(p_id, h);
              },
              /*ProduceMapsCopy*/ () => {
-                 print(@"map_handler_1: Call to produce_maps().\n");
-                 return id1.produce_maps_copy();
+                 print(@"map_handler_no1id1: Call to produce_maps().\n");
+                 return no1id1.produce_maps_copy();
              },
              /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
                  string s_f_s = (failing_nstub == null) ? "null" : "[object]";
-                 print(@"map_handler_1: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-                 return id1.get_neighbor_at_level(lvl, failing_nstub);
+                 print(@"map_handler_no1id1: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
+                 return no1id1.get_neighbor_at_level(lvl, failing_nstub);
              },
              /*GetBroadcastNeighbors*/ () => {
-                 print(@"map_handler_1: Call to get_broadcast_neighbors().\n");
-                 return id1.get_broadcast_neighbors();
+                 print(@"map_handler_no1id1: Call to get_broadcast_neighbors().\n");
+                 return no1id1.get_broadcast_neighbors();
              });
-        map_handler_1.create_net();
+        no1id1.handler.create_net();
+        tasklet.ms_wait(10);
 
-        // I enter a new network as a single node. I obtain address 0·0·1 in the
-        //  existing g-node 0·0.
-        MapHolder id2 = new MapHolder(new ArrayList<int>.wrap({1,0,0}));
-        id2.participate(1);
-        MapHandler.MapHandler map_handler_2 = new MapHandler.MapHandler
+        /* Node 02. Identity 01. Its address is 0·0·0. It's alone in the network N2.
+         * It participates in service #1.
+         */
+        MapHolder no2id1 = new MapHolder(new ArrayList<int>.wrap({0,0,0}));
+        no2id1.participate(1);
+        no2id1.handler = new MapHandler.MapHandler
             (levels,
              /*ClearMapsAtLevel*/ (lvl) => {
-                 print(@"map_handler_2: Call to clear_maps_at_level($(lvl)).\n");
-                 id2.clear_maps_at_level(lvl);
+                 print(@"map_handler_no2id1: Call to clear_maps_at_level($(lvl)).\n");
+                 no2id1.clear_maps_at_level(lvl);
              },
              /*AddParticipant*/ (p_id, h) => {
-                 print(@"map_handler_2: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == id2.pos[h.lvl])
+                 print(@"map_handler_no2id1: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                 if (h.pos == no2id1.pos[h.lvl])
                  {
                      print ("Ignore because it is my position.\n");
                      return;
                  }
-                 id2.add_participant(p_id, h);
+                 no2id1.add_participant(p_id, h);
              },
              /*RemoveParticipant*/ (p_id, h) => {
-                 print(@"map_handler_2: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-                 if (h.pos == id2.pos[h.lvl])
+                 print(@"map_handler_no2id1: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                 if (h.pos == no2id1.pos[h.lvl])
                  {
                      print ("Ignore because it is my position.\n");
                      return;
                  }
-                 id2.remove_participant(p_id, h);
+                 no2id1.remove_participant(p_id, h);
              },
              /*ProduceMapsCopy*/ () => {
-                 print(@"map_handler_2: Call to produce_maps().\n");
-                 return id2.produce_maps_copy();
+                 print(@"map_handler_no2id1: Call to produce_maps().\n");
+                 return no2id1.produce_maps_copy();
              },
              /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
                  string s_f_s = (failing_nstub == null) ? "null" : "[object]";
-                 print(@"map_handler_2: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-                 return id2.get_neighbor_at_level(lvl, failing_nstub);
+                 print(@"map_handler_no2id1: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
+                 return no2id1.get_neighbor_at_level(lvl, failing_nstub);
              },
              /*GetBroadcastNeighbors*/ () => {
-                 print(@"map_handler_2: Call to get_broadcast_neighbors().\n");
-                 return id2.get_broadcast_neighbors();
+                 print(@"map_handler_no2id1: Call to get_broadcast_neighbors().\n");
+                 return no2id1.get_broadcast_neighbors();
              });
-        map_handler_2.enter_net(map_handler_1, 0, 1);
+        no2id1.handler.create_net();
+        tasklet.ms_wait(10);
+
+        /* Node 01 enters in N2 as a single node. From identity 01 creates identity 02.
+         * It obtains address 0·0·1 in the existing g-node 0·0.
+         * It participates in service #1.
+         * A new arc is formed between no1id2 and no2id1.
+         */
+        MapHolder no1id2 = new MapHolder(new ArrayList<int>.wrap({1,0,0}));
+        no1id2.participate(1);
+        no1id2.set_neighbor(no2id1);
+        no2id1.set_neighbor(no1id2);
+        no1id2.handler = new MapHandler.MapHandler
+            (levels,
+             /*ClearMapsAtLevel*/ (lvl) => {
+                 print(@"map_handler_no1id2: Call to clear_maps_at_level($(lvl)).\n");
+                 no1id2.clear_maps_at_level(lvl);
+             },
+             /*AddParticipant*/ (p_id, h) => {
+                 print(@"map_handler_no1id2: Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                 if (h.pos == no1id2.pos[h.lvl])
+                 {
+                     print ("Ignore because it is my position.\n");
+                     return;
+                 }
+                 no1id2.add_participant(p_id, h);
+             },
+             /*RemoveParticipant*/ (p_id, h) => {
+                 print(@"map_handler_no1id2: Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                 if (h.pos == no1id2.pos[h.lvl])
+                 {
+                     print ("Ignore because it is my position.\n");
+                     return;
+                 }
+                 no1id2.remove_participant(p_id, h);
+             },
+             /*ProduceMapsCopy*/ () => {
+                 print(@"map_handler_no1id2: Call to produce_maps().\n");
+                 return no1id2.produce_maps_copy();
+             },
+             /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
+                 string s_f_s = (failing_nstub == null) ? "null" : "[object]";
+                 print(@"map_handler_no1id2: Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
+                 return no1id2.get_neighbor_at_level(lvl, failing_nstub);
+             },
+             /*GetBroadcastNeighbors*/ () => {
+                 print(@"map_handler_no1id2: Call to get_broadcast_neighbors().\n");
+                 return no1id2.get_broadcast_neighbors();
+             });
+        no1id2.handler.enter_net(no1id1.handler, 0, 1);
+        tasklet.ms_wait(10);
     }
 
     class MapHolder : Object
@@ -127,12 +181,14 @@ class PeersTester : Object
         public ArrayList<int> pos;
         public PeerParticipantSet map;
         public int levels;
+        public HashMap<int, ArrayList<MapHolder>> neighbors;
         public MapHolder(ArrayList<int> pos)
         {
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
             this.levels = pos.size;
             map = new PeerParticipantSet();
+            neighbors = new HashMap<int, ArrayList<MapHolder>>();
         }
         public void participate(int p_id)
         {
@@ -141,6 +197,35 @@ class PeersTester : Object
             for (int lvl = 0; lvl < levels; lvl++)
                 map.participant_set[p_id].participant_list.add(new HCoord(lvl, pos[lvl]));
         }
+        public void set_neighbor(MapHolder n)
+        {
+            int lvl = levels -1;
+            while (pos[lvl] == n.pos[lvl])
+            {
+                lvl--;
+                assert(lvl >= 0);
+            }
+            if (! (neighbors.has_key(lvl)))
+                neighbors[lvl] = new ArrayList<MapHolder>();
+            neighbors[lvl].add(n);
+        }
+        public void unset_neighbor(MapHolder n)
+        {
+            int lvl = levels -1;
+            while (pos[lvl] == n.pos[lvl])
+            {
+                lvl--;
+                assert(lvl >= 0);
+            }
+            if (neighbors.has_key(lvl))
+            {
+                neighbors[lvl].remove(n);
+                if (neighbors[lvl].is_empty) neighbors.unset(lvl);
+            }
+        }
+
+        public MapHandler.MapHandler handler;
+
         public void clear_maps_at_level(int lvl)
         {
             foreach (int p_id in map.participant_set.keys)
@@ -175,13 +260,25 @@ class PeersTester : Object
         }
         public IPeersManagerStub? get_neighbor_at_level(int lvl, IPeersManagerStub? failing_stub)
         {
-             IPeersManagerStub? nstub = null;/*TODO*/
-             return nstub;
+            FakeUnicastStub? nstub = null;
+            if (failing_stub != null)
+            {
+                FakeUnicastStub failing_stub_real = (FakeUnicastStub)failing_stub;
+                MapHolder failing_holder = failing_stub_real.holder;
+                unset_neighbor(failing_holder);
+                failing_holder.unset_neighbor(this);
+            }
+            if (neighbors.has_key(lvl))
+            {
+                nstub = new FakeUnicastStub();
+                nstub.holder = neighbors[lvl][0];
+            }
+            return nstub;
         }
         public IPeersManagerStub get_broadcast_neighbors()
         {
-             IPeersManagerStub nstub = null;/*TODO*/
-             return nstub;
+            IPeersManagerStub nstub = null;/*TODO*/
+            error("not yet implemented");
         }
     }
 
@@ -201,6 +298,72 @@ class PeersTester : Object
         });
         GLib.Test.run();
         return 0;
+    }
+
+    class FakeUnicastStub : Object, IPeersManagerStub
+    {
+        public MapHolder holder;
+
+        public IPeerParticipantSet ask_participant_maps () throws StubError, DeserializeError
+        {
+            return holder.handler.produce_maps_below_level(holder.handler.maps_retrieved_below_level);
+        }
+
+        public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public IPeersRequest get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError, PeersInvalidRequest, StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void give_participant_maps (IPeerParticipantSet maps) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_failure (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_next_destination (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_non_participant (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_participant (int p_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_redo_from_start (int msg_id, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_response (int msg_id, IPeersResponse response, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
     }
 }
 
