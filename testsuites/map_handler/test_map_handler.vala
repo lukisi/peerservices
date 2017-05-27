@@ -21,6 +21,28 @@ using Netsukuku;
 using Netsukuku.PeerServices;
 using TaskletSystem;
 
+string json_string_object(Object obj)
+{
+    Json.Node n = Json.gobject_serialize(obj);
+    Json.Generator g = new Json.Generator();
+    g.root = n;
+    g.pretty = true;
+    string ret = g.to_data(null);
+    return ret;
+}
+
+Object dup_object(Object obj)
+{
+    Type type = obj.get_type();
+    string t = json_string_object(obj);
+    Json.Parser p = new Json.Parser();
+    try {
+        assert(p.load_from_data(t));
+    } catch (Error e) {assert_not_reached();}
+    Object ret = Json.gobject_deserialize(type, p.get_root());
+    return ret;
+}
+
 class PeersTester : Object
 {
     public void set_up ()
@@ -173,7 +195,7 @@ class PeersTester : Object
                  return no1id2.get_broadcast_neighbors();
              });
         no1id2.handler.enter_net(no1id1.handler, 0, 1);
-        tasklet.ms_wait(10);
+        tasklet.ms_wait(100);
     }
 
     class MapHolder : Object
@@ -270,15 +292,16 @@ class PeersTester : Object
             }
             if (neighbors.has_key(lvl))
             {
-                nstub = new FakeUnicastStub();
-                nstub.holder = neighbors[lvl][0];
+                nstub = new FakeUnicastStub(neighbors[lvl][0]);
             }
             return nstub;
         }
         public IPeersManagerStub get_broadcast_neighbors()
         {
-            IPeersManagerStub nstub = null;/*TODO*/
-            error("not yet implemented");
+            FakeBroadcastStub bstub = new FakeBroadcastStub();
+            foreach (int lvl in neighbors.keys)
+                bstub.holders.add_all(neighbors[lvl]);
+            return bstub;
         }
     }
 
@@ -303,9 +326,14 @@ class PeersTester : Object
     class FakeUnicastStub : Object, IPeersManagerStub
     {
         public MapHolder holder;
+        public FakeUnicastStub(MapHolder holder)
+        {
+            this.holder = holder;
+        }
 
         public IPeerParticipantSet ask_participant_maps () throws StubError, DeserializeError
         {
+            tasklet.ms_wait(2); // simulates network latency
             return holder.handler.produce_maps_below_level(holder.handler.maps_retrieved_below_level);
         }
 
@@ -363,7 +391,101 @@ class PeersTester : Object
         {
             error("not implemented yet");
         }
+    }
 
+    class FakeBroadcastStub : Object, IPeersManagerStub
+    {
+        public Gee.List<MapHolder> holders;
+        public FakeBroadcastStub()
+        {
+            holders = new ArrayList<MapHolder>();
+        }
+
+        public IPeerParticipantSet ask_participant_maps () throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public IPeersRequest get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError, PeersInvalidRequest, StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void give_participant_maps (IPeerParticipantSet maps) throws StubError, DeserializeError
+        {
+            tasklet.ms_wait(2); // simulates network latency
+            foreach (MapHolder holder in holders)
+            {
+                // make a copy
+                PeerParticipantSet maps_copy = (PeerParticipantSet)dup_object(maps);
+                // in a tasklet
+                GiveParticipantMapsTasklet ts = new GiveParticipantMapsTasklet();
+                ts.t = this;
+                ts.maps = maps_copy;
+                ts.holder = holder;
+                tasklet.spawn(ts);
+            }
+        }
+        class GiveParticipantMapsTasklet : Object, ITaskletSpawnable
+        {
+            public FakeBroadcastStub t;
+            public PeerParticipantSet maps;
+            public MapHolder holder;
+            public void * func()
+            {
+                t.give_participant_maps_tasklet(holder, maps);
+                return null;
+            }
+        }
+        private void give_participant_maps_tasklet(MapHolder holder, PeerParticipantSet maps)
+        {
+            holder.handler.give_participant_maps(maps);
+        }
+
+        public void set_failure (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_next_destination (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_non_participant (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_participant (int p_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_redo_from_start (int msg_id, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_response (int msg_id, IPeersResponse response, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
     }
 }
 
