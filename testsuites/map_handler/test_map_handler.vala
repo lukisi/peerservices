@@ -65,6 +65,7 @@ class PeersTester : Object
         no1id1.participate(1);
         no1id1.handler.create_net();
         tasklet.ms_wait(10);
+        print("step 1\n");
 
         /* Node 02. Identity 01. Its address is 0·0·0. It's alone in the network N2.
          * It participates in service #1.
@@ -73,6 +74,7 @@ class PeersTester : Object
         no2id1.participate(1);
         no2id1.handler.create_net();
         tasklet.ms_wait(10);
+        print("step 2\n");
 
         /* Node 01 enters in N2 as a single node. From identity 01 creates identity 02.
          * It obtains address 0·0·1 in the existing g-node 0·0.
@@ -85,6 +87,36 @@ class PeersTester : Object
         no2id1.set_neighbor(no1id2);
         no1id2.handler.enter_net(no1id1.handler, 0, 1);
         tasklet.ms_wait(100);
+        print("step 3\n");
+
+        /* Node 03. Identity 01. Its address is 1·0·1. It's alone in the network N3.
+         * It participates in service #1.
+         */
+        MapHolder no3id1 = new MapHolder("no3id1", new ArrayList<int>.wrap({1,0,1}));
+        no3id1.participate(1);
+        no3id1.handler.create_net();
+        tasklet.ms_wait(10);
+        print("step 4\n");
+
+        /* Nodes no1id2 and no2id1 together form a g-node g01 of level 1. g01 has address
+         * 0·0 in N2.
+         * Now g01 enters in N3 at address 1·1. Because of an arc between no3id1 and no2id2.
+         * Node no1id3 is created from no1id2.
+         * Node no2id2 is created from no2id1.
+         * We duplicate the arc between no1id3 and no2id2.
+         */
+        MapHolder no1id3 = new MapHolder("no1id3", new ArrayList<int>.wrap({1,1,1}));
+        no1id3.participate(1);
+        MapHolder no2id2 = new MapHolder("no2id2", new ArrayList<int>.wrap({0,1,1}));
+        no2id2.participate(1);
+        no1id3.set_neighbor(no2id2);
+        no2id2.set_neighbor(no1id3);
+        no3id1.set_neighbor(no2id2);
+        no2id2.set_neighbor(no3id1);
+        no1id3.handler.enter_net(no1id2.handler, 1, 2);
+        no2id2.handler.enter_net(no2id1.handler, 1, 2);
+        tasklet.ms_wait(100);
+        print("step 5\n");
     }
 
     class MapHolder : Object
@@ -183,7 +215,15 @@ class PeersTester : Object
         {
             string s_f_s = (failing_stub == null) ? "null" : "[object]";
             print(@"$(name): Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-            return get_neighbor_at_level(lvl, failing_stub);
+            IPeersManagerStub? ret = get_neighbor_at_level(lvl, failing_stub);
+            if (ret == null)
+                print(@"        Returning null.\n");
+            else
+            {
+                FakeUnicastStub _ret = (FakeUnicastStub)ret;
+                print(@"        Returning $(_ret.holder.name).\n");
+            }
+            return ret;
         }
         private IPeersManagerStub callback_get_broadcast_neighbors()
         {
