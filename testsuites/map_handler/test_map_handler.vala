@@ -151,44 +151,44 @@ class PeersTester : Object
 
         private void callback_clear_maps_at_level(int lvl)
         {
-             print(@"$(name): Call to clear_maps_at_level($(lvl)).\n");
-             clear_maps_at_level(lvl);
+            print(@"$(name): Call to clear_maps_at_level($(lvl)).\n");
+            clear_maps_at_level(lvl);
         }
         private void callback_add_participant(int p_id, HCoord h)
         {
-             print(@"$(name): Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-             if (h.pos == pos[h.lvl])
-             {
-                 print ("Ignore because it is my position.\n");
-                 return;
-             }
-             add_participant(p_id, h);
+            print(@"$(name): Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+            if (h.pos == pos[h.lvl])
+            {
+                print ("Ignore because it is my position.\n");
+                return;
+            }
+            add_participant(p_id, h);
         }
         private void callback_remove_participant(int p_id, HCoord h)
         {
-             print(@"$(name): Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-             if (h.pos == pos[h.lvl])
-             {
-                 print ("Ignore because it is my position.\n");
-                 return;
-             }
-             remove_participant(p_id, h);
+            print(@"$(name): Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+            if (h.pos == pos[h.lvl])
+            {
+                print ("Ignore because it is my position.\n");
+                return;
+            }
+            remove_participant(p_id, h);
         }
         private PeerParticipantSet callback_produce_maps_copy()
         {
-             print(@"$(name): Call to produce_maps().\n");
-             return produce_maps_copy();
+            print(@"$(name): Call to produce_maps().\n");
+            return produce_maps_copy();
         }
         private IPeersManagerStub? callback_get_neighbor_at_level(int lvl, IPeersManagerStub? failing_stub)
         {
-             string s_f_s = (failing_stub == null) ? "null" : "[object]";
-             print(@"$(name): Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-             return get_neighbor_at_level(lvl, failing_stub);
+            string s_f_s = (failing_stub == null) ? "null" : "[object]";
+            print(@"$(name): Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
+            return get_neighbor_at_level(lvl, failing_stub);
         }
         private IPeersManagerStub callback_get_broadcast_neighbors()
         {
-             print(@"$(name): Call to get_broadcast_neighbors().\n");
-             return get_broadcast_neighbors();
+            print(@"$(name): Call to get_broadcast_neighbors().\n");
+            return get_broadcast_neighbors();
         }
 
         public void clear_maps_at_level(int lvl)
