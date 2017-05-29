@@ -383,11 +383,14 @@ namespace Netsukuku.PeerServices
     internal class PeerParticipantSet : Object, Json.Serializable, IPeerParticipantSet
     {
         public int retrieved_below_level {get; set;}
+        public Gee.List<int> my_pos {get; set;}
         public HashMap<int, PeerParticipantMap> participant_set {get; set;}
 
-        public PeerParticipantSet()
+        public PeerParticipantSet(Gee.List<int> my_pos)
         {
             participant_set = new HashMap<int, PeerParticipantMap>();
+            this.my_pos = new ArrayList<int>();
+            this.my_pos.add_all(my_pos);
         }
 
         public bool deserialize_property
@@ -410,6 +413,14 @@ namespace Netsukuku.PeerServices
             case "retrieved_below_level":
                 try {
                     @value = deserialize_int(property_node);
+                } catch (HelperDeserializeError e) {
+                    return false;
+                }
+                break;
+            case "my-pos":
+            case "my_pos":
+                try {
+                    @value = deserialize_list_int(property_node);
                 } catch (HelperDeserializeError e) {
                     return false;
                 }
@@ -438,6 +449,9 @@ namespace Netsukuku.PeerServices
             case "retrieved-below-level":
             case "retrieved_below_level":
                 return serialize_int((int)@value);
+            case "my-pos":
+            case "my_pos":
+                return serialize_list_int((Gee.List<int>)@value);
             default:
                 error(@"wrong param $(property_name)");
             }
@@ -450,6 +464,13 @@ namespace Netsukuku.PeerServices
             foreach (int pid in this.participant_set.keys)
             {
                 if (! this.participant_set[pid].check_valid(levels, gsizes)) return false;
+            }
+            if (this.my_pos.size != levels) return false;
+            for (int lvl = 0; lvl < levels; lvl++)
+            {
+                if (this.my_pos[lvl] < 0) return false;
+                // NOT MANDATORY: if (this.my_pos[lvl] >= gsizes[lvl]) return false;
+                // because may be a virtual node.
             }
             return true;
         }

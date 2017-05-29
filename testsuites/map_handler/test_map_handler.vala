@@ -124,6 +124,7 @@ class PeersTester : Object
         public string name;
         public ArrayList<int> pos;
         public PeerParticipantSet map;
+        public Gee.List<int> my_services;
         public int levels;
         public HashMap<int, ArrayList<MapHolder>> neighbors;
         public MapHandler.MapHandler handler;
@@ -133,10 +134,11 @@ class PeersTester : Object
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
             this.levels = pos.size;
-            map = new PeerParticipantSet();
+            map = new PeerParticipantSet(pos);
+            my_services = new ArrayList<int>();
             neighbors = new HashMap<int, ArrayList<MapHolder>>();
             handler = new MapHandler.MapHandler
-                (levels,
+                (pos,
                  callback_clear_maps_at_level,
                  callback_add_participant,
                  callback_remove_participant,
@@ -147,10 +149,14 @@ class PeersTester : Object
 
         public void participate(int p_id)
         {
-            if (! map.participant_set.has_key(p_id))
-                map.participant_set[p_id] = new PeerParticipantMap();
-            for (int lvl = 0; lvl < levels; lvl++)
-                map.participant_set[p_id].participant_list.add(new HCoord(lvl, pos[lvl]));
+            if (! (p_id in my_services)) my_services.add(p_id);
+            handler.participate(p_id);
+        }
+
+        public void dont_participate(int p_id)
+        {
+            if (p_id in my_services) my_services.remove(p_id);
+            handler.dont_participate(p_id);
         }
 
         public void set_neighbor(MapHolder n)
@@ -249,23 +255,36 @@ class PeersTester : Object
         }
         public void add_participant(int p_id, HCoord h)
         {
+            if (h.pos == pos[h.lvl]) return; // ignore myself
             if (! map.participant_set.has_key(p_id))
                 map.participant_set[p_id] = new PeerParticipantMap();
-            map.participant_set[p_id].participant_list.add(h);
+            var the_list = map.participant_set[p_id].participant_list;
+            if (! (h in the_list)) the_list.add(h);
         }
         public void remove_participant(int p_id, HCoord h)
         {
+            if (h.pos == pos[h.lvl]) return; // ignore myself
             if (map.participant_set.has_key(p_id))
-                map.participant_set[p_id].participant_list.remove(h);
+            {
+                var the_list = map.participant_set[p_id].participant_list;
+                if (h in the_list) the_list.remove(h);
+                if (the_list.is_empty) map.participant_set.unset(p_id);
+            }
         }
         public PeerParticipantSet produce_maps_copy()
         {
-            var ret = new PeerParticipantSet();
+            var ret = new PeerParticipantSet(pos);
             foreach (int p_id in map.participant_set.keys)
             {
                 ret.participant_set[p_id] = new PeerParticipantMap();
                 ret.participant_set[p_id].participant_list.add_all
                     (map.participant_set[p_id].participant_list);
+            }
+            foreach (int p_id in my_services)
+            {
+                if (! ret.participant_set.has_key(p_id))
+                    ret.participant_set[p_id] = new PeerParticipantMap();
+                ret.participant_set[p_id].participant_list.add(new HCoord(0, pos[0]));
             }
             return ret;
         }

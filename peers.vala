@@ -294,12 +294,12 @@ namespace Netsukuku.PeerServices
             this.guest_gnode_level = guest_gnode_level;
             this.host_gnode_level = host_gnode_level;
             map_handler = new MapHandler.MapHandler
-                (levels,
+                (new ArrayList<int>.wrap(pos),
                  /*ClearMapsAtLevel*/ (lvl) => {/*TODO*/},
                  /*AddParticipant*/ (p_id, h) => {/*TODO*/},
                  /*RemoveParticipant*/ (p_id, h) => {/*TODO*/},
                  /*ProduceMapsCopy*/ () => {
-                     var ret = new PeerParticipantSet();/*TODO*/
+                     var ret = new PeerParticipantSet(new ArrayList<int>.wrap(pos));/*TODO*/
                      return ret;
                  },
                  /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
@@ -1875,6 +1875,8 @@ namespace Netsukuku.PeerServices
         (int lvl, CallerInfo? _rpc_caller=null)
         throws PeersInvalidRequest
         {
+            error("deprecated");
+            /*
             // check payload
             if (lvl <= 0 || lvl > levels) throw new PeersInvalidRequest.GENERIC("level out of range");
             // begin
@@ -1893,6 +1895,7 @@ namespace Netsukuku.PeerServices
                 ret.participant_set[p_id] = map;
             }
             return ret;
+            */
         }
 
         public IPeerParticipantSet ask_participant_maps

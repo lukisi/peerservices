@@ -203,7 +203,7 @@ class PeersTester : Object
                 m12.participant_list.add(new HCoord(0, 2));
                 PeerParticipantMap m15 = new PeerParticipantMap();
                 m15.participant_list.add(new HCoord(3, 5));
-                PeerParticipantSet s = new PeerParticipantSet();
+                PeerParticipantSet s = new PeerParticipantSet(new ArrayList<int>.wrap({0,0,0,0,0}));
                 s.participant_set[12] = m12;
                 s.participant_set[15] = m15;
                 s.retrieved_below_level = 5;
@@ -212,6 +212,12 @@ class PeersTester : Object
             s0 = (PeerParticipantSet)Json.gobject_deserialize(typeof(PeerParticipantSet), node);
         }
         assert(s0.retrieved_below_level == 5);
+        assert(s0.my_pos.size == 5);
+        assert(s0.my_pos[0] == 0);
+        assert(s0.my_pos[1] == 0);
+        assert(s0.my_pos[2] == 0);
+        assert(s0.my_pos[3] == 0);
+        assert(s0.my_pos[4] == 0);
         assert(s0.participant_set.size == 2);
         assert(s0.participant_set.has_key(12));
         PeerParticipantMap m = s0.participant_set[12];

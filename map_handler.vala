@@ -44,6 +44,7 @@ namespace Netsukuku.PeerServices.MapHandler
     internal class MapHandler : Object
     {
         private int levels;
+        private ArrayList<int> pos;
         private int guest_gnode_level;
         private int host_gnode_level;
         private unowned ClearMapsAtLevel clear_maps_at_level;
@@ -53,9 +54,10 @@ namespace Netsukuku.PeerServices.MapHandler
         private unowned GetNeighborAtLevel get_neighbor_at_level;
         private unowned GetBroadcastNeighbors get_groadcast_neighbors;
         public int maps_retrieved_below_level {get; private set;}
+        private HashMap<int, ITaskletHandle> participation_tasklets;
 
         public MapHandler
-        (int levels,
+        (ArrayList<int> pos,
          ClearMapsAtLevel clear_maps_at_level,
          AddParticipant add_participant,
          RemoveParticipant remove_participant,
@@ -63,13 +65,16 @@ namespace Netsukuku.PeerServices.MapHandler
          GetNeighborAtLevel get_neighbor_at_level,
          GetBroadcastNeighbors get_groadcast_neighbors)
         {
-            this.levels = levels;
+            this.pos = new ArrayList<int>();
+            this.pos.add_all(pos);
+            this.levels = pos.size;
             this.clear_maps_at_level = clear_maps_at_level;
             this.add_participant = add_participant;
             this.remove_participant = remove_participant;
             this.produce_maps = produce_maps;
             this.get_neighbor_at_level = get_neighbor_at_level;
             this.get_groadcast_neighbors = get_groadcast_neighbors;
+            participation_tasklets = new HashMap<int, ITaskletHandle>();
         }
 
         /* Produce a [copy of the] set of the participation maps for all the services
@@ -168,6 +173,30 @@ namespace Netsukuku.PeerServices.MapHandler
 
         void copy_and_forward(PeerParticipantSet maps)
         {
+            // Find level of maximum distinct gnode.
+            int mdg_lvl = levels - 1;
+            while (pos[mdg_lvl] == maps.my_pos[mdg_lvl]) mdg_lvl--;
+            int mdg_pos = maps.my_pos[mdg_lvl];
+            // Find services in mdg.
+            ArrayList<int> mdg_services = new ArrayList<int>();
+            foreach (int p_id in maps.participant_set.keys)
+            {
+                var the_list = maps.participant_set[p_id].participant_list;
+                foreach (HCoord hc in the_list) if (hc.lvl < mdg_lvl)
+                    if (! (p_id in mdg_services)) mdg_services.add(p_id);
+            }
+            // Group lower levels.
+            foreach (int p_id in maps.participant_set.keys)
+            {
+                var the_list = maps.participant_set[p_id].participant_list;
+                ArrayList<HCoord> to_del = new ArrayList<HCoord>((a,b) => a.equals(b));
+                foreach (HCoord hc in the_list) if (hc.lvl < mdg_lvl)
+                    to_del.add(hc);
+                the_list.remove_all(to_del);
+            }
+            foreach (int mdg_service in mdg_services)
+                maps.participant_set[mdg_service].participant_list.add(new HCoord(mdg_lvl, mdg_pos));
+            // Now maps.participant_set conform to my own address.
             for (int lvl = maps_retrieved_below_level; lvl < maps.retrieved_below_level; lvl++)
             {
                 foreach (int p_id in maps.participant_set.keys)
@@ -187,6 +216,45 @@ namespace Netsukuku.PeerServices.MapHandler
             } catch (DeserializeError e) {
                 assert_not_reached();
             }
+        }
+
+        public void participate(int p_id)
+        {
+            if (participation_tasklets.has_key(p_id))
+            {
+                warning(@"MapHandler: partipate($(p_id)): called twice.");
+                return;
+            }
+            // spawn tasklet
+            ParticipateTasklet ts = new ParticipateTasklet();
+            ts.t = this;
+            ts.p_id = p_id;
+            participation_tasklets[p_id] = tasklet.spawn(ts);
+        }
+        private class ParticipateTasklet : Object, ITaskletSpawnable
+        {
+            public MapHandler t;
+            public int p_id;
+            public void * func()
+            {
+                t.participate_tasklet(p_id);
+                return null;
+            }
+        }
+        private void participate_tasklet(int p_id)
+        {
+            while (true) tasklet.ms_wait(100); // TODO
+        }
+
+        public void dont_participate(int p_id)
+        {
+            if (! participation_tasklets.has_key(p_id))
+            {
+                warning(@"MapHandler: dont_participate($(p_id)): was not participating.");
+                return;
+            }
+            // kill tasklet
+            participation_tasklets[p_id].kill();
         }
     }
 }
