@@ -228,7 +228,13 @@ class PeersTester : Object
         private IPeersManagerStub callback_get_broadcast_neighbors()
         {
             print(@"$(name): Call to get_broadcast_neighbors().\n");
-            return get_broadcast_neighbors();
+            FakeBroadcastStub ret = (FakeBroadcastStub)get_broadcast_neighbors();
+            string list = ""; string next = "";
+            foreach (MapHolder holder in ret.holders) {
+                list += @"$(next)$(holder.name)"; next = ", ";
+            }
+            print(@"        Returning [$(list)].\n");
+            return ret;
         }
 
         public void clear_maps_at_level(int lvl)
