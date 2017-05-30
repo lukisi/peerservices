@@ -55,6 +55,7 @@ namespace Netsukuku.PeerServices.MapHandler
         private unowned GetBroadcastNeighbors get_groadcast_neighbors;
         public int maps_retrieved_below_level {get; private set;}
         private HashMap<int, ITaskletHandle> participation_tasklets;
+        private ArrayList<HCoord> recent_published_list;
 
         public MapHandler
         (ArrayList<int> pos,
@@ -75,6 +76,7 @@ namespace Netsukuku.PeerServices.MapHandler
             this.get_neighbor_at_level = get_neighbor_at_level;
             this.get_groadcast_neighbors = get_groadcast_neighbors;
             participation_tasklets = new HashMap<int, ITaskletHandle>();
+            recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
         }
 
         /* Produce a [copy of the] set of the participation maps for all the services
@@ -117,10 +119,25 @@ namespace Netsukuku.PeerServices.MapHandler
                     add_participant(p_id, h);
             // set level of my knowledge
             maps_retrieved_below_level = guest_gnode_level;
-            // spawn tasklet
+            // spawn tasklet to retrieve data from the outside
             RetrieveParticipantSetTasklet ts = new RetrieveParticipantSetTasklet();
             ts.t = this;
             tasklet.spawn(ts);
+            // send broadcast to the outside
+            Gee.List<int> active_services = new ArrayList<int>();
+            active_services.add_all(old_ps.participant_set.keys);
+            IPeersManagerStub b_stub = get_groadcast_neighbors();
+            var tuple_gnode = make_tuple_gnode(new HCoord(guest_gnode_level, pos[guest_gnode_level]), levels);
+            foreach (int p_id in active_services)
+            {
+                try {
+                    b_stub.set_participant(p_id, tuple_gnode);
+                } catch (StubError e) {
+                    assert_not_reached();
+                } catch (DeserializeError e) {
+                    assert_not_reached();
+                }
+            }
         }
 
         private class RetrieveParticipantSetTasklet : Object, ITaskletSpawnable
@@ -218,6 +235,10 @@ namespace Netsukuku.PeerServices.MapHandler
             }
         }
 
+        /* This method is called once [at start] on a identity because the node wants to
+         * participate to service p_id. It starts a tasklet which forever periodically
+         * propagates this participation to the whole network.
+         */
         public void participate(int p_id)
         {
             if (participation_tasklets.has_key(p_id))
@@ -246,6 +267,10 @@ namespace Netsukuku.PeerServices.MapHandler
             while (true) tasklet.ms_wait(100); // TODO
         }
 
+        /* This method is called on a identity because the node wants to stop its
+         * participation (previously the node was participating) to service p_id.
+         * It might be removed if we choose to not allow such behaviour.
+         */
         public void dont_participate(int p_id)
         {
             if (! participation_tasklets.has_key(p_id))
@@ -255,6 +280,110 @@ namespace Netsukuku.PeerServices.MapHandler
             }
             // kill tasklet
             participation_tasklets[p_id].kill();
+        }
+
+        /* This method is called when the node receives from the network the request to
+         * propagate the information of a participation to a optional service. The node
+         * checks that p_id is an optional service and that tuple is valid before calling this method.
+         */
+        public void set_participant(int p_id, PeerTupleGNode tuple)
+        {
+            int @case;
+            HCoord ret;
+            convert_tuple_gnode(tuple, out @case, out @ret);
+            if (@case == 1) return;
+            if (ret in recent_published_list) return;
+            recent_published_list.add(ret);
+            add_participant(p_id, ret);
+            IPeersManagerStub b_stub = get_groadcast_neighbors();
+            PeerTupleGNode ret_gn = make_tuple_gnode(ret, levels);
+            try {
+                b_stub.set_participant(p_id, ret_gn);
+            } catch (StubError e) {
+                // ignore
+            } catch (DeserializeError e) {
+                // ignore
+            }
+            RecentPublishedListRemoveTasklet ts = new RecentPublishedListRemoveTasklet();
+            ts.t = this;
+            ts.ret = ret;
+            tasklet.spawn(ts);
+        }
+        private class RecentPublishedListRemoveTasklet : Object, ITaskletSpawnable
+        {
+            public MapHandler t;
+            public HCoord ret;
+            public void * func()
+            {
+                tasklet.ms_wait(60000);
+                t.recent_published_list.remove(ret);
+                return null;
+            }
+        }
+
+        private PeerTupleGNode make_tuple_gnode(HCoord h, int top)
+        {
+            // Returns a PeerTupleGNode that represents h inside our g-node of level top. 
+            assert(top > h.lvl);
+            ArrayList<int> tuple = new ArrayList<int>();
+            int i = top;
+            while (true)
+            {
+                i--;
+                if (i == h.lvl)
+                {
+                    tuple.insert(0, h.pos);
+                    break;
+                }
+                else
+                {
+                    tuple.insert(0, pos[i]);
+                }
+            }
+            return new PeerTupleGNode(tuple, top);
+        }
+
+        private void convert_tuple_gnode(PeerTupleGNode t, out int @case, out HCoord ret)
+        {
+            /*
+            Given t which represents a g-node h of level ε which lives inside one of my g-nodes,
+            where ε = t.top - t.tuple.size,
+            this methods returns the following informations:
+
+            * int @case
+               * Is 1 iff t represents one of my g-nodes.
+               * Is 2 iff t represents a g-node visible in my topology.
+               * Is 3 iff t represents a g-node not visible in my topology.
+            * HCoord ret
+               * The g-node in my map which h resides in.
+               * In case 1  ret.lvl = ε. Also, pos[ret.lvl] = ret.pos.
+               * In case 2  ret.lvl = ε. Also, pos[ret.lvl] ≠ ret.pos.
+               * In case 3  ret.lvl > ε.
+            */
+            int lvl = t.top;
+            int i = t.tuple.size;
+            assert(i > 0);
+            assert(i <= lvl);
+            while (true)
+            {
+                lvl--;
+                i--;
+                if (pos[lvl] != t.tuple[i])
+                {
+                    ret = new HCoord(lvl, t.tuple[i]);
+                    if (i == 0)
+                        @case = 2;
+                    else
+                        @case = 3;
+                    break;
+                }
+                if (i == 0)
+                {
+                    ret = new HCoord(lvl, t.tuple[i]);
+                    @case = 1;
+                    break;
+                }
+            }
         }
     }
 }

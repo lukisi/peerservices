@@ -55,24 +55,23 @@ class PeersTester : Object
 
     public void test_1()
     {
-        int levels = 3;
         ArrayList<int> gsizes = new ArrayList<int>.wrap({2,2,2});
 
         /* Node 01. Identity 01. Its address is 1·0·1. It's alone in the network N1.
          * It participates in service #1.
          */
-        MapHolder no1id1 = new MapHolder("no1id1", new ArrayList<int>.wrap({1,0,1}));
-        no1id1.participate(1);
+        MapHolder no1id1 = new MapHolder("no1id1", new ArrayList<int>.wrap({1,0,1}), gsizes);
         no1id1.handler.create_net();
+        no1id1.participate(1);
         tasklet.ms_wait(10);
         print("step 1\n");
 
         /* Node 02. Identity 01. Its address is 0·0·0. It's alone in the network N2.
          * It participates in service #1.
          */
-        MapHolder no2id1 = new MapHolder("no2id1", new ArrayList<int>.wrap({0,0,0}));
-        no2id1.participate(1);
+        MapHolder no2id1 = new MapHolder("no2id1", new ArrayList<int>.wrap({0,0,0}), gsizes);
         no2id1.handler.create_net();
+        no2id1.participate(1);
         tasklet.ms_wait(10);
         print("step 2\n");
 
@@ -81,20 +80,20 @@ class PeersTester : Object
          * It participates in service #1.
          * A new arc is formed between no1id2 and no2id1.
          */
-        MapHolder no1id2 = new MapHolder("no1id2", new ArrayList<int>.wrap({1,0,0}));
-        no1id2.participate(1);
+        MapHolder no1id2 = new MapHolder("no1id2", new ArrayList<int>.wrap({1,0,0}), gsizes);
         no1id2.set_neighbor(no2id1);
         no2id1.set_neighbor(no1id2);
         no1id2.handler.enter_net(no1id1.handler, 0, 1);
+        no1id2.participate(1);
         tasklet.ms_wait(100);
         print("step 3\n");
 
         /* Node 03. Identity 01. Its address is 1·0·1. It's alone in the network N3.
          * It participates in service #1.
          */
-        MapHolder no3id1 = new MapHolder("no3id1", new ArrayList<int>.wrap({1,0,1}));
-        no3id1.participate(1);
+        MapHolder no3id1 = new MapHolder("no3id1", new ArrayList<int>.wrap({1,0,1}), gsizes);
         no3id1.handler.create_net();
+        no3id1.participate(1);
         tasklet.ms_wait(10);
         print("step 4\n");
 
@@ -105,16 +104,16 @@ class PeersTester : Object
          * Node no2id2 is created from no2id1.
          * We duplicate the arc between no1id3 and no2id2.
          */
-        MapHolder no1id3 = new MapHolder("no1id3", new ArrayList<int>.wrap({1,1,1}));
-        no1id3.participate(1);
-        MapHolder no2id2 = new MapHolder("no2id2", new ArrayList<int>.wrap({0,1,1}));
-        no2id2.participate(1);
+        MapHolder no1id3 = new MapHolder("no1id3", new ArrayList<int>.wrap({1,1,1}), gsizes);
+        MapHolder no2id2 = new MapHolder("no2id2", new ArrayList<int>.wrap({0,1,1}), gsizes);
         no1id3.set_neighbor(no2id2);
         no2id2.set_neighbor(no1id3);
         no3id1.set_neighbor(no2id2);
         no2id2.set_neighbor(no3id1);
         no1id3.handler.enter_net(no1id2.handler, 1, 2);
         no2id2.handler.enter_net(no2id1.handler, 1, 2);
+        no1id3.participate(1);
+        no2id2.participate(1);
         tasklet.ms_wait(100);
         print("step 5\n");
     }
@@ -123,16 +122,19 @@ class PeersTester : Object
     {
         public string name;
         public ArrayList<int> pos;
+        public ArrayList<int> gsizes;
         public PeerParticipantSet map;
         public Gee.List<int> my_services;
         public int levels;
         public HashMap<int, ArrayList<MapHolder>> neighbors;
         public MapHandler.MapHandler handler;
-        public MapHolder(string name, ArrayList<int> pos)
+        public MapHolder(string name, ArrayList<int> pos, ArrayList<int> gsizes)
         {
             this.name = name;
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
+            this.gsizes = new ArrayList<int>();
+            this.gsizes.add_all(gsizes);
             this.levels = pos.size;
             map = new PeerParticipantSet(pos);
             my_services = new ArrayList<int>();
@@ -157,6 +159,28 @@ class PeersTester : Object
         {
             if (p_id in my_services) my_services.remove(p_id);
             handler.dont_participate(p_id);
+        }
+
+        // receives a RPC unicast: ask_participant_maps
+        public PeerParticipantSet ask_participant_maps()
+        {
+            return handler.produce_maps_below_level(handler.maps_retrieved_below_level);
+        }
+
+        // receives a RPC broadcast: give_participant_maps
+        public void give_participant_maps(PeerParticipantSet maps)
+        {
+            handler.give_participant_maps(maps);
+        }
+
+        // receives a RPC broadcast: set_participant
+        public void set_participant(int p_id, PeerTupleGNode tuple)
+        {
+            // Check (since the request is from network) that the service is optional.
+            // In this testsuite we assume: yes.
+
+            assert(tuple.check_valid(levels, gsizes.to_array()));
+            handler.set_participant(p_id, tuple);
         }
 
         public void set_neighbor(MapHolder n)
@@ -342,7 +366,7 @@ class PeersTester : Object
         public IPeerParticipantSet ask_participant_maps () throws StubError, DeserializeError
         {
             tasklet.ms_wait(2); // simulates network latency
-            return holder.handler.produce_maps_below_level(holder.handler.maps_retrieved_below_level);
+            return holder.ask_participant_maps();
         }
 
         public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
@@ -457,7 +481,7 @@ class PeersTester : Object
         }
         private void give_participant_maps_tasklet(MapHolder holder, PeerParticipantSet maps)
         {
-            holder.handler.give_participant_maps(maps);
+            holder.give_participant_maps(maps);
         }
 
         public void set_failure (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
@@ -477,7 +501,35 @@ class PeersTester : Object
 
         public void set_participant (int p_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
         {
-            error("not implemented yet");
+            tasklet.ms_wait(2); // simulates network latency
+            foreach (MapHolder holder in holders)
+            {
+                // make a copy
+                PeerTupleGNode tuple_copy = (PeerTupleGNode)dup_object(tuple);
+                // in a tasklet
+                SetParticipantTasklet ts = new SetParticipantTasklet();
+                ts.t = this;
+                ts.p_id = p_id;
+                ts.tuple = tuple_copy;
+                ts.holder = holder;
+                tasklet.spawn(ts);
+            }
+        }
+        class SetParticipantTasklet : Object, ITaskletSpawnable
+        {
+            public FakeBroadcastStub t;
+            public int p_id;
+            public PeerTupleGNode tuple;
+            public MapHolder holder;
+            public void * func()
+            {
+                t.set_participant_tasklet(holder, p_id, tuple);
+                return null;
+            }
+        }
+        private void set_participant_tasklet(MapHolder holder, int p_id, PeerTupleGNode tuple)
+        {
+            holder.set_participant(p_id, tuple);
         }
 
         public void set_redo_from_start (int msg_id, IPeerTupleNode respondant) throws StubError, DeserializeError
