@@ -182,7 +182,7 @@ class PeersTester : Object
                  },
                  /*GetBroadcastNeighbors*/ (fn_mah) => {
                      print(@"$(name): Call to get_broadcast_neighbors(fn_mah).\n");
-                     FakeBroadcastStub ret = (FakeBroadcastStub)get_broadcast_neighbors();
+                     FakeBroadcastStub ret = (FakeBroadcastStub)get_broadcast_neighbors((owned) fn_mah);
                      string list = ""; string next = "";
                      foreach (MapHolder holder in ret.holders) {
                          list += @"$(next)$(holder.name)"; next = ", ";
@@ -191,9 +191,11 @@ class PeersTester : Object
                      return ret;
                  },
                  /*GetUnicastNeighbor*/ (missing_arc) => {
-                     print(@"$(name): Call to get_unicast_neighbor(missing_arc=?).\n");
-                     // TODO
-                     error("not yet implemented. We must test to verify that closures just work.");
+                     MissingArc _missing_arc = (MissingArc)missing_arc;
+                     print(@"$(name): Call to get_unicast_neighbor($(_missing_arc.holder.name)).\n");
+                     var ret = get_unicast_neighbor(_missing_arc);
+                     print(@"        Returning $(ret.holder.name).\n");
+                     return ret;
                  });
         }
 
@@ -212,22 +214,25 @@ class PeersTester : Object
         // receives a RPC unicast: ask_participant_maps
         public PeerParticipantSet ask_participant_maps()
         {
+            print(@"$(name): RPC unicast: ask_participant_maps.\n");
             return handler.produce_maps_below_level(handler.maps_retrieved_below_level);
         }
 
-        // receives a RPC broadcast: give_participant_maps
+        // receives a RPC (broadcast or unicast after missing arc): give_participant_maps
         public void give_participant_maps(PeerParticipantSet maps)
         {
+            print(@"$(name): RPC: give_participant_maps.\n");
             handler.give_participant_maps(maps);
         }
 
-        // receives a RPC broadcast: set_participant
+        // receives a RPC (broadcast or unicast after missing arc): set_participant
         public void set_participant(int p_id, PeerTupleGNode tuple)
         {
             // Check (since the request is from network) that the service is optional.
             // In this testsuite we assume: yes.
 
             assert(tuple.check_valid(levels, gsizes.to_array()));
+            print(@"$(name): RPC: set_participant.\n");
             handler.set_participant(p_id, tuple);
         }
 
@@ -320,12 +325,17 @@ class PeersTester : Object
             }
             return nstub;
         }
-        public IPeersManagerStub get_broadcast_neighbors()
+        public IPeersManagerStub get_broadcast_neighbors(owned MapHandler.MissingArcHandler fn_mah)
         {
             FakeBroadcastStub bstub = new FakeBroadcastStub();
             foreach (int lvl in neighbors.keys)
                 bstub.holders.add_all(neighbors[lvl]);
+            bstub.fn_mah = (owned) fn_mah;
             return bstub;
+        }
+        private FakeUnicastStub get_unicast_neighbor(MissingArc missing_arc)
+        {
+            return new FakeUnicastStub(missing_arc.holder);
         }
     }
 
@@ -398,7 +408,8 @@ class PeersTester : Object
 
         public void set_participant (int p_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
         {
-            error("not implemented yet");
+            tasklet.ms_wait(2); // simulates network latency
+            holder.set_participant(p_id, (PeerTupleGNode)tuple);
         }
 
         public void set_redo_from_start (int msg_id, IPeerTupleNode respondant) throws StubError, DeserializeError
@@ -420,6 +431,7 @@ class PeersTester : Object
     class FakeBroadcastStub : Object, IPeersManagerStub
     {
         public Gee.List<MapHolder> holders;
+        public MapHandler.MissingArcHandler fn_mah;
         public FakeBroadcastStub()
         {
             holders = new ArrayList<MapHolder>();
@@ -473,6 +485,16 @@ class PeersTester : Object
         }
         private void give_participant_maps_tasklet(MapHolder holder, PeerParticipantSet maps)
         {
+            // This is where we can simulate a "missing arc" event
+            if (false == true)
+            {
+                print(@"        Among broadcast, $(holder.name) is a *missing* arc.\n");
+                MissingArc missing_arc = new MissingArc();
+                missing_arc.holder = holder;
+                fn_mah(missing_arc);
+                return;
+            }
+            print(@"        Among broadcast, $(holder.name) receives.\n");
             holder.give_participant_maps(maps);
         }
 
@@ -521,6 +543,17 @@ class PeersTester : Object
         }
         private void set_participant_tasklet(MapHolder holder, int p_id, PeerTupleGNode tuple)
         {
+            // This is where we can simulate a "missing arc" event
+            if (holder.name == "no2id1")
+            {
+                tasklet.ms_wait(5);
+                print(@"        Among broadcast, $(holder.name) is a *missing* arc.\n");
+                MissingArc missing_arc = new MissingArc();
+                missing_arc.holder = holder;
+                fn_mah(missing_arc);
+                return;
+            }
+            print(@"        Among broadcast, $(holder.name) receives.\n");
             holder.set_participant(p_id, tuple);
         }
 
@@ -538,6 +571,11 @@ class PeersTester : Object
         {
             error("not implemented yet");
         }
+    }
+
+    class MissingArc : Object, MapHandler.IMissingArc
+    {
+        public MapHolder holder;
     }
 }
 

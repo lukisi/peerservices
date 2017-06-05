@@ -50,7 +50,7 @@ namespace Netsukuku.PeerServices.MapHandler
      */
     internal interface IMissingArc : Object {}
     internal delegate void MissingArcHandler(IMissingArc missing_arc);
-    internal delegate IPeersManagerStub GetBroadcastNeighbors(MissingArcHandler fn_mah);
+    internal delegate IPeersManagerStub GetBroadcastNeighbors(owned MissingArcHandler fn_mah);
     internal delegate IPeersManagerStub GetUnicastNeighbor(IMissingArc missing_arc);
 
     internal class MapHandler : Object
@@ -150,9 +150,9 @@ namespace Netsukuku.PeerServices.MapHandler
                     try {
                         u_stub.set_participant(p_id, tuple_gnode);
                     } catch (StubError e) {
-                        // TODO
+                        // Ignore failing arc. TODO fix emitting a signal.
                     } catch (DeserializeError e) {
-                        // TODO
+                        // Ignore failing arc. TODO fix emitting a signal.
                     }
                 }
             });
