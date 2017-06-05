@@ -435,67 +435,12 @@ namespace Netsukuku.PeerServices
 
         private void convert_tuple_gnode(PeerTupleGNode t, out int @case, out HCoord ret)
         {
-            /*
-            Given t which represents a g-node h of level ε which lives inside one of my g-nodes,
-            where ε = t.top - t.tuple.size,
-            this methods returns the following informations:
-
-            * int @case
-               * Is 1 iff t represents one of my g-nodes.
-               * Is 2 iff t represents a g-node visible in my topology.
-               * Is 3 iff t represents a g-node not visible in my topology.
-            * HCoord ret
-               * The g-node in my map which h resides in.
-               * In case 1  ret.lvl = ε. Also, pos[ret.lvl] = ret.pos.
-               * In case 2  ret.lvl = ε. Also, pos[ret.lvl] ≠ ret.pos.
-               * In case 3  ret.lvl > ε.
-            */
-            int lvl = t.top;
-            int i = t.tuple.size;
-            assert(i > 0);
-            assert(i <= lvl);
-            while (true)
-            {
-                lvl--;
-                i--;
-                if (pos[lvl] != t.tuple[i])
-                {
-                    ret = new HCoord(lvl, t.tuple[i]);
-                    if (i == 0)
-                        @case = 2;
-                    else
-                        @case = 3;
-                    break;
-                }
-                if (i == 0)
-                {
-                    ret = new HCoord(lvl, t.tuple[i]);
-                    @case = 1;
-                    break;
-                }
-            }
+            Utils.convert_tuple_gnode(new ArrayList<int>.wrap(pos), t, out @case, out ret);
         }
 
         private PeerTupleGNode make_tuple_gnode(HCoord h, int top)
         {
-            // Returns a PeerTupleGNode that represents h inside our g-node of level top. 
-            assert(top > h.lvl);
-            ArrayList<int> tuple = new ArrayList<int>();
-            int i = top;
-            while (true)
-            {
-                i--;
-                if (i == h.lvl)
-                {
-                    tuple.insert(0, h.pos);
-                    break;
-                }
-                else
-                {
-                    tuple.insert(0, pos[i]);
-                }
-            }
-            return new PeerTupleGNode(tuple, top);
+            return Utils.make_tuple_gnode(new ArrayList<int>.wrap(pos), h, top);
         }
 
         private PeerTupleNode make_tuple_node(HCoord h, int top)

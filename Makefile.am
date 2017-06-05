@@ -43,6 +43,7 @@ libpeers_la_SOURCES = \
 	serializables.vala \
 	data_structs.vala \
 	map_handler.vala \
+	utils.vala \
 	peers_debug.vala \
 	$(NULL)
 
@@ -160,6 +161,7 @@ test_map_handler_SOURCES = \
 	testsuites/map_handler/test_map_handler.vala \
 	testsuites/map_handler/map_handler.vala \
 	testsuites/map_handler/serializables.vala \
+	testsuites/map_handler/utils.vala \
 	$(NULL)
 
 test_map_handler_VALAFLAGS = \
