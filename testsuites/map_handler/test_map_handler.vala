@@ -146,7 +146,8 @@ class PeersTester : Object
                  callback_remove_participant,
                  callback_produce_maps_copy,
                  callback_get_neighbor_at_level,
-                 callback_get_broadcast_neighbors);
+                 callback_get_broadcast_neighbors,
+                 callback_get_unicast_neighbor);
         }
 
         public void participate(int p_id)
@@ -255,9 +256,9 @@ class PeersTester : Object
             }
             return ret;
         }
-        private IPeersManagerStub callback_get_broadcast_neighbors()
+        private IPeersManagerStub callback_get_broadcast_neighbors(MapHandler.MissingArcHandler fn_mah)
         {
-            print(@"$(name): Call to get_broadcast_neighbors().\n");
+            print(@"$(name): Call to get_broadcast_neighbors(fn_mah).\n");
             FakeBroadcastStub ret = (FakeBroadcastStub)get_broadcast_neighbors();
             string list = ""; string next = "";
             foreach (MapHolder holder in ret.holders) {
@@ -265,6 +266,12 @@ class PeersTester : Object
             }
             print(@"        Returning [$(list)].\n");
             return ret;
+        }
+        private IPeersManagerStub callback_get_unicast_neighbor(MapHandler.IMissingArc missing_arc)
+        {
+            print(@"$(name): Call to get_unicast_neighbor(missing_arc=?).\n");
+            // TODO
+            error("not yet implemented. We must test to verify that closures just work.");
         }
 
         public void clear_maps_at_level(int lvl)

@@ -309,6 +309,10 @@ namespace Netsukuku.PeerServices
                  /*GetBroadcastNeighbors*/ () => {
                      IPeersManagerStub nstub = null;/*TODO*/
                      return nstub;
+                 },
+                 /*GetUnicastNeighbor*/ () => {
+                     IPeersManagerStub nstub = null;/*TODO*/
+                     return nstub;
                  });
             if (old_identity == null)
             {

@@ -21,25 +21,36 @@ using TaskletSystem;
 
 namespace Netsukuku.PeerServices.MapHandler
 {
-    /* Remove all of my knowledge relative to a given level.
+    /* ClearMapsAtLevel: Remove all of my knowledge relative to a given level.
      */
     internal delegate void ClearMapsAtLevel(int lvl);
-    /* Add to my knowledge that a given g-node participates to a given service.
+
+    /* AddParticipant: Add to my knowledge that a given g-node participates to a given service.
      */
     internal delegate void AddParticipant(int p_id, HCoord h);
-    /* Add to my knowledge that a given g-node does NOT participate to a given service.
+
+    /* RemoveParticipant: Add to my knowledge that a given g-node does NOT participate to a given service.
      */
     internal delegate void RemoveParticipant(int p_id, HCoord h);
-    /* Produce a [copy of the] set of the participation maps for all the services.
+
+    /* ProduceMapsCopy: Produce a [copy of the] set of the participation maps for all the services.
      */
     internal delegate PeerParticipantSet ProduceMapsCopy();
-    /* Get a stub to talk to a neighbor which has a given level as maximum distinct g-node
+
+    /* GetNeighborAtLevel: Get a stub to talk to a neighbor which has a given level as maximum distinct g-node
      * with respect to our address. If we have such a neighbor; otherwise return null.
      */
     internal delegate IPeersManagerStub? GetNeighborAtLevel(int lvl, IPeersManagerStub? failing_stub);
-    /* Get a stub to transmit in broadcast to all neighbors.
+
+    /* GetBroadcastNeighbors: Get a stub to transmit in broadcast to all neighbors.
+     * In doing that, pass a delegate function to handle "missing arc" events. That function will
+     * be able use GetUnicastNeighbor to get a stub to reliably transmit in unicast to
+     * the "missing" neighbor.
      */
-    internal delegate IPeersManagerStub GetBroadcastNeighbors();
+    internal interface IMissingArc : Object {}
+    internal delegate void MissingArcHandler(IMissingArc missing_arc);
+    internal delegate IPeersManagerStub GetBroadcastNeighbors(MissingArcHandler fn_mah);
+    internal delegate IPeersManagerStub GetUnicastNeighbor(IMissingArc missing_arc);
 
     internal class MapHandler : Object
     {
@@ -53,6 +64,7 @@ namespace Netsukuku.PeerServices.MapHandler
         private unowned ProduceMapsCopy produce_maps;
         private unowned GetNeighborAtLevel get_neighbor_at_level;
         private unowned GetBroadcastNeighbors get_groadcast_neighbors;
+        private unowned GetUnicastNeighbor get_unicast_neighbor;
         public int maps_retrieved_below_level {get; private set;}
         private HashMap<int, ITaskletHandle> participation_tasklets;
         private ArrayList<HCoord> recent_published_list;
@@ -64,7 +76,8 @@ namespace Netsukuku.PeerServices.MapHandler
          RemoveParticipant remove_participant,
          ProduceMapsCopy produce_maps,
          GetNeighborAtLevel get_neighbor_at_level,
-         GetBroadcastNeighbors get_groadcast_neighbors)
+         GetBroadcastNeighbors get_groadcast_neighbors,
+         GetUnicastNeighbor get_unicast_neighbor)
         {
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
@@ -75,6 +88,7 @@ namespace Netsukuku.PeerServices.MapHandler
             this.produce_maps = produce_maps;
             this.get_neighbor_at_level = get_neighbor_at_level;
             this.get_groadcast_neighbors = get_groadcast_neighbors;
+            this.get_unicast_neighbor = get_unicast_neighbor;
             participation_tasklets = new HashMap<int, ITaskletHandle>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
         }
@@ -126,8 +140,21 @@ namespace Netsukuku.PeerServices.MapHandler
             // send broadcast to the outside
             Gee.List<int> active_services = new ArrayList<int>();
             active_services.add_all(old_ps.participant_set.keys);
-            IPeersManagerStub b_stub = get_groadcast_neighbors();
             var tuple_gnode = make_tuple_gnode(new HCoord(guest_gnode_level, pos[guest_gnode_level]), levels);
+            // stub to broadcast, with handling of missing_arcs
+            IPeersManagerStub b_stub = get_groadcast_neighbors((missing_arc) => {
+                IPeersManagerStub u_stub = get_unicast_neighbor(missing_arc);
+                foreach (int p_id in active_services)
+                {
+                    try {
+                        u_stub.set_participant(p_id, tuple_gnode);
+                    } catch (StubError e) {
+                        // TODO
+                    } catch (DeserializeError e) {
+                        // TODO
+                    }
+                }
+            });
             foreach (int p_id in active_services)
             {
                 try {
@@ -224,10 +251,21 @@ namespace Netsukuku.PeerServices.MapHandler
                 }
             }
             maps_retrieved_below_level = maps.retrieved_below_level;
-            // get a stub for broadcast, no wait.
-            IPeersManagerStub broadcast_stub = get_groadcast_neighbors();
+            // forward in broadcast.
+            PeerParticipantSet maps_below_level = produce_maps_below_level(maps_retrieved_below_level);
+            // stub to broadcast, with handling of missing_arcs
+            IPeersManagerStub b_stub = get_groadcast_neighbors((missing_arc) => {
+                IPeersManagerStub u_stub = get_unicast_neighbor(missing_arc);
+                try {
+                    u_stub.give_participant_maps(maps_below_level);
+                } catch (StubError e) {
+                    // TODO
+                } catch (DeserializeError e) {
+                    // TODO
+                }
+            });
             try {
-                broadcast_stub.give_participant_maps(produce_maps_below_level(maps_retrieved_below_level));
+                b_stub.give_participant_maps(maps_below_level);
             } catch (StubError e) {
                 assert_not_reached();
             } catch (DeserializeError e) {
@@ -295,8 +333,19 @@ namespace Netsukuku.PeerServices.MapHandler
             if (ret in recent_published_list) return;
             recent_published_list.add(ret);
             add_participant(p_id, ret);
-            IPeersManagerStub b_stub = get_groadcast_neighbors();
+            // propagate
             PeerTupleGNode ret_gn = make_tuple_gnode(ret, levels);
+            // stub to broadcast, with handling of missing_arcs
+            IPeersManagerStub b_stub = get_groadcast_neighbors((missing_arc) => {
+                IPeersManagerStub u_stub = get_unicast_neighbor(missing_arc);
+                try {
+                    u_stub.set_participant(p_id, ret_gn);
+                } catch (StubError e) {
+                    // TODO
+                } catch (DeserializeError e) {
+                    // TODO
+                }
+            });
             try {
                 b_stub.set_participant(p_id, ret_gn);
             } catch (StubError e) {
