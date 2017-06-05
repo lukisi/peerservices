@@ -58,37 +58,37 @@ namespace Netsukuku.PeerServices.MapHandler
         private ArrayList<int> pos;
         private int guest_gnode_level;
         private int host_gnode_level;
-        private unowned ClearMapsAtLevel clear_maps_at_level;
-        private unowned AddParticipant add_participant;
-        private unowned RemoveParticipant remove_participant;
-        private unowned ProduceMapsCopy produce_maps;
-        private unowned GetNeighborAtLevel get_neighbor_at_level;
-        private unowned GetBroadcastNeighbors get_groadcast_neighbors;
-        private unowned GetUnicastNeighbor get_unicast_neighbor;
+        private ClearMapsAtLevel clear_maps_at_level;
+        private AddParticipant add_participant;
+        private RemoveParticipant remove_participant;
+        private ProduceMapsCopy produce_maps;
+        private GetNeighborAtLevel get_neighbor_at_level;
+        private GetBroadcastNeighbors get_groadcast_neighbors;
+        private GetUnicastNeighbor get_unicast_neighbor;
         public int maps_retrieved_below_level {get; private set;}
         private HashMap<int, ITaskletHandle> participation_tasklets;
         private ArrayList<HCoord> recent_published_list;
 
         public MapHandler
         (ArrayList<int> pos,
-         ClearMapsAtLevel clear_maps_at_level,
-         AddParticipant add_participant,
-         RemoveParticipant remove_participant,
-         ProduceMapsCopy produce_maps,
-         GetNeighborAtLevel get_neighbor_at_level,
-         GetBroadcastNeighbors get_groadcast_neighbors,
-         GetUnicastNeighbor get_unicast_neighbor)
+         owned ClearMapsAtLevel clear_maps_at_level,
+         owned AddParticipant add_participant,
+         owned RemoveParticipant remove_participant,
+         owned ProduceMapsCopy produce_maps,
+         owned GetNeighborAtLevel get_neighbor_at_level,
+         owned GetBroadcastNeighbors get_groadcast_neighbors,
+         owned GetUnicastNeighbor get_unicast_neighbor)
         {
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
             this.levels = pos.size;
-            this.clear_maps_at_level = clear_maps_at_level;
-            this.add_participant = add_participant;
-            this.remove_participant = remove_participant;
-            this.produce_maps = produce_maps;
-            this.get_neighbor_at_level = get_neighbor_at_level;
-            this.get_groadcast_neighbors = get_groadcast_neighbors;
-            this.get_unicast_neighbor = get_unicast_neighbor;
+            this.clear_maps_at_level = (owned) clear_maps_at_level;
+            this.add_participant = (owned) add_participant;
+            this.remove_participant = (owned) remove_participant;
+            this.produce_maps = (owned) produce_maps;
+            this.get_neighbor_at_level = (owned) get_neighbor_at_level;
+            this.get_groadcast_neighbors = (owned) get_groadcast_neighbors;
+            this.get_unicast_neighbor = (owned) get_unicast_neighbor;
             participation_tasklets = new HashMap<int, ITaskletHandle>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
         }

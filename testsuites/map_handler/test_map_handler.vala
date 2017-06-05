@@ -141,13 +141,60 @@ class PeersTester : Object
             neighbors = new HashMap<int, ArrayList<MapHolder>>();
             handler = new MapHandler.MapHandler
                 (pos,
-                 callback_clear_maps_at_level,
-                 callback_add_participant,
-                 callback_remove_participant,
-                 callback_produce_maps_copy,
-                 callback_get_neighbor_at_level,
-                 callback_get_broadcast_neighbors,
-                 callback_get_unicast_neighbor);
+                 /*ClearMapsAtLevel*/ (lvl) => {
+                     print(@"$(name): Call to clear_maps_at_level($(lvl)).\n");
+                     clear_maps_at_level(lvl);
+                 },
+                 /*AddParticipant*/ (p_id, h) => {
+                     print(@"$(name): Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                     if (h.pos == pos[h.lvl])
+                     {
+                         print ("Ignore because it is my position.\n");
+                         return;
+                     }
+                     add_participant(p_id, h);
+                 },
+                 /*RemoveParticipant*/ (p_id, h) => {
+                     print(@"$(name): Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
+                     if (h.pos == pos[h.lvl])
+                     {
+                         print ("Ignore because it is my position.\n");
+                         return;
+                     }
+                     remove_participant(p_id, h);
+                 },
+                 /*ProduceMapsCopy*/ () => {
+                     print(@"$(name): Call to produce_maps().\n");
+                     return produce_maps_copy();
+                 },
+                 /*GetNeighborAtLevel*/ (lvl, failing_stub) => {
+                     string s_f_s = (failing_stub == null) ? "null" : "[object]";
+                     print(@"$(name): Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
+                     IPeersManagerStub? ret = get_neighbor_at_level(lvl, failing_stub);
+                     if (ret == null)
+                         print(@"        Returning null.\n");
+                     else
+                     {
+                         FakeUnicastStub _ret = (FakeUnicastStub)ret;
+                         print(@"        Returning $(_ret.holder.name).\n");
+                     }
+                     return ret;
+                 },
+                 /*GetBroadcastNeighbors*/ (fn_mah) => {
+                     print(@"$(name): Call to get_broadcast_neighbors(fn_mah).\n");
+                     FakeBroadcastStub ret = (FakeBroadcastStub)get_broadcast_neighbors();
+                     string list = ""; string next = "";
+                     foreach (MapHolder holder in ret.holders) {
+                         list += @"$(next)$(holder.name)"; next = ", ";
+                     }
+                     print(@"        Returning [$(list)].\n");
+                     return ret;
+                 },
+                 /*GetUnicastNeighbor*/ (missing_arc) => {
+                     print(@"$(name): Call to get_unicast_neighbor(missing_arc=?).\n");
+                     // TODO
+                     error("not yet implemented. We must test to verify that closures just work.");
+                 });
         }
 
         public void participate(int p_id)
@@ -210,68 +257,6 @@ class PeersTester : Object
                 neighbors[lvl].remove(n);
                 if (neighbors[lvl].is_empty) neighbors.unset(lvl);
             }
-        }
-
-        private void callback_clear_maps_at_level(int lvl)
-        {
-            print(@"$(name): Call to clear_maps_at_level($(lvl)).\n");
-            clear_maps_at_level(lvl);
-        }
-        private void callback_add_participant(int p_id, HCoord h)
-        {
-            print(@"$(name): Call to add_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-            if (h.pos == pos[h.lvl])
-            {
-                print ("Ignore because it is my position.\n");
-                return;
-            }
-            add_participant(p_id, h);
-        }
-        private void callback_remove_participant(int p_id, HCoord h)
-        {
-            print(@"$(name): Call to remove_participant($(p_id), ($(h.lvl), $(h.pos))).\n");
-            if (h.pos == pos[h.lvl])
-            {
-                print ("Ignore because it is my position.\n");
-                return;
-            }
-            remove_participant(p_id, h);
-        }
-        private PeerParticipantSet callback_produce_maps_copy()
-        {
-            print(@"$(name): Call to produce_maps().\n");
-            return produce_maps_copy();
-        }
-        private IPeersManagerStub? callback_get_neighbor_at_level(int lvl, IPeersManagerStub? failing_stub)
-        {
-            string s_f_s = (failing_stub == null) ? "null" : "[object]";
-            print(@"$(name): Call to get_neighbor_at_level($(lvl), $(s_f_s)).\n");
-            IPeersManagerStub? ret = get_neighbor_at_level(lvl, failing_stub);
-            if (ret == null)
-                print(@"        Returning null.\n");
-            else
-            {
-                FakeUnicastStub _ret = (FakeUnicastStub)ret;
-                print(@"        Returning $(_ret.holder.name).\n");
-            }
-            return ret;
-        }
-        private IPeersManagerStub callback_get_broadcast_neighbors(MapHandler.MissingArcHandler fn_mah)
-        {
-            print(@"$(name): Call to get_broadcast_neighbors(fn_mah).\n");
-            FakeBroadcastStub ret = (FakeBroadcastStub)get_broadcast_neighbors();
-            string list = ""; string next = "";
-            foreach (MapHolder holder in ret.holders) {
-                list += @"$(next)$(holder.name)"; next = ", ";
-            }
-            print(@"        Returning [$(list)].\n");
-            return ret;
-        }
-        private IPeersManagerStub callback_get_unicast_neighbor(MapHandler.IMissingArc missing_arc)
-        {
-            print(@"$(name): Call to get_unicast_neighbor(missing_arc=?).\n");
-            // TODO
-            error("not yet implemented. We must test to verify that closures just work.");
         }
 
         public void clear_maps_at_level(int lvl)
