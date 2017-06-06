@@ -116,6 +116,55 @@ class PeersTester : Object
         no2id2.participate(1);
         tasklet.ms_wait(100);
         print("step 5\n");
+
+        // check
+        foreach (MapHolder mh in new ArrayList<MapHolder>.wrap({no1id3,no2id2,no3id1}))
+        {
+            var name = mh.name;
+            var pps = mh.produce_maps_copy();
+            string addr = ""; string next = "";
+            for (int i = 2; i >= 0; i--) {
+                addr += @"$(next)$(pps.my_pos[i])";
+                next = ":";
+            }
+            print(@"$(name) address $(addr)\n");
+            print(@"$(name) maps_retrieved_below_level $(mh.handler.maps_retrieved_below_level)\n");
+            foreach (int serv_id in pps.participant_set.keys)
+                foreach (HCoord h in pps.participant_set[serv_id].participant_list)
+                print(@"$(name) maps for service $(serv_id) contains ($(h.lvl),$(h.pos))\n");
+        }
+        // check no1
+        assert(no1id3.handler.maps_retrieved_below_level == 3);
+        var pps1 = no1id3.produce_maps_copy();
+        assert(pps1.my_pos[0] == 1);
+        assert(pps1.my_pos[1] == 1);
+        assert(pps1.my_pos[2] == 1);
+        assert(1 in pps1.participant_set.keys);
+        assert(new HCoord(1, 0) in pps1.participant_set[1].participant_list);
+        assert(new HCoord(0, 0) in pps1.participant_set[1].participant_list);
+        assert(new HCoord(0, 1) in pps1.participant_set[1].participant_list);
+        assert(!(new HCoord(2, 0) in pps1.participant_set[1].participant_list));
+        // check no2
+        assert(no2id2.handler.maps_retrieved_below_level == 3);
+        var pps2 = no2id2.produce_maps_copy();
+        assert(pps2.my_pos[0] == 0);
+        assert(pps2.my_pos[1] == 1);
+        assert(pps2.my_pos[2] == 1);
+        assert(1 in pps2.participant_set.keys);
+        assert(new HCoord(1, 0) in pps2.participant_set[1].participant_list);
+        assert(new HCoord(0, 0) in pps2.participant_set[1].participant_list);
+        assert(new HCoord(0, 1) in pps2.participant_set[1].participant_list);
+        assert(!(new HCoord(2, 0) in pps2.participant_set[1].participant_list));
+        // check no3
+        assert(no3id1.handler.maps_retrieved_below_level == 3);
+        var pps3 = no3id1.produce_maps_copy();
+        assert(pps3.my_pos[0] == 1);
+        assert(pps3.my_pos[1] == 0);
+        assert(pps3.my_pos[2] == 1);
+        assert(1 in pps3.participant_set.keys);
+        assert(new HCoord(1, 1) in pps3.participant_set[1].participant_list);
+        assert(new HCoord(0, 1) in pps3.participant_set[1].participant_list);
+        assert(!(new HCoord(2, 0) in pps3.participant_set[1].participant_list));
     }
 
     class MapHolder : Object
