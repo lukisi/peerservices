@@ -267,6 +267,8 @@ namespace Netsukuku.PeerServices
             }
         }
         private MapHandler.MapHandler map_handler;
+        private PeerParticipantSet map;
+        private Gee.List<int> my_services;
 
         public PeersManager
         (PeersManager? old_identity,
@@ -293,6 +295,8 @@ namespace Netsukuku.PeerServices
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
             this.guest_gnode_level = guest_gnode_level;
             this.host_gnode_level = host_gnode_level;
+            map = new PeerParticipantSet(new ArrayList<int>.wrap(pos));
+            my_services = new ArrayList<int>();
             map_handler = new MapHandler.MapHandler
                 (new ArrayList<int>.wrap(pos),
                  /*ClearMapsAtLevel*/ (lvl) => {/*TODO*/},
@@ -324,6 +328,18 @@ namespace Netsukuku.PeerServices
             }
         }
 
+        public void participate(int p_id)
+        {
+            if (! (p_id in my_services)) my_services.add(p_id);
+            map_handler.participate(p_id);
+        }
+
+        public void dont_participate(int p_id)
+        {
+            if (p_id in my_services) my_services.remove(p_id);
+            map_handler.dont_participate(p_id);
+        }
+
         public void register(PeerService p)
         {
             if (services.has_key(p.p_id))
@@ -332,18 +348,7 @@ namespace Netsukuku.PeerServices
                 return;
             }
             services[p.p_id] = p;
-            if (p.p_is_optional)
-            {
-                PublishMyParticipationTasklet ts = new PublishMyParticipationTasklet();
-                ts.t = this;
-                ts.p_id = p.p_id;
-                tasklet.spawn(ts);
-                if (!participant_maps.has_key(p.p_id))
-                    participant_maps[p.p_id] = new PeerParticipantMap();
-                // save my position
-                PeerParticipantMap map = participant_maps[p.p_id];
-                map.participant_list.add(new HCoord(0, pos[0]));
-            }
+            if (p.p_is_optional) participate(p.p_id);
         }
 
         /* Helpers */
@@ -1000,63 +1005,6 @@ namespace Netsukuku.PeerServices
                 // TIMEOUT_EXPIRED
                 waiting_answer_map.unset(mf.msg_id);
                 return false;
-            }
-        }
-
-        class MissingArcSetParticipant : Object, IPeersMissingArcHandler
-        {
-            public MissingArcSetParticipant(PeersManager mgr, int p_id, PeerTupleGNode tuple)
-            {
-                this.mgr = mgr;
-                this.p_id = p_id;
-                this.tuple = tuple;
-            }
-            private PeersManager mgr;
-            private int p_id;
-            private PeerTupleGNode tuple;
-            public void i_peers_missing(IPeersArc missing_arc)
-            {
-                IPeersManagerStub stub =
-                    mgr.neighbors_factory.i_peers_get_tcp(missing_arc);
-                try {
-                    stub.set_participant(p_id, tuple);
-                } catch (StubError e) {
-                    // ignore
-                } catch (DeserializeError e) {
-                    // ignore
-                }
-            }
-        }
-
-        private class PublishMyParticipationTasklet : Object, ITaskletSpawnable
-        {
-            public PeersManager t;
-            public int p_id;
-            public void * func()
-            {
-                t.publish_my_participation(p_id);
-                return null;
-            }
-        }
-        private void publish_my_participation(int p_id)
-        {
-            PeerTupleGNode gn = make_tuple_gnode(new HCoord(0, pos[0]), levels);
-            int timeout = 300000; // 5 min
-            int iterations = 5;
-            while (true)
-            {
-                if (iterations > 0) iterations--;
-                else timeout = Random.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
-                MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, gn);
-                IPeersManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
-                try {
-                    br_stub.set_participant(p_id, gn);
-                } catch (StubError e) {
-                    // ignore
-                } catch (DeserializeError e) {
-                    // ignore
-                }
-                tasklet.ms_wait(timeout);
             }
         }
 
@@ -2346,40 +2294,7 @@ namespace Netsukuku.PeerServices
             if (! check_valid_tuple_gnode(gn)) return;
             // begin
             if (services.has_key(p_id) && ! services[p_id].p_is_optional) return;
-            int @case;
-            HCoord ret;
-            convert_tuple_gnode(gn, out @case, out @ret);
-            if (@case == 1) return;
-            if (ret in recent_published_list) return;
-            recent_published_list.add(ret);
-            if (! participant_maps.has_key(p_id))
-                participant_maps[p_id] = new PeerParticipantMap();
-            participant_maps[p_id].participant_list.add(ret);
-            PeerTupleGNode ret_gn = make_tuple_gnode(ret, levels);
-            MissingArcSetParticipant missing_handler = new MissingArcSetParticipant(this, p_id, ret_gn);
-            IPeersManagerStub br_stub = neighbors_factory.i_peers_get_broadcast(missing_handler);
-            try {
-                br_stub.set_participant(p_id, ret_gn);
-            } catch (StubError e) {
-                // ignore
-            } catch (DeserializeError e) {
-                // ignore
-            }
-            RecentPublishedListRemoveTasklet ts = new RecentPublishedListRemoveTasklet();
-            ts.t = this;
-            ts.ret = ret;
-            tasklet.spawn(ts);
-        }
-        private class RecentPublishedListRemoveTasklet : Object, ITaskletSpawnable
-        {
-            public PeersManager t;
-            public HCoord ret;
-            public void * func()
-            {
-                tasklet.ms_wait(60000);
-                t.recent_published_list.remove(ret);
-                return null;
-            }
+            map_handler.set_participant(p_id, gn);
         }
     }
 
