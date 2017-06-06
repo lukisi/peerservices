@@ -260,9 +260,9 @@ namespace Netsukuku.PeerServices.MapHandler
                 try {
                     u_stub.give_participant_maps(maps_below_level);
                 } catch (StubError e) {
-                    // TODO
+                    // Ignore failing arc. TODO fix emitting a signal.
                 } catch (DeserializeError e) {
-                    // TODO
+                    // Ignore failing arc. TODO fix emitting a signal.
                 }
             });
             try {
@@ -303,7 +303,33 @@ namespace Netsukuku.PeerServices.MapHandler
         }
         private void participate_tasklet(int p_id)
         {
-            while (true) tasklet.ms_wait(100); // TODO
+            PeerTupleGNode gn = make_tuple_gnode(new HCoord(0, pos[0]), levels);
+            int timeout = 300000; // 5 min
+            int iterations = 5;
+            while (true)
+            {
+                if (iterations > 0) iterations--;
+                else timeout = Random.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
+                // stub to broadcast, with handling of missing_arcs
+                IPeersManagerStub b_stub = get_groadcast_neighbors((missing_arc) => {
+                    IPeersManagerStub u_stub = get_unicast_neighbor(missing_arc);
+                    try {
+                        u_stub.set_participant(p_id, gn);
+                    } catch (StubError e) {
+                        // Ignore failing arc. TODO fix emitting a signal.
+                    } catch (DeserializeError e) {
+                        // Ignore failing arc. TODO fix emitting a signal.
+                    }
+                });
+                try {
+                    b_stub.set_participant(p_id, gn);
+                } catch (StubError e) {
+                    // ignore
+                } catch (DeserializeError e) {
+                    // ignore
+                }
+                tasklet.ms_wait(timeout);
+            }
         }
 
         /* This method is called on a identity because the node wants to stop its
