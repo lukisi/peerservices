@@ -299,24 +299,26 @@ namespace Netsukuku.PeerServices
             my_services = new ArrayList<int>();
             map_handler = new MapHandler.MapHandler
                 (new ArrayList<int>.wrap(pos),
-                 /*ClearMapsAtLevel*/ (lvl) => {/*TODO*/},
-                 /*AddParticipant*/ (p_id, h) => {/*TODO*/},
-                 /*RemoveParticipant*/ (p_id, h) => {/*TODO*/},
+                 /*ClearMapsAtLevel*/ (lvl) => {
+                     clear_maps_at_level(lvl);
+                 },
+                 /*AddParticipant*/ (p_id, h) => {
+                     add_participant(p_id, h);
+                 },
+                 /*RemoveParticipant*/ (p_id, h) => {
+                     remove_participant(p_id, h);
+                 },
                  /*ProduceMapsCopy*/ () => {
-                     var ret = new PeerParticipantSet(new ArrayList<int>.wrap(pos));/*TODO*/
-                     return ret;
+                     return produce_maps_copy();
                  },
-                 /*GetNeighborAtLevel*/ (lvl, failing_nstub) => {
-                     IPeersManagerStub? nstub = null;/*TODO*/
-                     return nstub;
+                 /*GetNeighborAtLevel*/ (lvl, failing_stub) => {
+                     return get_neighbor_at_level(lvl, failing_stub);
                  },
-                 /*GetBroadcastNeighbors*/ () => {
-                     IPeersManagerStub nstub = null;/*TODO*/
-                     return nstub;
+                 /*GetBroadcastNeighbors*/ (fn_mah) => {
+                     return get_broadcast_neighbors((owned) fn_mah);
                  },
-                 /*GetUnicastNeighbor*/ () => {
-                     IPeersManagerStub nstub = null;/*TODO*/
-                     return nstub;
+                 /*GetUnicastNeighbor*/ (missing_arc) => {
+                     return get_unicast_neighbor(missing_arc);
                  });
             if (old_identity == null)
             {
@@ -328,16 +330,98 @@ namespace Netsukuku.PeerServices
             }
         }
 
-        public void participate(int p_id)
+        private void participate(int p_id)
         {
             if (! (p_id in my_services)) my_services.add(p_id);
             map_handler.participate(p_id);
         }
 
-        public void dont_participate(int p_id)
+        private void dont_participate(int p_id)
         {
             if (p_id in my_services) my_services.remove(p_id);
             map_handler.dont_participate(p_id);
+        }
+
+        private void clear_maps_at_level(int lvl)
+        {
+            foreach (int p_id in map.participant_set.keys)
+            {
+                PeerParticipantMap m = map.participant_set[p_id];
+                ArrayList<HCoord> to_del = new ArrayList<HCoord>();
+                foreach (HCoord h in m.participant_list) if (h.lvl == lvl) to_del.add(h);
+                m.participant_list.remove_all(to_del);
+            }
+        }
+        private void add_participant(int p_id, HCoord h)
+        {
+            if (h.pos == pos[h.lvl]) return; // ignore myself
+            if (! map.participant_set.has_key(p_id))
+                map.participant_set[p_id] = new PeerParticipantMap();
+            var the_list = map.participant_set[p_id].participant_list;
+            if (! (h in the_list)) the_list.add(h);
+        }
+        private void remove_participant(int p_id, HCoord h)
+        {
+            if (h.pos == pos[h.lvl]) return; // ignore myself
+            if (map.participant_set.has_key(p_id))
+            {
+                var the_list = map.participant_set[p_id].participant_list;
+                if (h in the_list) the_list.remove(h);
+                if (the_list.is_empty) map.participant_set.unset(p_id);
+            }
+        }
+        private PeerParticipantSet produce_maps_copy()
+        {
+            var ret = new PeerParticipantSet(new ArrayList<int>.wrap(pos));
+            foreach (int p_id in map.participant_set.keys)
+            {
+                ret.participant_set[p_id] = new PeerParticipantMap();
+                ret.participant_set[p_id].participant_list.add_all
+                    (map.participant_set[p_id].participant_list);
+            }
+            foreach (int p_id in my_services)
+            {
+                if (! ret.participant_set.has_key(p_id))
+                    ret.participant_set[p_id] = new PeerParticipantMap();
+                ret.participant_set[p_id].participant_list.add(new HCoord(0, pos[0]));
+            }
+            return ret;
+        }
+        private IPeersManagerStub? get_neighbor_at_level(int lvl, IPeersManagerStub? failing_stub)
+        {
+            return map_paths.i_peers_neighbor_at_level(lvl, failing_stub);
+        }
+        private IPeersManagerStub get_broadcast_neighbors(owned MapHandler.MissingArcHandler fn_mah)
+        {
+            MissingArcDelegation missing_handler = new MissingArcDelegation(this, (owned) fn_mah);
+            return neighbors_factory.i_peers_get_broadcast(missing_handler);
+        }
+        class MissingArcDelegation : Object, IPeersMissingArcHandler
+        {
+            public MissingArcDelegation(PeersManager mgr, owned MapHandler.MissingArcHandler fn_mah)
+            {
+                this.mgr = mgr;
+                this.fn_mah = (owned) fn_mah;
+            }
+            public MapHandler.MissingArcHandler fn_mah;
+            private PeersManager mgr;
+            public void i_peers_missing(IPeersArc missing_arc)
+            {
+                fn_mah(new MissingArcImpl(missing_arc));
+            }
+        }
+        class MissingArcImpl : Object, MapHandler.IMissingArc
+        {
+            public IPeersArc arc;
+            public MissingArcImpl(IPeersArc arc)
+            {
+                this.arc = arc;
+            }
+        }
+        private IPeersManagerStub get_unicast_neighbor(MapHandler.IMissingArc missing_arc)
+        {
+            IPeersArc arc = ((MissingArcImpl)missing_arc).arc;
+            return neighbors_factory.i_peers_get_tcp(arc);
         }
 
         public void register(PeerService p)
