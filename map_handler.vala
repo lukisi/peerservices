@@ -100,13 +100,17 @@ namespace Netsukuku.PeerServices.MapHandler
         public PeerParticipantSet produce_maps_below_level(int below_level)
         {
             PeerParticipantSet ret = produce_maps();
+            ArrayList<int> p_id_to_del = new ArrayList<int>();
             foreach (int p_id in ret.participant_set.keys)
             {
                 PeerParticipantMap m = ret.participant_set[p_id];
                 ArrayList<HCoord> to_del = new ArrayList<HCoord>();
                 foreach (HCoord h in m.participant_list) if (h.lvl >= below_level) to_del.add(h);
                 m.participant_list.remove_all(to_del);
+                if (m.participant_list.is_empty) p_id_to_del.add(p_id);
             }
+            foreach (int p_id in p_id_to_del)
+                ret.participant_set.unset(p_id);
             ret.retrieved_below_level = below_level;
             return ret;
         }
@@ -139,13 +143,13 @@ namespace Netsukuku.PeerServices.MapHandler
             ts.t = this;
             tasklet.spawn(ts);
             // send broadcast to the outside
-            Gee.List<int> active_services = new ArrayList<int>();
-            active_services.add_all(old_ps.participant_set.keys);
+            Gee.List<int> active_services_on_gnode = new ArrayList<int>();
+            active_services_on_gnode.add_all(old_ps.participant_set.keys);
             var tuple_gnode = make_tuple_gnode(new HCoord(guest_gnode_level, pos[guest_gnode_level]), levels);
             // stub to broadcast, with handling of missing_arcs
             IPeersManagerStub b_stub = get_groadcast_neighbors((missing_arc) => {
                 IPeersManagerStub u_stub = get_unicast_neighbor(missing_arc);
-                foreach (int p_id in active_services)
+                foreach (int p_id in active_services_on_gnode)
                 {
                     try {
                         u_stub.set_participant(p_id, tuple_gnode);
@@ -156,7 +160,7 @@ namespace Netsukuku.PeerServices.MapHandler
                     }
                 }
             });
-            foreach (int p_id in active_services)
+            foreach (int p_id in active_services_on_gnode)
             {
                 try {
                     b_stub.set_participant(p_id, tuple_gnode);
