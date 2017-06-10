@@ -2,6 +2,7 @@ peers.c
 serializables.c
 data_structs.c
 map_handler.c
+message_routing.c
 utils.c
 peers_debug.c
 peers.h
@@ -20,6 +21,10 @@ testsuites/map_handler/map_handler.c
 testsuites/map_handler/serializables.c
 testsuites/map_handler/test_map_handler.c
 testsuites/map_handler/utils.c
+testsuites/message_routing/message_routing.c
+testsuites/message_routing/serializables.c
+testsuites/message_routing/test_message_routing.c
+testsuites/message_routing/utils.c
 testsuites/simulator/simulator.c
 testsuites/simulator/simulator_debug.c
 testsuites/simulator/service_ttl_100.c

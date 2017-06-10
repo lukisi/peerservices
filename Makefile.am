@@ -10,12 +10,14 @@ TESTS = \
 	test_serialization \
 	test_data_structs \
 	test_map_handler \
+	test_message_routing \
 	$(NULL)
 
 check_PROGRAMS = \
 	test_serialization \
 	test_data_structs \
 	test_map_handler \
+	test_message_routing \
 	$(NULL)
 
 # noinst_PROGRAMS =  \
@@ -43,6 +45,7 @@ libpeers_la_SOURCES = \
 	serializables.vala \
 	data_structs.vala \
 	map_handler.vala \
+	message_routing.vala \
 	utils.vala \
 	peers_debug.vala \
 	$(NULL)
@@ -191,6 +194,52 @@ test_map_handler_CPPFLAGS = \
 	$(NULL)
 
 test_map_handler_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(PTHTASKLET_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+# test_message_routing does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
+test_message_routing_SOURCES = \
+	testsuites/message_routing/test_message_routing.vala \
+	testsuites/message_routing/message_routing.vala \
+	testsuites/message_routing/serializables.vala \
+	testsuites/message_routing/utils.vala \
+	$(NULL)
+
+test_message_routing_VALAFLAGS = \
+	--vapidir $(GEE_PREFIX)/share/vala/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
+	--vapidir $(PTHTASKLET_VAPIDIR) \
+	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--vapidir $(NTKDRPC_VAPIDIR) \
+	--pkg gee-0.8 \
+	--pkg json-glib-1.0 \
+	--pkg tasklet-system \
+	--pkg pth-tasklet \
+	--pkg ntkd-common \
+	--pkg ntkdrpc \
+	$(NULL)
+
+test_message_routing_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(PTHTASKLET_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+test_message_routing_LDADD = \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
