@@ -24,13 +24,35 @@ namespace Netsukuku.PeerServices.MessageRouting
 {
     internal class MessageRouting : Object
     {
-        void a()
+        private int levels;
+        private ArrayList<int> pos;
+        private ArrayList<int> gsizes;
+
+        public MessageRouting
+        (Gee.List<int> pos,
+         Gee.List<int> gsizes
+         )
         {
-            helo();
+            this.pos = new ArrayList<int>();
+            this.pos.add_all(pos);
+            this.gsizes = new ArrayList<int>();
+            this.gsizes.add_all(gsizes);
+            assert(gsizes.size == pos.size);
+            this.levels = pos.size;
         }
 
-        void helo()
+        public int dist(PeerTupleNode x_macron, PeerTupleNode x)
         {
+            assert(x_macron.tuple.size == x.tuple.size);
+            int distance = 0;
+            for (int j = x.tuple.size-1; j >= 0; j--)
+            {
+                distance *= gsizes[j];
+                distance += x.tuple[j] - x_macron.tuple[j];
+                if (x_macron.tuple[j] > x.tuple[j])
+                    distance += gsizes[j];
+            }
+            return distance;
         }
     }
 }

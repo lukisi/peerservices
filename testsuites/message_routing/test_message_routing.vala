@@ -53,8 +53,50 @@ class PeersTester : Object
     {
     }
 
-    public void test_1()
-    {}
+    public void test_dist()
+    {
+        Gee.List<int> gsizes = new ArrayList<int>.wrap({5,5,5});
+        Gee.List<int> my_pos = new ArrayList<int>.wrap({3,1,0});
+        Gee.List<int> x_pos = new ArrayList<int>.wrap({2,1,0});
+        Gee.List<int> y_pos = new ArrayList<int>.wrap({1,1,0});
+        Gee.List<int> z_pos = new ArrayList<int>.wrap({0,1,0});
+        Gee.List<int> ga_pos = new ArrayList<int>.wrap({1,2,0});
+        Gee.List<int> gb_pos = new ArrayList<int>.wrap({1,0,0});
+        MessageRouting.MessageRouting m =
+            new MessageRouting.MessageRouting(my_pos, gsizes);
+        PeerTupleNode x = new PeerTupleNode(x_pos);
+        PeerTupleNode y = new PeerTupleNode(y_pos);
+        PeerTupleNode z = new PeerTupleNode(z_pos);
+        PeerTupleNode ga = new PeerTupleNode(ga_pos);
+        PeerTupleNode gb = new PeerTupleNode(gb_pos);
+        print("\n");
+        print(@"gsizes = $(address(gsizes))\n");
+        print(@"my_pos = $(address(my_pos))\n");
+        print(@"x = $(address(x.tuple))\n");
+        print(@"y = $(address(y.tuple))\n");
+        print(@"z = $(address(z.tuple))\n");
+        print(@"ga = $(address(ga.tuple))\n");
+        print(@"gb = $(address(gb.tuple))\n");
+        print(@"dist(y,x) = $(m.dist(y,x))\n");
+        print(@"dist(y,z) = $(m.dist(y,z))\n");
+        print(@"dist(y,ga) = $(m.dist(y,ga))\n");
+        print(@"dist(y,gb) = $(m.dist(y,gb))\n");
+        // Any delta at level 1 is always bigger than any delta at level 0.
+        assert(m.dist(y,x) < m.dist(y,ga));
+        // The same delta at the same level but in the opposite direction.
+        // Also in this case the "dist" differ.
+        assert(m.dist(y,x) != m.dist(y,z));
+    }
+
+    private string address(Gee.List<int> pos)
+    {
+        string ret = ""; string next = "";
+        foreach (int p in pos) {
+            ret = @"$(p)$(next)$(ret)";
+            next = ":";
+        }
+        return ret;
+    }
 
     public static int main(string[] args)
     {
@@ -64,10 +106,10 @@ class PeersTester : Object
         PthTaskletImplementer.init();
         tasklet = PthTaskletImplementer.get_tasklet_system();
 
-        GLib.Test.add_func ("/MessageRouting/1", () => {
+        GLib.Test.add_func ("/MessageRouting/Dist", () => {
             var x = new PeersTester();
             x.set_up();
-            x.test_1();
+            x.test_dist();
             x.tear_down();
         });
         GLib.Test.run();
