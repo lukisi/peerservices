@@ -21,6 +21,27 @@ using TaskletSystem;
 
 namespace Netsukuku.PeerServices.Utils
 {
+    internal PeerTupleNode make_tuple_node(Gee.List<int> pos, HCoord h, int top)
+    {
+        // Returns a PeerTupleNode that represents h inside our g-node of level top. Actually h could be a g-node
+        //  but the resulting PeerTupleNode is to be used in method 'dist'. Values of positions for indexes less than
+        //  h.lvl are not important, they just have to be in ranges, so we set to 0.
+        assert(top > h.lvl);
+        ArrayList<int> tuple = new ArrayList<int>();
+        int i = top;
+        while (i > 0)
+        {
+            i--;
+            if (i > h.lvl)
+                tuple.insert(0, pos[i]);
+            else if (i == h.lvl)
+                tuple.insert(0, h.pos);
+            else
+                tuple.insert(0, 0);
+        }
+        return new PeerTupleNode(tuple);
+    }
+
     internal PeerTupleGNode make_tuple_gnode(Gee.List<int> pos, HCoord h, int top)
     {
         // Returns a PeerTupleGNode that represents h inside our g-node of level top.
@@ -84,5 +105,23 @@ namespace Netsukuku.PeerServices.Utils
                 break;
             }
         }
+    }
+
+    internal bool contains(PeerTupleGNode container, PeerTupleGNode contained)
+    {
+        // Returns True if <container> contains <contained>.
+        // Requires that levels are the same.
+        assert(container.top == contained.top);
+        if (container.tuple.size <= contained.tuple.size)
+        {
+            for (int j = 0; j < container.tuple.size; j++)
+            {
+                int pos_container = container.tuple[container.tuple.size-1-j];
+                int pos_contained = contained.tuple[contained.tuple.size-1-j];
+                if (pos_container != pos_contained) return false;
+            }
+            return true;
+        }
+        return false;
     }
 }

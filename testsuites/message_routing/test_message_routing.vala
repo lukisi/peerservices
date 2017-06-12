@@ -53,6 +53,61 @@ class PeersTester : Object
     {
     }
 
+    public void test_approximate()
+    {
+        Gee.List<int> gsizes = new ArrayList<int>.wrap({5,5,5});
+        int levels = gsizes.size;
+        Gee.List<PeerTupleNode> nodes_in_network = new ArrayList<PeerTupleNode>();
+        nodes_in_network.add(new PeerTupleNode(new ArrayList<int>.wrap({3,1,0})));
+        nodes_in_network.add(new PeerTupleNode(new ArrayList<int>.wrap({2,1,0})));
+        nodes_in_network.add(new PeerTupleNode(new ArrayList<int>.wrap({1,1,0})));
+        nodes_in_network.add(new PeerTupleNode(new ArrayList<int>.wrap({0,1,3})));
+        nodes_in_network.add(new PeerTupleNode(new ArrayList<int>.wrap({1,2,0})));
+        nodes_in_network.add(new PeerTupleNode(new ArrayList<int>.wrap({1,3,0})));
+        foreach (var node in nodes_in_network)
+        {
+            MessageRouting.MessageRouting m =
+                new MessageRouting.MessageRouting
+                (node.tuple, gsizes,
+                 /*gnode_exists*/ (lvl, pos) => {
+                     var gnode = Utils.make_tuple_gnode(node.tuple, new HCoord(lvl, pos), levels);
+                     foreach (var node2 in nodes_in_network) {
+                         var gnode2 = new PeerTupleGNode(node2.tuple, levels);
+                         if (Utils.contains(gnode, gnode2)) return true;
+                     }
+                     return false;
+                 }
+                 );
+            var x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,0,0}));
+            var exclude_list = new ArrayList<HCoord>();
+            var h = m.approximate(x_macron, exclude_list);
+            print(@"($(h.lvl),$(h.pos))\n");
+        }
+        {
+            // target is 4:2:2
+            // given the nodes_in_network, the one is 0:2:1
+            // how is it represented by 0:1:3?
+            var node = new PeerTupleNode(new ArrayList<int>.wrap({3,1,0}));
+            MessageRouting.MessageRouting m =
+                new MessageRouting.MessageRouting
+                (node.tuple, gsizes,
+                 /*gnode_exists*/ (lvl, pos) => {
+                     var gnode = Utils.make_tuple_gnode(node.tuple, new HCoord(lvl, pos), levels);
+                     foreach (var node2 in nodes_in_network) {
+                         var gnode2 = new PeerTupleGNode(node2.tuple, levels);
+                         if (Utils.contains(gnode, gnode2)) return true;
+                     }
+                     return false;
+                 }
+                 );
+            var x_macron = new PeerTupleNode(new ArrayList<int>.wrap({2,2,4}));
+            var exclude_list = new ArrayList<HCoord>();
+            var h = m.approximate(x_macron, exclude_list);
+            assert(h.lvl == 1);
+            assert(h.pos == 2);
+        }
+    }
+
     public void test_dist()
     {
         Gee.List<int> gsizes = new ArrayList<int>.wrap({5,5,5});
@@ -63,7 +118,9 @@ class PeersTester : Object
         Gee.List<int> ga_pos = new ArrayList<int>.wrap({1,2,0});
         Gee.List<int> gb_pos = new ArrayList<int>.wrap({1,0,0});
         MessageRouting.MessageRouting m =
-            new MessageRouting.MessageRouting(my_pos, gsizes);
+            new MessageRouting.MessageRouting(my_pos, gsizes,
+                                              (lvl, pos) => false /*gnode_exists is not needed in this test*/
+                                              );
         PeerTupleNode x = new PeerTupleNode(x_pos);
         PeerTupleNode y = new PeerTupleNode(y_pos);
         PeerTupleNode z = new PeerTupleNode(z_pos);
@@ -110,6 +167,12 @@ class PeersTester : Object
             var x = new PeersTester();
             x.set_up();
             x.test_dist();
+            x.tear_down();
+        });
+        GLib.Test.add_func ("/MessageRouting/Approximate", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_approximate();
             x.tear_down();
         });
         GLib.Test.run();

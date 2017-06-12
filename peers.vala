@@ -534,23 +534,7 @@ namespace Netsukuku.PeerServices
 
         private PeerTupleNode make_tuple_node(HCoord h, int top)
         {
-            // Returns a PeerTupleNode that represents h inside our g-node of level top. Actually h could be a g-node
-            //  but the resulting PeerTupleNode is to be used in method 'dist'. Values of positions for indexes less than
-            //  h.lvl are not important, they just have to be in ranges, so we set to 0. 
-            assert(top > h.lvl);
-            ArrayList<int> tuple = new ArrayList<int>();
-            int i = top;
-            while (i > 0)
-            {
-                i--;
-                if (i > h.lvl)
-                    tuple.insert(0, pos[i]);
-                else if (i == h.lvl)
-                    tuple.insert(0, h.pos);
-                else
-                    tuple.insert(0, 0);
-            }
-            return new PeerTupleNode(tuple);
+            return Utils.make_tuple_node(new ArrayList<int>.wrap(pos), h, top);
         }
 
         private PeerTupleGNode tuple_node_to_tuple_gnode(PeerTupleNode t)

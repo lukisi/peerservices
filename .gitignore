@@ -17,6 +17,7 @@ testsuites/test_serialization/serializables.c
 testsuites/data_structs/test_data_structs.c
 testsuites/data_structs/data_structs.c
 testsuites/data_structs/serializables.c
+testsuites/data_structs/utils.c
 testsuites/map_handler/map_handler.c
 testsuites/map_handler/serializables.c
 testsuites/map_handler/test_map_handler.c

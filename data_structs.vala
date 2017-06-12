@@ -36,20 +36,6 @@ namespace Netsukuku.PeerServices
             _list = new ArrayList<PeerTupleGNode>();
         }
 
-        private int get_rev_pos(PeerTupleGNode g, int j)
-        {
-            // g.tuple has positions for levels from ε >= 0 to g.top-1.
-            //  e.g.:
-            //     g.top = 5
-            //       that is, the g-node h that we live inside is at level 5.
-            //     g.tuple.size = 3
-            //     g.tuple = [2,1,3]
-            //       that is g is g-node 3.1.2 inside h
-            //       epsilon is 2, position for 2 is 2, position for 3 is 1, position for 4 is 3
-            // get position for top-1-j.
-            return g.tuple[g.tuple.size-1 - j];
-        }
-
         public void add(PeerTupleGNode g)
         {
             assert(g.top == top);
@@ -61,23 +47,11 @@ namespace Netsukuku.PeerServices
             {
                 PeerTupleGNode e = _list[i];
                 assert(e.top == g.top);
-                if (e.tuple.size > g.tuple.size)
+                // If a gnode which is inside g is in the list, remove it.
+                if (Utils.contains(g, e))
                 {
-                    // If a gnode which is inside g is in the list, remove it.
-                    bool mismatch = false;
-                    for (int j = 0; j < g.tuple.size; j++)
-                    {
-                        if (get_rev_pos(e,j) != get_rev_pos(g,j))
-                        {
-                            mismatch = true;
-                            break;
-                        }
-                    }
-                    if (!mismatch)
-                    {
-                        _list.remove_at(i);
-                        i--;
-                    }
+                    _list.remove_at(i);
+                    i--;
                 }
                 i++;
             }
@@ -90,24 +64,7 @@ namespace Netsukuku.PeerServices
             // Cycle the list:
             foreach (PeerTupleGNode e in _list)
             {
-                assert(e.top == g.top);
-                if (e.tuple.size <= g.tuple.size)
-                {
-                    // If g is already in the list, return true.
-                    bool mismatch = false;
-                    for (int j = 0; j < e.tuple.size; j++)
-                    {
-                        if (get_rev_pos(e,j) != get_rev_pos(g,j))
-                        {
-                            mismatch = true;
-                            break;
-                        }
-                    }
-                    if (!mismatch)
-                    {
-                        return true;
-                    }
-                }
+                if (Utils.contains(e, g)) return true;
             }
             return false;
         }

@@ -127,6 +127,7 @@ test_data_structs_SOURCES = \
 	testsuites/data_structs/test_data_structs.vala \
 	testsuites/data_structs/data_structs.vala \
 	testsuites/data_structs/serializables.vala \
+	testsuites/data_structs/utils.vala \
 	$(NULL)
 
 test_data_structs_VALAFLAGS = \
