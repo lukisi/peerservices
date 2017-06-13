@@ -26,6 +26,13 @@ namespace Netsukuku.PeerServices.MessageRouting
      */
     internal delegate bool GnodeExists(int lvl, int pos);
 
+    /* GetGateway: Determine if a certain g-node exists in the network.
+     */
+    internal delegate IPeersManagerStub? GetGateway
+         (int level, int pos,
+          CallerInfo? received_from=null,
+          IPeersManagerStub? failed=null);
+
     /* GetNodesInMyGroup: Determine the number of nodes in my g-node of a given level.
      */
     internal delegate int GetNodesInMyGroup(int lvl);
@@ -72,14 +79,17 @@ namespace Netsukuku.PeerServices.MessageRouting
         private ArrayList<int> pos;
         private ArrayList<int> gsizes;
         private GnodeExists gnode_exists;
+        private GetGateway get_gateway;
         private GetNodesInMyGroup get_nodes_in_my_group;
         private GetNonParticipantGnodes get_non_participant_gnodes;
         private ExecService exec_service;
+        private HashMap<int, WaitingAnswer> waiting_answer_map;
 
         public MessageRouting
         (Gee.List<int> pos,
          Gee.List<int> gsizes,
          owned GnodeExists gnode_exists,
+         owned GetGateway get_gateway,
          owned GetNodesInMyGroup get_nodes_in_my_group,
          owned GetNonParticipantGnodes get_non_participant_gnodes,
          owned ExecService exec_service
@@ -92,9 +102,11 @@ namespace Netsukuku.PeerServices.MessageRouting
             assert(gsizes.size == pos.size);
             this.levels = pos.size;
             this.gnode_exists = (owned) gnode_exists;
+            this.get_gateway = (owned) get_gateway;
             this.get_nodes_in_my_group = (owned) get_nodes_in_my_group;
             this.get_non_participant_gnodes = (owned) get_non_participant_gnodes;
             this.exec_service = (owned) exec_service;
+            waiting_answer_map = new HashMap<int, WaitingAnswer>();
         }
 
         public int dist(PeerTupleNode x_macron, PeerTupleNode x)
