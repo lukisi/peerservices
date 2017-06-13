@@ -212,6 +212,7 @@ test_message_routing_SOURCES = \
 	testsuites/message_routing/message_routing.vala \
 	testsuites/message_routing/serializables.vala \
 	testsuites/message_routing/utils.vala \
+	testsuites/message_routing/data_structs.vala \
 	$(NULL)
 
 test_message_routing_VALAFLAGS = \

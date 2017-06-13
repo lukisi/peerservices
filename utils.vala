@@ -107,6 +107,43 @@ namespace Netsukuku.PeerServices.Utils
         }
     }
 
+    internal bool visible_by_someone_inside_my_gnode(Gee.List<int> pos, PeerTupleGNode t, int lvl)
+    {
+        // Given a g-node decides if some node inside my g-node of level lvl has
+        //  visibility of it.
+        //  e.g. I am node 1.2.3.4.5.6
+        //       if t represents 1.2.2.0
+        //           could be tuple=0,2 top=4
+        //           could be tuple=0,2,2 top=5
+        //           could be tuple=0,2,2,1 top=6
+        //       if lvl=6 answer is true
+        //       if lvl=5 answer is true
+        //       if lvl=4 answer is true
+        //       if lvl=3 answer is false
+        //  e.g. I am node 1.2.3.4.5.6
+        //       if t represents 1.2.3.0
+        //           could be tuple=0 top=3
+        //           could be tuple=0,3 top=4
+        //           could be tuple=0,3,2 top=5
+        //           could be tuple=0,3,2,1 top=6
+        //       for any lvl answer would be true
+        int eps = t.top - t.tuple.size;
+        int l = eps;
+        if (l >= lvl-1)
+            l = l + 1;
+        else
+            l = lvl;
+        if (t.top <= l)
+            return true;
+        PeerTupleGNode h = new PeerTupleGNode(t.tuple.slice(l-eps, t.tuple.size), t.top);
+        int @case;
+        HCoord ret;
+        convert_tuple_gnode(pos, h, out @case, out ret);
+        if (@case == 1)
+            return true;
+        return false;
+    }
+
     internal bool contains(PeerTupleGNode container, PeerTupleGNode contained)
     {
         // Returns True if <container> contains <contained>.

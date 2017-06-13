@@ -76,7 +76,10 @@ class PeersTester : Object
                          if (Utils.contains(gnode, gnode2)) return true;
                      }
                      return false;
-                 }
+                 },
+                 (lvl) => 1, /*get_nodes_in_my_group is not needed in this test*/
+                 (p_id, target_levels) => null, /*get_non_participant_gnodes is not needed in this test*/
+                 (p_id, req, client_tuple) => null /*exec_service is not needed in this test*/
                  );
             var x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,0,0}));
             var exclude_list = new ArrayList<HCoord>();
@@ -98,7 +101,10 @@ class PeersTester : Object
                          if (Utils.contains(gnode, gnode2)) return true;
                      }
                      return false;
-                 }
+                 },
+                 (lvl) => 1, /*get_nodes_in_my_group is not needed in this test*/
+                 (p_id, target_levels) => null, /*get_non_participant_gnodes is not needed in this test*/
+                 (p_id, req, client_tuple) => null /*exec_service is not needed in this test*/
                  );
             var x_macron = new PeerTupleNode(new ArrayList<int>.wrap({2,2,4}));
             var exclude_list = new ArrayList<HCoord>();
@@ -118,9 +124,13 @@ class PeersTester : Object
         Gee.List<int> ga_pos = new ArrayList<int>.wrap({1,2,0});
         Gee.List<int> gb_pos = new ArrayList<int>.wrap({1,0,0});
         MessageRouting.MessageRouting m =
-            new MessageRouting.MessageRouting(my_pos, gsizes,
-                                              (lvl, pos) => false /*gnode_exists is not needed in this test*/
-                                              );
+            new MessageRouting.MessageRouting
+            (my_pos, gsizes,
+             (lvl, pos) => false, /*gnode_exists is not needed in this test*/
+             (lvl) => 1, /*get_nodes_in_my_group is not needed in this test*/
+             (p_id, target_levels) => null, /*get_non_participant_gnodes is not needed in this test*/
+             (p_id, req, client_tuple) => null /*exec_service is not needed in this test*/
+             );
         PeerTupleNode x = new PeerTupleNode(x_pos);
         PeerTupleNode y = new PeerTupleNode(y_pos);
         PeerTupleNode z = new PeerTupleNode(z_pos);
@@ -185,5 +195,31 @@ class PeersTester : Object
 
 namespace Netsukuku.PeerServices
 {
+    public errordomain PeersNonexistentDestinationError {
+        GENERIC
+    }
+
+    public errordomain PeersNonexistentFellowError {
+        GENERIC
+    }
+
+    public errordomain PeersNoParticipantsInNetworkError {
+        GENERIC
+    }
+
+    public errordomain PeersRefuseExecutionError {
+        WRITE_OUT_OF_MEMORY,
+        READ_NOT_FOUND_NOT_EXHAUSTIVE,
+        GENERIC
+    }
+
+    public errordomain PeersDatabaseError {
+        GENERIC
+    }
+
+    public errordomain PeersRedoFromStartError {
+        GENERIC
+    }
+
     internal ITasklet tasklet;
 }
