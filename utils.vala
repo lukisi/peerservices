@@ -107,6 +107,63 @@ namespace Netsukuku.PeerServices.Utils
         }
     }
 
+    internal PeerTupleGNode tuple_node_to_tuple_gnode(PeerTupleNode t)
+    {
+        // Given t that represents a node, returns the same as
+        //  a PeerTupleGNode with the same top.
+        ArrayList<int> tuple0 = new ArrayList<int>();
+        tuple0.add_all(t.tuple);
+        return new PeerTupleGNode(tuple0, t.top);
+    }
+
+    internal PeerTupleGNode rebase_tuple_gnode(Gee.List<int> pos, PeerTupleGNode t, int new_top)
+    {
+        // Given t that represents a g-node inside my g-node at level t.top, returns
+        //  a PeerTupleGNode with top=new_top that represents the same g-node.
+        // Assert that t.top <= new_top.
+        assert(t.top <= new_top);
+        ArrayList<int> tuple = new ArrayList<int>();
+        ArrayList<int> tuple0 = new ArrayList<int>();
+        int i = new_top;
+        while (true)
+        {
+            i--;
+            if (i >= t.top)
+                tuple.insert(0, pos[i]);
+            else
+            {
+                tuple0.add_all(t.tuple);
+                tuple0.add_all(tuple);
+                break;
+            }
+        }
+        return new PeerTupleGNode(tuple0, new_top);
+    }
+
+    internal PeerTupleNode rebase_tuple_node(Gee.List<int> pos, PeerTupleNode t, int new_top)
+    {
+        // Given t that represents a node inside my g-node at level t.top, returns
+        //  a PeerTupleNode with top=new_top that represents the same node.
+        // Assert that t.top <= new_top.
+        assert(t.top <= new_top);
+        ArrayList<int> tuple = new ArrayList<int>();
+        ArrayList<int> tuple0 = new ArrayList<int>();
+        int i = new_top;
+        while (true)
+        {
+            i--;
+            if (i >= t.top)
+                tuple.insert(0, pos[i]);
+            else
+            {
+                tuple0.add_all(t.tuple);
+                tuple0.add_all(tuple);
+                break;
+            }
+        }
+        return new PeerTupleNode(tuple0);
+    }
+
     internal bool visible_by_someone_inside_my_gnode(Gee.List<int> pos, PeerTupleGNode t, int lvl)
     {
         // Given a g-node decides if some node inside my g-node of level lvl has

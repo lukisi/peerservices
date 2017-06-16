@@ -85,6 +85,12 @@ namespace Netsukuku.PeerServices.MessageRouting
         private ExecService exec_service;
         private HashMap<int, WaitingAnswer> waiting_answer_map;
 
+        /* Emits this signal when discovers that a certain g-node does not participate
+         * to a certain optional service. The user SHOULD listen to this event and
+         * update the participation maps.
+         */
+        public signal void not_participating_gnode(HCoord g, int p_id);
+
         public MessageRouting
         (Gee.List<int> pos,
          Gee.List<int> gsizes,

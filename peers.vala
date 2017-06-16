@@ -539,59 +539,17 @@ namespace Netsukuku.PeerServices
 
         private PeerTupleGNode tuple_node_to_tuple_gnode(PeerTupleNode t)
         {
-            // Given t that represents a node, returns the same as
-            //  a PeerTupleGNode with the same top.
-            ArrayList<int> tuple0 = new ArrayList<int>();
-            tuple0.add_all(t.tuple);
-            return new PeerTupleGNode(tuple0, t.top);
+            return Utils.tuple_node_to_tuple_gnode(t);
         }
 
         private PeerTupleGNode rebase_tuple_gnode(PeerTupleGNode t, int new_top)
         {
-            // Given t that represents a g-node inside my g-node at level t.top, returns
-            //  a PeerTupleGNode with top=new_top that represents the same g-node.
-            // Assert that t.top <= new_top.
-            assert(t.top <= new_top);
-            ArrayList<int> tuple = new ArrayList<int>();
-            ArrayList<int> tuple0 = new ArrayList<int>();
-            int i = new_top;
-            while (true)
-            {
-                i--;
-                if (i >= t.top)
-                    tuple.insert(0, pos[i]);
-                else
-                {
-                    tuple0.add_all(t.tuple);
-                    tuple0.add_all(tuple);
-                    break;
-                }
-            }
-            return new PeerTupleGNode(tuple0, new_top);
+            return Utils.rebase_tuple_gnode(new ArrayList<int>.wrap(pos), t, new_top);
         }
 
         private PeerTupleNode rebase_tuple_node(PeerTupleNode t, int new_top)
         {
-            // Given t that represents a node inside my g-node at level t.top, returns
-            //  a PeerTupleNode with top=new_top that represents the same node.
-            // Assert that t.top <= new_top.
-            assert(t.top <= new_top);
-            ArrayList<int> tuple = new ArrayList<int>();
-            ArrayList<int> tuple0 = new ArrayList<int>();
-            int i = new_top;
-            while (true)
-            {
-                i--;
-                if (i >= t.top)
-                    tuple.insert(0, pos[i]);
-                else
-                {
-                    tuple0.add_all(t.tuple);
-                    tuple0.add_all(tuple);
-                    break;
-                }
-            }
-            return new PeerTupleNode(tuple0);
+            return Utils.rebase_tuple_node(new ArrayList<int>.wrap(pos), t, new_top);
         }
 
         private bool visible_by_someone_inside_my_gnode(PeerTupleGNode t, int lvl)
