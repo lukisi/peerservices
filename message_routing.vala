@@ -465,5 +465,94 @@ namespace Netsukuku.PeerServices.MessageRouting
             }
             assert_not_reached();
         }
+
+        internal bool check_non_participation(HCoord g, int p_id)
+        {
+            // Decide if it's secure to state that `g` does not participate to service `p_id`.
+            PeerTupleNode? x_macron = null;
+            if (g.lvl > 0)
+            {
+                ArrayList<int> tuple = new ArrayList<int>();
+                for (int i = 0; i < g.lvl; i++) tuple.add(0);
+                x_macron = new PeerTupleNode(tuple);
+            }
+            PeerTupleNode n = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), g.lvl+1);
+            PeerMessageForwarder mf = new PeerMessageForwarder();
+            mf.inside_level = levels;
+            mf.n = n;
+            mf.x_macron = x_macron;
+            mf.lvl = g.lvl;
+            mf.pos = g.pos;
+            mf.p_id = p_id;
+            mf.msg_id = Random.int_range(0, int.MAX);
+            int timeout_routing = find_timeout_routing(get_nodes_in_my_group(g.lvl+1));
+            WaitingAnswer waiting_answer =
+                new WaitingAnswer
+                (/*request    = */ null,
+                 /*min_target = */ Utils.make_tuple_gnode(pos, g, g.lvl+1));
+            waiting_answer_map[mf.msg_id] = waiting_answer;
+            IPeersManagerStub? gwstub;
+            IPeersManagerStub? failed = null;
+            while (true)
+            {
+                gwstub = get_gateway(g.lvl, g.pos, null, failed);
+                if (gwstub == null) {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return true;
+                }
+                try {
+                    gwstub.forward_peer_message(mf);
+                } catch (StubError e) {
+                    failed = gwstub;
+                    continue;
+                } catch (DeserializeError e) {
+                    assert_not_reached();
+                }
+                break;
+            }
+            try {
+                waiting_answer.ch.recv_with_timeout(timeout_routing);
+                if (waiting_answer.missing_optional_maps)
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+                if (waiting_answer.exclude_gnode != null)
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+                else if (waiting_answer.non_participant_gnode != null)
+                {
+                    int @case;
+                    HCoord ret;
+                    Utils.convert_tuple_gnode(pos, waiting_answer.non_participant_gnode, out @case, out ret);
+                    if (@case == 2)
+                    {
+                        waiting_answer_map.unset(mf.msg_id);
+                        return true;
+                    }
+                    else
+                    {
+                        waiting_answer_map.unset(mf.msg_id);
+                        return false;
+                    }
+                }
+                else if (waiting_answer.response != null)
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+                else
+                {
+                    waiting_answer_map.unset(mf.msg_id);
+                    return false;
+                }
+            } catch (ChannelError e) {
+                // TIMEOUT_EXPIRED
+                waiting_answer_map.unset(mf.msg_id);
+                return false;
+            }
+        }
     }
 }
