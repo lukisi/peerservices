@@ -26,12 +26,21 @@ namespace Netsukuku.PeerServices.MessageRouting
      */
     internal delegate bool GnodeExists(int lvl, int pos);
 
-    /* GetGateway: Determine if a certain g-node exists in the network.
+    /* GetGateway: Get a stub to send a message in unicast (reliable, no wait) to
+     * the best gateway towards a certain g-node. You can optionally specify that
+     * a certain gateway must be avoided because it was the previous step (received_from).
+     * You can optionally specify that a certain gateway must be first removed from the
+     * list of available neighbors because it failed a previous message.
      */
     internal delegate IPeersManagerStub? GetGateway
          (int level, int pos,
           CallerInfo? received_from=null,
           IPeersManagerStub? failed=null);
+
+    /* GetClientInternally: Get a stub to send a message through a TCP connection to
+     * the client. This connection is with an IP that is internal to a certain g-node.
+     */
+    internal delegate IPeersManagerStub GetClientInternally(PeerTupleNode n);
 
     /* GetNodesInMyGroup: Determine the number of nodes in my g-node of a given level.
      */
@@ -82,6 +91,7 @@ namespace Netsukuku.PeerServices.MessageRouting
         private ArrayList<int> gsizes;
         private GnodeExists gnode_exists;
         private GetGateway get_gateway;
+        private GetClientInternally get_client_internally;
         private GetNodesInMyGroup get_nodes_in_my_group;
         private GetNonParticipantGnodes get_non_participant_gnodes;
         private ExecService exec_service;
@@ -98,6 +108,7 @@ namespace Netsukuku.PeerServices.MessageRouting
          Gee.List<int> gsizes,
          owned GnodeExists gnode_exists,
          owned GetGateway get_gateway,
+         owned GetClientInternally get_client_internally,
          owned GetNodesInMyGroup get_nodes_in_my_group,
          owned GetNonParticipantGnodes get_non_participant_gnodes,
          owned ExecService exec_service
@@ -111,6 +122,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             this.levels = pos.size;
             this.gnode_exists = (owned) gnode_exists;
             this.get_gateway = (owned) get_gateway;
+            this.get_client_internally = (owned) get_client_internally;
             this.get_nodes_in_my_group = (owned) get_nodes_in_my_group;
             this.get_non_participant_gnodes = (owned) get_non_participant_gnodes;
             this.exec_service = (owned) exec_service;
@@ -554,5 +566,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                 return false;
             }
         }
+    }
+
+    internal void forward_msg
+    (PeerMessageForwarder mf, bool optional, int maps_retrieved_below_level, CallerInfo caller)
+    {
     }
 }

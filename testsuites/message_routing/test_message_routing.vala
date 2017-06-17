@@ -78,6 +78,7 @@ class PeersTester : Object
                      return false;
                  },
                  (level, pos, received_from, failed) => null, /*get_gateway is not needed in this test*/
+                 (n) => null, /*get_client_internally is not needed in this test*/
                  (lvl) => 1, /*get_nodes_in_my_group is not needed in this test*/
                  (p_id, target_levels) => null, /*get_non_participant_gnodes is not needed in this test*/
                  (p_id, req, client_tuple) => null /*exec_service is not needed in this test*/
@@ -104,6 +105,7 @@ class PeersTester : Object
                      return false;
                  },
                  (level, pos, received_from, failed) => null, /*get_gateway is not needed in this test*/
+                 (n) => null, /*get_client_internally is not needed in this test*/
                  (lvl) => 1, /*get_nodes_in_my_group is not needed in this test*/
                  (p_id, target_levels) => null, /*get_non_participant_gnodes is not needed in this test*/
                  (p_id, req, client_tuple) => null /*exec_service is not needed in this test*/
@@ -130,6 +132,7 @@ class PeersTester : Object
             (my_pos, gsizes,
              (lvl, pos) => false, /*gnode_exists is not needed in this test*/
              (level, pos, received_from, failed) => null, /*get_gateway is not needed in this test*/
+             (n) => null, /*get_client_internally is not needed in this test*/
              (lvl) => 1, /*get_nodes_in_my_group is not needed in this test*/
              (p_id, target_levels) => null, /*get_non_participant_gnodes is not needed in this test*/
              (p_id, req, client_tuple) => null /*exec_service is not needed in this test*/
