@@ -46,6 +46,10 @@ namespace Netsukuku.PeerServices.MessageRouting
      */
     internal delegate int GetNodesInMyGroup(int lvl);
 
+    /* MyGnodeParticipates: Determine if my g_node of a given level participates to a given service.
+     */
+    internal delegate bool MyGnodeParticipates(int p_id, int lvl);
+
     /* GetNonParticipantGnodes: Get list of non-participant gnodes to a given service.
      */
     internal delegate Gee.List<HCoord> GetNonParticipantGnodes(int p_id, int target_levels);
@@ -93,6 +97,7 @@ namespace Netsukuku.PeerServices.MessageRouting
         private GetGateway get_gateway;
         private GetClientInternally get_client_internally;
         private GetNodesInMyGroup get_nodes_in_my_group;
+        private MyGnodeParticipates my_gnode_participates;
         private GetNonParticipantGnodes get_non_participant_gnodes;
         private ExecService exec_service;
         private HashMap<int, WaitingAnswer> waiting_answer_map;
@@ -110,6 +115,7 @@ namespace Netsukuku.PeerServices.MessageRouting
          owned GetGateway get_gateway,
          owned GetClientInternally get_client_internally,
          owned GetNodesInMyGroup get_nodes_in_my_group,
+         owned MyGnodeParticipates my_gnode_participates,
          owned GetNonParticipantGnodes get_non_participant_gnodes,
          owned ExecService exec_service
          )
@@ -124,6 +130,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             this.get_gateway = (owned) get_gateway;
             this.get_client_internally = (owned) get_client_internally;
             this.get_nodes_in_my_group = (owned) get_nodes_in_my_group;
+            this.my_gnode_participates = (owned) my_gnode_participates;
             this.get_non_participant_gnodes = (owned) get_non_participant_gnodes;
             this.exec_service = (owned) exec_service;
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
@@ -566,10 +573,208 @@ namespace Netsukuku.PeerServices.MessageRouting
                 return false;
             }
         }
-    }
 
-    internal void forward_msg
-    (PeerMessageForwarder mf, bool optional, int maps_retrieved_below_level, CallerInfo caller)
-    {
+        internal void forward_msg
+        (PeerMessageForwarder mf, bool optional, int maps_retrieved_below_level, CallerInfo caller)
+        {
+            if (pos[mf.lvl] == mf.pos)
+            {
+                if (! my_gnode_participates(mf.p_id, mf.lvl))
+                {
+                    IPeersManagerStub nstub
+                        = get_client_internally(mf.n);
+                    PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
+                    try {
+                        nstub.set_non_participant(mf.msg_id, gn);
+                    } catch (StubError e) {
+                        // ignore
+                    } catch (DeserializeError e) {
+                        // ignore
+                    }
+                }
+                else
+                {
+                    ArrayList<HCoord> exclude_gnode_list = new ArrayList<HCoord>();
+                    exclude_gnode_list.add_all(get_non_participant_gnodes(mf.p_id, mf.inside_level));
+                    foreach (PeerTupleGNode gn in mf.exclude_tuple_list)
+                    {
+                        int @case;
+                        HCoord ret;
+                        Utils.convert_tuple_gnode(pos, gn, out @case, out ret);
+                        if (@case == 1)
+                            exclude_gnode_list.add_all(get_all_gnodes_up_to_lvl(ret.lvl));
+                        else if (@case == 2)
+                            exclude_gnode_list.add(ret);
+                    }
+                    bool delivered = false;
+                    while (! delivered)
+                    {
+                        HCoord? x = approximate(mf.x_macron, exclude_gnode_list);
+                        if (x == null)
+                        {
+                            IPeersManagerStub nstub
+                                = get_client_internally(mf.n);
+                            PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
+                            try {
+                                nstub.set_failure(mf.msg_id, gn);
+                            } catch (StubError e) {
+                                // ignore
+                            } catch (DeserializeError e) {
+                                // ignore
+                            }
+                            break;
+                        }
+                        else if (x.lvl == 0 && x.pos == pos[0])
+                        {
+                            IPeersManagerStub nstub
+                                = get_client_internally(mf.n);
+                            PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
+                            try {
+                                IPeersRequest request
+                                    = nstub.get_request(mf.msg_id, tuple_respondant);
+                                try {
+                                    IPeersResponse resp = exec_service(mf.p_id, request, mf.n.tuple);
+                                    nstub.set_response(mf.msg_id, resp, tuple_respondant);
+                                } catch (PeersRedoFromStartError e) {
+                                    try {
+                                        nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
+                                    } catch (StubError e) {
+                                        // ignore
+                                    } catch (DeserializeError e) {
+                                        // ignore
+                                    }
+                                } catch (PeersRefuseExecutionError e) {
+                                    try {
+                                        string err_message = "";
+                                        if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
+                                                err_message = "WRITE_OUT_OF_MEMORY: ";
+                                        if (e is PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE)
+                                                err_message = "READ_NOT_FOUND_NOT_EXHAUSTIVE: ";
+                                        if (e is PeersRefuseExecutionError.GENERIC)
+                                                err_message = "GENERIC: ";
+                                        err_message += e.message;
+                                        nstub.set_refuse_message(mf.msg_id, err_message, tuple_respondant);
+                                    } catch (StubError e) {
+                                        // ignore
+                                    } catch (DeserializeError e) {
+                                        // ignore
+                                    }
+                                }
+                            } catch (PeersUnknownMessageError e) {
+                                // ignore
+                            } catch (PeersInvalidRequest e) {
+                                // ignore
+                            } catch (StubError e) {
+                                // ignore
+                            } catch (DeserializeError e) {
+                                // ignore
+                            }
+                            break;
+                        }
+                        else
+                        {
+                            PeerMessageForwarder mf2 = (PeerMessageForwarder)dup_object(mf);
+                            mf2.lvl = x.lvl;
+                            mf2.pos = x.pos;
+                            if (x.lvl == 0)
+                                mf2.x_macron = null;
+                            else
+                                mf2.x_macron = new PeerTupleNode(mf.x_macron.tuple.slice(0, x.lvl));
+                            mf2.exclude_tuple_list.clear();
+                            mf2.non_participant_tuple_list.clear();
+                            foreach (PeerTupleGNode t in mf.exclude_tuple_list)
+                            {
+                                int @case;
+                                HCoord ret;
+                                Utils.convert_tuple_gnode(pos, t, out @case, out ret);
+                                if (@case == 3)
+                                {
+                                    if (ret.equals(x))
+                                    {
+                                        int eps = t.top - t.tuple.size;
+                                        PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
+                                        mf2.exclude_tuple_list.add(_t);
+                                    }
+                                }
+                            }
+                            foreach (PeerTupleGNode t in mf.non_participant_tuple_list)
+                            {
+                                if (Utils.visible_by_someone_inside_my_gnode(pos, t, x.lvl+1))
+                                    mf2.non_participant_tuple_list.add(t);
+                            }
+                            IPeersManagerStub? gwstub;
+                            IPeersManagerStub? failed = null;
+                            while (true)
+                            {
+                                gwstub = get_gateway(mf2.lvl, mf2.pos, caller, failed);
+                                if (gwstub == null) {
+                                    tasklet.ms_wait(20);
+                                    break;
+                                }
+                                try {
+                                    gwstub.forward_peer_message(mf2);
+                                } catch (StubError e) {
+                                    failed = gwstub;
+                                    continue;
+                                } catch (DeserializeError e) {
+                                    assert_not_reached();
+                                }
+                                delivered = true;
+                                IPeersManagerStub nstub
+                                    = get_client_internally(mf.n);
+                                PeerTupleGNode gn = Utils.make_tuple_gnode(pos, x, mf.n.tuple.size);
+                                try {
+                                    nstub.set_next_destination(mf.msg_id, gn);
+                                } catch (StubError e) {
+                                    // ignore
+                                } catch (DeserializeError e) {
+                                    // ignore
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                IPeersManagerStub? gwstub;
+                IPeersManagerStub? failed = null;
+                while (true)
+                {
+                    gwstub = get_gateway(mf.lvl, mf.pos, caller, failed);
+                    if (gwstub == null) {
+                        // give up routing
+                        break;
+                    }
+                    try {
+                        gwstub.forward_peer_message(mf);
+                    } catch (StubError e) {
+                        failed = gwstub;
+                        continue;
+                    } catch (DeserializeError e) {
+                        assert_not_reached();
+                    }
+                    break;
+                }
+            }
+        }
+
+        private Gee.List<HCoord> get_all_gnodes_up_to_lvl(int lvl)
+        {
+            // Returns a list of HCoord representing each gnode visible in my topology which are inside
+            //  my g-node at level lvl. Including single nodes, including myself as single node (0, pos[0]).
+            ArrayList<HCoord> ret = new ArrayList<HCoord>();
+            for (int l = 0; l < lvl; l++)
+            {
+                for (int p = 0; p < gsizes[l]; p++)
+                {
+                    if (pos[l] != p)
+                        ret.add(new HCoord(l, p));
+                }
+            }
+            ret.add(new HCoord(0, pos[0]));
+            return ret;
+        }
     }
 }
