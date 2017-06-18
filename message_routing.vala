@@ -776,5 +776,207 @@ namespace Netsukuku.PeerServices.MessageRouting
             ret.add(new HCoord(0, pos[0]));
             return ret;
         }
+
+        internal IPeersRequest get_request
+        (int msg_id, PeerTupleNode respondant)
+        throws PeersUnknownMessageError, PeersInvalidRequest
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.get_request: ignored because unknown msg_id");
+                throw new PeersUnknownMessageError.GENERIC("unknown msg_id");
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must be inside my search g-node
+            if (wa.min_target.top != respondant.top)
+            {
+                debug("PeersManager.get_request: ignored because not same g-node of research");
+                throw new PeersInvalidRequest.GENERIC("not same g-node of research");
+            }
+            // ok
+            wa.respondant_node = respondant;
+            wa.ch.send_async(0);
+            // might be a fake request
+            if (wa.request == null) throw new PeersUnknownMessageError.GENERIC("was a fake request");
+            else return wa.request;
+        }
+
+        public void set_response
+        (int msg_id, IPeersResponse response, PeerTupleNode respondant)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_response: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            bool mismatch = false;
+            if (wa.respondant_node == null) mismatch = true;
+            else if (wa.respondant_node.tuple.size != respondant.tuple.size) mismatch = true;
+            else
+            {
+                for (int j = 0; j < respondant.tuple.size; j++)
+                {
+                    if (respondant.tuple[j] != wa.respondant_node.tuple[j])
+                    {
+                        mismatch = true;
+                        break;
+                    }
+                }
+            }
+            if (mismatch)
+            {
+                debug("PeersManager.set_response: ignored because did not send request to that node");
+                return;
+            }
+            wa.response = response;
+            wa.ch.send_async(0);
+        }
+
+        public void set_refuse_message
+        (int msg_id, string refuse_message, PeerTupleNode respondant)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_refuse_message: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            bool mismatch = false;
+            if (wa.respondant_node == null) mismatch = true;
+            else if (wa.respondant_node.tuple.size != respondant.tuple.size) mismatch = true;
+            else
+            {
+                for (int j = 0; j < respondant.tuple.size; j++)
+                {
+                    if (respondant.tuple[j] != wa.respondant_node.tuple[j])
+                    {
+                        mismatch = true;
+                        break;
+                    }
+                }
+            }
+            if (mismatch)
+            {
+                debug("PeersManager.set_refuse_message: ignored because did not send request to that node");
+                return;
+            }
+            wa.refuse_message = refuse_message;
+            debug(@"PeersManager.set_refuse_message: $(refuse_message)");
+            wa.ch.send_async(0);
+        }
+
+        public void set_redo_from_start
+        (int msg_id, PeerTupleNode respondant)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_redo_from_start: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            bool mismatch = false;
+            if (wa.respondant_node == null) mismatch = true;
+            else if (wa.respondant_node.tuple.size != respondant.tuple.size) mismatch = true;
+            else
+            {
+                for (int j = 0; j < respondant.tuple.size; j++)
+                {
+                    if (respondant.tuple[j] != wa.respondant_node.tuple[j])
+                    {
+                        mismatch = true;
+                        break;
+                    }
+                }
+            }
+            if (mismatch)
+            {
+                debug("PeersManager.set_redo_from_start: ignored because did not send request to that node");
+                return;
+            }
+            wa.redo_from_start = true;
+            wa.ch.send_async(0);
+        }
+
+        public void set_next_destination
+        (int msg_id, PeerTupleGNode tuple)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_next_destination: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must maintain the smallest value k
+            if (wa.min_target.top != tuple.top)
+            {
+                debug("PeersManager.set_next_destination: ignored because not same g-node of research");
+                return;
+            }
+            int old_k = wa.min_target.top - wa.min_target.tuple.size;
+            if (tuple.top - tuple.tuple.size >= old_k)
+            {
+                debug("PeersManager.set_next_destination: ignored because already reached a lower level");
+                return;
+            }
+            wa.min_target = tuple;
+            wa.ch.send_async(0);
+        }
+
+        public void set_failure
+        (int msg_id, PeerTupleGNode tuple)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_failure: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must be lower than the smallest value k
+            if (wa.min_target.top != tuple.top)
+            {
+                debug("PeersManager.set_failure: ignored because not same g-node of research");
+                return;
+            }
+            int old_k = wa.min_target.top - wa.min_target.tuple.size;
+            if (tuple.top - tuple.tuple.size > old_k)
+            {
+                debug("PeersManager.set_failure: ignored because already reached a lower level");
+                return;
+            }
+            wa.exclude_gnode = tuple;
+            wa.ch.send_async(0);
+        }
+
+        public void set_non_participant
+        (int msg_id, PeerTupleGNode tuple)
+        {
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_non_participant: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            // must be lower than the smallest value k
+            if (wa.min_target.top != tuple.top)
+            {
+                debug("PeersManager.set_non_participant: ignored because not same g-node of research");
+                return;
+            }
+            int old_k = wa.min_target.top - wa.min_target.tuple.size;
+            if (tuple.top - tuple.tuple.size > old_k)
+            {
+                debug("PeersManager.set_non_participant: ignored because already reached a lower level");
+                return;
+            }
+            wa.non_participant_gnode = tuple;
+            wa.ch.send_async(0);
+        }
+
+        public void set_missing_optional_maps
+        (int msg_id)
+        {
+            error("not yet implemented");
+        }
     }
 }
