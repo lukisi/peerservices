@@ -164,6 +164,11 @@ class PeersTester : Object
         assert(m.dist(y,x) != m.dist(y,z));
     }
 
+    public void test_routing1()
+    {
+        // TODO
+    }
+
     private string address(Gee.List<int> pos)
     {
         string ret = ""; string next = "";
@@ -194,10 +199,84 @@ class PeersTester : Object
             x.test_approximate();
             x.tear_down();
         });
+        GLib.Test.add_func ("/MessageRouting/Routing_1", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_routing1();
+            x.tear_down();
+        });
         GLib.Test.run();
         return 0;
     }
 
+    class FakeUnicastStub : Object, IPeersManagerStub
+    {
+        public IPeerParticipantSet ask_participant_maps () throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
+        {
+            tasklet.ms_wait(2); // simulates network latency
+            error("not implemented yet");
+        }
+
+        public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public IPeersRequest get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError, PeersInvalidRequest, StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void give_participant_maps (IPeerParticipantSet maps) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_failure (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_missing_optional_maps (int msg_id) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_next_destination (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_non_participant (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_participant (int p_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_redo_from_start (int msg_id, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_response (int msg_id, IPeersResponse response, IPeerTupleNode respondant) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+    }
 }
 
 //FAKE

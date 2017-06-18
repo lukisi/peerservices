@@ -445,6 +445,11 @@ class PeersTester : Object
             error("not implemented yet");
         }
 
+        public void set_missing_optional_maps (int msg_id) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
         public void set_next_destination (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
         {
             error("not implemented yet");
@@ -548,6 +553,11 @@ class PeersTester : Object
         }
 
         public void set_failure (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
+        {
+            error("not implemented yet");
+        }
+
+        public void set_missing_optional_maps (int msg_id) throws StubError, DeserializeError
         {
             error("not implemented yet");
         }

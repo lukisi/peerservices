@@ -2279,6 +2279,12 @@ namespace Netsukuku.PeerServices
             wa.ch.send_async(0);
         }
 
+        public void set_missing_optional_maps
+        (int msg_id, CallerInfo? _rpc_caller=null)
+        {
+            error("not yet implemented");
+        }
+
         public void set_participant
         (int p_id, IPeerTupleGNode tuple, CallerInfo? _rpc_caller=null)
         {
