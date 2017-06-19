@@ -166,16 +166,30 @@ class PeersTester : Object
 
     public void test_routing1()
     {
+        gsizes = new ArrayList<int>.wrap({2,2,2,2});
+        network = new ArrayList<SimNode>();
+        var node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}));
+        var node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}));
         // TODO
     }
 
-    private string address(Gee.List<int> pos)
+    private static string address(Gee.List<int> pos)
     {
         string ret = ""; string next = "";
         foreach (int p in pos) {
             ret = @"$(p)$(next)$(ret)";
             next = ":";
         }
+        return ret;
+    }
+
+    private static HCoord find_hcoord(Gee.List<int> me, Gee.List<int> other)
+    {
+        assert(me.size == other.size);
+        var gn_other = new PeerTupleGNode(other, other.size);
+        int @case;
+        HCoord ret;
+        Utils.convert_tuple_gnode(me, gn_other, out @case, out ret);
         return ret;
     }
 
@@ -207,6 +221,53 @@ class PeersTester : Object
         });
         GLib.Test.run();
         return 0;
+    }
+
+    Gee.List<int> gsizes;
+    int levels {
+        get {
+            return gsizes.size;
+        }
+    }
+    Gee.List<SimNode> network;
+
+    class SimNode : Object
+    {
+        private PeersTester tester;
+        private string name;
+        public Gee.List<int> pos;
+        public Gee.List<HCoord> network_by_hcoord;
+
+        public SimNode(PeersTester tester, string name, Gee.List<int> pos)
+        {
+            assert(pos.size == tester.levels);
+            for (int i = 0; i < tester.levels; i++)
+            {
+                assert(pos[i] >= 0);
+                assert(pos[i] < tester.gsizes[i]);
+            }
+
+            this.tester = tester;
+            this.name = name;
+            this.pos = new ArrayList<int>();
+            this.pos.add_all(pos);
+            network_by_hcoord = new ArrayList<HCoord>((a, b) => a.equals(b));
+
+            foreach (SimNode other in tester.network)
+            {
+                other.add_knowledge_node(this);
+                add_knowledge_node(other);
+            }
+
+            tester.network.add(this);
+        }
+
+        public void add_knowledge_node(SimNode other)
+        {
+            HCoord g = find_hcoord(pos, other.pos);
+            print(@"$(other.name) for $(name) is HCoord ($(g.lvl),$(g.pos)).\n");
+            if (! (g in network_by_hcoord)) network_by_hcoord.add(g);
+        }
     }
 
     class FakeUnicastStub : Object, IPeersManagerStub
