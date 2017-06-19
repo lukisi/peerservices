@@ -136,7 +136,8 @@ namespace Netsukuku.PeerServices.MessageRouting
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
         }
 
-        public int dist(PeerTupleNode x_macron, PeerTupleNode x)
+        // should be private, but for enabling access from the testsuite let's use internal
+        internal int dist(PeerTupleNode x_macron, PeerTupleNode x)
         {
             assert(x_macron.tuple.size == x.tuple.size);
             int distance = 0;
@@ -150,6 +151,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             return distance;
         }
 
+        // should be private, but for enabling access from the testsuite let's use internal
         internal HCoord? approximate(PeerTupleNode? x_macron,
                                      Gee.List<HCoord> _exclude_list)
         {
@@ -215,7 +217,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             return ret;
         }
 
-        internal IPeersResponse contact_peer
+        public IPeersResponse contact_peer
         (int p_id,
          bool optional,
          PeerTupleNode x_macron,
@@ -485,7 +487,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             assert_not_reached();
         }
 
-        internal bool check_non_participation(HCoord g, int p_id)
+        public bool check_non_participation(HCoord g, int p_id)
         {
             // Decide if it's secure to state that `g` does not participate to service `p_id`.
             PeerTupleNode? x_macron = null;
@@ -574,7 +576,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             }
         }
 
-        internal void forward_msg
+        public void forward_msg
         (PeerMessageForwarder mf, bool optional, int maps_retrieved_below_level, CallerInfo caller)
         {
             if (pos[mf.lvl] == mf.pos)
@@ -777,7 +779,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             return ret;
         }
 
-        internal IPeersRequest get_request
+        public IPeersRequest get_request
         (int msg_id, PeerTupleNode respondant)
         throws PeersUnknownMessageError, PeersInvalidRequest
         {
@@ -976,7 +978,14 @@ namespace Netsukuku.PeerServices.MessageRouting
         public void set_missing_optional_maps
         (int msg_id)
         {
-            error("not yet implemented");
+            if (! waiting_answer_map.has_key(msg_id))
+            {
+                debug("PeersManager.set_non_participant: ignored because unknown msg_id");
+                return;
+            }
+            WaitingAnswer wa = waiting_answer_map[msg_id];
+            wa.missing_optional_maps = true;
+            wa.ch.send_async(0);
         }
     }
 }
