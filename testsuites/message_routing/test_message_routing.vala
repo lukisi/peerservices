@@ -167,10 +167,21 @@ class PeersTester : Object
     public void test_routing1()
     {
         gsizes = new ArrayList<int>.wrap({2,2,2,2});
-        network = new ArrayList<SimNode>();
+        network = new HashMap<string,SimNode>();
         var node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}));
         var node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}));
+        var node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}));
         // TODO
+        foreach (SimNode n in network.values)
+        {
+            print(@"Node '$(n.name)' (address $(address(n.pos))) has knowledge of g-nodes:\n");
+            foreach (var e in n.network_by_hcoord.entries)
+            {
+                HCoord h = e.key;
+                Gee.List<SimNode> gwlist = e.@value;
+                print(@"   ($(h.lvl), $(h.pos)): $(gwlist.size) gateways for it.\n");
+            }
+        }
     }
 
     private static string address(Gee.List<int> pos)
@@ -229,14 +240,26 @@ class PeersTester : Object
             return gsizes.size;
         }
     }
-    Gee.List<SimNode> network;
+    HashMap<string,SimNode> network;
+
+    class TupleStub : Object
+    {
+        public TupleStub(SimNode node, bool deprecated=false)
+        {
+            this.node = node;
+            this.deprecated = deprecated;
+        }
+        public SimNode node;
+        public bool deprecated;
+    }
 
     class SimNode : Object
     {
         private PeersTester tester;
-        private string name;
+        public string name;
         public Gee.List<int> pos;
-        public Gee.List<HCoord> network_by_hcoord;
+        public HashMap<HCoord, Gee.List<SimNode>> network_by_hcoord;
+        public HashMap<string,TupleStub> stub_by_tuple;
 
         public SimNode(PeersTester tester, string name, Gee.List<int> pos)
         {
@@ -251,27 +274,69 @@ class PeersTester : Object
             this.name = name;
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
-            network_by_hcoord = new ArrayList<HCoord>((a, b) => a.equals(b));
+            network_by_hcoord =
+                new HashMap<HCoord, Gee.List<SimNode>>
+                (/* key_hash_func  = */(a) => @"$(a.lvl)_$(a.pos)".hash(),
+                 /* key_equal_func = */(a, b) => a.equals(b));
+            stub_by_tuple = new HashMap<string,TupleStub>();
 
-            foreach (SimNode other in tester.network)
+            foreach (SimNode other in tester.network.values)
             {
                 other.add_knowledge_node(this);
                 add_knowledge_node(other);
             }
 
-            tester.network.add(this);
+            tester.network[name] = this;
         }
 
         public void add_knowledge_node(SimNode other)
         {
             HCoord g = find_hcoord(pos, other.pos);
             print(@"$(other.name) for $(name) is HCoord ($(g.lvl),$(g.pos)).\n");
-            if (! (g in network_by_hcoord)) network_by_hcoord.add(g);
+            if (! (g in network_by_hcoord.keys)) network_by_hcoord[g] = new ArrayList<SimNode>();
+            // most internal tuple
+            Gee.List<int> internal_tuple = new ArrayList<int>();
+            int i = 0;
+            for (; i <= g.lvl; i++) internal_tuple.add(other.pos[i]);
+            string _address = address(internal_tuple);
+            stub_by_tuple[_address] = new TupleStub(other);
+            print(@"$(other.name) for $(name) is usually $(_address).\n");
+            // wider
+            for (; i < tester.levels; i++)
+            {
+                internal_tuple.add(other.pos[i]);
+                _address = address(internal_tuple);
+                stub_by_tuple[_address] = new TupleStub(other, true);
+                print(@"$(other.name) for $(name) is also $(_address), but deprecated.\n");
+            }
+        }
+    }
+
+    class FakeCallerInfo : CallerInfo
+    {
+        public SimNode node;
+        public FakeCallerInfo(SimNode node)
+        {
+            this.node = node;
         }
     }
 
     class FakeUnicastStub : Object, IPeersManagerStub
     {
+        private TupleStub? internally;
+        public FakeUnicastStub.target_internally(TupleStub internally)
+        {
+            this.internally = internally;
+            this.by_gateway = null;
+        }
+
+        private SimNode? by_gateway;
+        public FakeUnicastStub.target_by_gateway(SimNode by_gateway)
+        {
+            this.by_gateway = by_gateway;
+            this.internally = null;
+        }
+
         public IPeerParticipantSet ask_participant_maps () throws StubError, DeserializeError
         {
             error("not implemented yet");
