@@ -179,100 +179,100 @@ class PeersTester : Object
         // g-node 1:1:0
         var node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}));
         var node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}));
-        assert(node_a.network_by_hcoord.has_key(h00));
-        node_a.network_by_hcoord[h00].add(node_b);
-        assert(node_b.network_by_hcoord.has_key(h01));
-        node_b.network_by_hcoord[h01].add(node_a);
+        assert(node_a.exists_gnode(h00));
+        node_a.add_gateway_to_gnode(node_b, h00);
+        assert(node_b.exists_gnode(h01));
+        node_b.add_gateway_to_gnode(node_a, h01);
         // g-node 1:1:1
         var node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}));
         // g-node 1:1
-        assert(node_a.network_by_hcoord.has_key(h11));
-        node_a.network_by_hcoord[h11].add(node_b);
-        assert(node_b.network_by_hcoord.has_key(h11));
-        node_b.network_by_hcoord[h11].add(node_c);
-        assert(node_c.network_by_hcoord.has_key(h10));
-        node_c.network_by_hcoord[h10].add(node_b);
+        assert(node_a.exists_gnode(h11));
+        node_a.add_gateway_to_gnode(node_b, h11);
+        assert(node_b.exists_gnode(h11));
+        node_b.add_gateway_to_gnode(node_c, h11);
+        assert(node_c.exists_gnode(h10));
+        node_c.add_gateway_to_gnode(node_b, h10);
         // g-node 1:0:1
         var node_e = new SimNode(this, "e", new ArrayList<int>.wrap({1,1,0,1}));
         var node_h = new SimNode(this, "h", new ArrayList<int>.wrap({0,1,0,1}));
-        assert(node_e.network_by_hcoord.has_key(h00));
-        node_e.network_by_hcoord[h00].add(node_h);
-        assert(node_h.network_by_hcoord.has_key(h01));
-        node_h.network_by_hcoord[h01].add(node_e);
+        assert(node_e.exists_gnode(h00));
+        node_e.add_gateway_to_gnode(node_h, h00);
+        assert(node_h.exists_gnode(h01));
+        node_h.add_gateway_to_gnode(node_e, h01);
         // g-node 1:0:0
         var node_f = new SimNode(this, "f", new ArrayList<int>.wrap({1,0,0,1}));
         var node_g = new SimNode(this, "g", new ArrayList<int>.wrap({0,0,0,1}));
-        assert(node_f.network_by_hcoord.has_key(h00));
-        node_f.network_by_hcoord[h00].add(node_g);
-        assert(node_g.network_by_hcoord.has_key(h01));
-        node_g.network_by_hcoord[h01].add(node_f);
+        assert(node_f.exists_gnode(h00));
+        node_f.add_gateway_to_gnode(node_g, h00);
+        assert(node_g.exists_gnode(h01));
+        node_g.add_gateway_to_gnode(node_f, h01);
         // g-node 1:0
-        assert(node_h.network_by_hcoord.has_key(h10));
-        node_h.network_by_hcoord[h10].add(node_e);
-        assert(node_e.network_by_hcoord.has_key(h10));
-        node_e.network_by_hcoord[h10].add(node_f);
-        assert(node_f.network_by_hcoord.has_key(h11));
-        node_f.network_by_hcoord[h11].add(node_e);
-        assert(node_g.network_by_hcoord.has_key(h11));
-        node_g.network_by_hcoord[h11].add(node_f);
+        assert(node_h.exists_gnode(h10));
+        node_h.add_gateway_to_gnode(node_e, h10);
+        assert(node_e.exists_gnode(h10));
+        node_e.add_gateway_to_gnode(node_f, h10);
+        assert(node_f.exists_gnode(h11));
+        node_f.add_gateway_to_gnode(node_e, h11);
+        assert(node_g.exists_gnode(h11));
+        node_g.add_gateway_to_gnode(node_f, h11);
         // g-node 1
-        assert(node_a.network_by_hcoord.has_key(h20));
-        node_a.network_by_hcoord[h20].add(node_e);
-        node_a.network_by_hcoord[h20].add(node_h);
-        node_a.network_by_hcoord[h20].add(node_b);
-        assert(node_b.network_by_hcoord.has_key(h20));
-        node_b.network_by_hcoord[h20].add(node_e);
-        node_b.network_by_hcoord[h20].add(node_a);
-        node_b.network_by_hcoord[h20].add(node_c);
-        assert(node_c.network_by_hcoord.has_key(h20));
-        node_c.network_by_hcoord[h20].add(node_e);
-        node_c.network_by_hcoord[h20].add(node_b);
-        assert(node_e.network_by_hcoord.has_key(h21));
-        node_e.network_by_hcoord[h21].add(node_a);
-        node_e.network_by_hcoord[h21].add(node_b);
-        node_e.network_by_hcoord[h21].add(node_c);
-        node_e.network_by_hcoord[h21].add(node_h);
-        assert(node_h.network_by_hcoord.has_key(h21));
-        node_h.network_by_hcoord[h21].add(node_e);
-        node_h.network_by_hcoord[h21].add(node_a);
-        assert(node_f.network_by_hcoord.has_key(h21));
-        node_f.network_by_hcoord[h21].add(node_e);
-        assert(node_g.network_by_hcoord.has_key(h21));
-        node_g.network_by_hcoord[h21].add(node_f);
+        assert(node_a.exists_gnode(h20));
+        node_a.add_gateway_to_gnode(node_e, h20);
+        node_a.add_gateway_to_gnode(node_h, h20);
+        node_a.add_gateway_to_gnode(node_b, h20);
+        assert(node_b.exists_gnode(h20));
+        node_b.add_gateway_to_gnode(node_e, h20);
+        node_b.add_gateway_to_gnode(node_a, h20);
+        node_b.add_gateway_to_gnode(node_c, h20);
+        assert(node_c.exists_gnode(h20));
+        node_c.add_gateway_to_gnode(node_e, h20);
+        node_c.add_gateway_to_gnode(node_b, h20);
+        assert(node_e.exists_gnode(h21));
+        node_e.add_gateway_to_gnode(node_a, h21);
+        node_e.add_gateway_to_gnode(node_b, h21);
+        node_e.add_gateway_to_gnode(node_c, h21);
+        node_e.add_gateway_to_gnode(node_h, h21);
+        assert(node_h.exists_gnode(h21));
+        node_h.add_gateway_to_gnode(node_e, h21);
+        node_h.add_gateway_to_gnode(node_a, h21);
+        assert(node_f.exists_gnode(h21));
+        node_f.add_gateway_to_gnode(node_e, h21);
+        assert(node_g.exists_gnode(h21));
+        node_g.add_gateway_to_gnode(node_f, h21);
         // g-node 0
         var node_d = new SimNode(this, "d", new ArrayList<int>.wrap({0,1,1,0}));
         // whole net
-        assert(node_a.network_by_hcoord.has_key(h30));
-        node_a.network_by_hcoord[h30].add(node_b);
-        node_a.network_by_hcoord[h30].add(node_e);
-        node_a.network_by_hcoord[h30].add(node_h);
-        assert(node_b.network_by_hcoord.has_key(h30));
-        node_b.network_by_hcoord[h30].add(node_c);
-        node_b.network_by_hcoord[h30].add(node_e);
-        node_b.network_by_hcoord[h30].add(node_a);
-        assert(node_c.network_by_hcoord.has_key(h30));
-        node_c.network_by_hcoord[h30].add(node_d);
-        node_c.network_by_hcoord[h30].add(node_e);
-        node_c.network_by_hcoord[h30].add(node_b);
-        assert(node_e.network_by_hcoord.has_key(h30));
-        node_e.network_by_hcoord[h30].add(node_c);
-        node_e.network_by_hcoord[h30].add(node_f);
-        node_e.network_by_hcoord[h30].add(node_b);
-        node_e.network_by_hcoord[h30].add(node_a);
-        node_e.network_by_hcoord[h30].add(node_h);
-        assert(node_h.network_by_hcoord.has_key(h30));
-        node_h.network_by_hcoord[h30].add(node_e);
-        node_h.network_by_hcoord[h30].add(node_a);
-        assert(node_f.network_by_hcoord.has_key(h30));
-        node_f.network_by_hcoord[h30].add(node_g);
-        node_f.network_by_hcoord[h30].add(node_e);
-        assert(node_g.network_by_hcoord.has_key(h30));
-        node_g.network_by_hcoord[h30].add(node_d);
-        node_g.network_by_hcoord[h30].add(node_f);
-        assert(node_d.network_by_hcoord.has_key(h31));
-        node_d.network_by_hcoord[h31].add(node_c);
-        node_d.network_by_hcoord[h31].add(node_g);
-        // TODO
+        assert(node_a.exists_gnode(h30));
+        node_a.add_gateway_to_gnode(node_b, h30);
+        node_a.add_gateway_to_gnode(node_e, h30);
+        node_a.add_gateway_to_gnode(node_h, h30);
+        assert(node_b.exists_gnode(h30));
+        node_b.add_gateway_to_gnode(node_c, h30);
+        node_b.add_gateway_to_gnode(node_e, h30);
+        node_b.add_gateway_to_gnode(node_a, h30);
+        assert(node_c.exists_gnode(h30));
+        node_c.add_gateway_to_gnode(node_d, h30);
+        node_c.add_gateway_to_gnode(node_e, h30);
+        node_c.add_gateway_to_gnode(node_b, h30);
+        assert(node_e.exists_gnode(h30));
+        node_e.add_gateway_to_gnode(node_c, h30);
+        node_e.add_gateway_to_gnode(node_f, h30);
+        node_e.add_gateway_to_gnode(node_b, h30);
+        node_e.add_gateway_to_gnode(node_a, h30);
+        node_e.add_gateway_to_gnode(node_h, h30);
+        assert(node_h.exists_gnode(h30));
+        node_h.add_gateway_to_gnode(node_e, h30);
+        node_h.add_gateway_to_gnode(node_a, h30);
+        assert(node_f.exists_gnode(h30));
+        node_f.add_gateway_to_gnode(node_g, h30);
+        node_f.add_gateway_to_gnode(node_e, h30);
+        assert(node_g.exists_gnode(h30));
+        node_g.add_gateway_to_gnode(node_d, h30);
+        node_g.add_gateway_to_gnode(node_f, h30);
+        assert(node_d.exists_gnode(h31));
+        node_d.add_gateway_to_gnode(node_c, h31);
+        node_d.add_gateway_to_gnode(node_g, h31);
+        // print info
         LinkedList<string> lst_k = new LinkedList<string>();
         lst_k.add_all(network.keys);
         lst_k.sort();
@@ -285,6 +285,36 @@ class PeersTester : Object
                 HCoord h = e.key;
                 Gee.List<SimNode> gwlist = e.@value;
                 print(@"   ($(h.lvl), $(h.pos)): $(gwlist.size) gateways for it.\n");
+            }
+            HashMap<int,ArrayList<string>> reachable_nodes =
+                new HashMap<int,ArrayList<string>>();
+            for (int lvl = 0; lvl < levels; lvl++)
+                reachable_nodes[lvl] = new ArrayList<string>();
+            foreach (var e in n.stub_by_tuple.entries)
+            {
+                string addr = e.key;
+                TupleStub stub = e.@value;
+                if (stub.inside_min_common_gnode)
+                {
+                    int s_pos_cur = 0;
+                    int lvl = 0;
+                    while (true)
+                    {
+                        int s_pos = addr.index_of(":", s_pos_cur);
+                        if (s_pos == -1) break;
+                        s_pos_cur = s_pos+1;
+                        lvl++;
+                    }
+                    reachable_nodes[lvl].add(addr);
+                }
+            }
+            for (int lvl = 0; lvl < levels; lvl++)
+            {
+                print(@"      Inside my g-node of level $(lvl+1) there are $(reachable_nodes[lvl].size) routable nodes:\n");
+                foreach (string addr in reachable_nodes[lvl])
+                {
+                    print(@"           $(addr) (wich is node '$(n.stub_by_tuple[addr].node.name)')\n");
+                }
             }
         }
     }
@@ -349,13 +379,13 @@ class PeersTester : Object
 
     class TupleStub : Object
     {
-        public TupleStub(SimNode node, bool deprecated=false)
+        public TupleStub(SimNode node, bool inside_min_common_gnode=true)
         {
             this.node = node;
-            this.deprecated = deprecated;
+            this.inside_min_common_gnode = inside_min_common_gnode;
         }
         public SimNode node;
-        public bool deprecated;
+        public bool inside_min_common_gnode;
     }
 
     class SimNode : Object
@@ -394,7 +424,7 @@ class PeersTester : Object
             tester.network[name] = this;
         }
 
-        public void add_knowledge_node(SimNode other)
+        private void add_knowledge_node(SimNode other)
         {
             HCoord g = find_hcoord(pos, other.pos);
             print(@"$(other.name) for $(name) is HCoord ($(g.lvl),$(g.pos)).\n");
@@ -405,15 +435,49 @@ class PeersTester : Object
             for (; i <= g.lvl; i++) internal_tuple.add(other.pos[i]);
             string _address = address(internal_tuple);
             stub_by_tuple[_address] = new TupleStub(other);
-            print(@"$(other.name) for $(name) is usually $(_address).\n");
+            print(@"$(other.name) for $(name) is $(_address) (inside their minimum common g-node).\n");
             // wider
             for (; i < tester.levels; i++)
             {
                 internal_tuple.add(other.pos[i]);
                 _address = address(internal_tuple);
-                stub_by_tuple[_address] = new TupleStub(other, true);
-                print(@"$(other.name) for $(name) is also $(_address), but deprecated.\n");
+                stub_by_tuple[_address] = new TupleStub(other, false);
+                print(@"$(other.name) for $(name) is also $(_address), but redundant.\n");
             }
+        }
+
+        public void add_gateway_to_gnode(SimNode gw, HCoord g)
+        {
+            network_by_hcoord[g].add(gw);
+        }
+
+        public bool exists_gnode(HCoord g)
+        {
+            return network_by_hcoord.has_key(g);
+        }
+
+        public int nodes_inside_my_gnode(int level)
+        {
+            int count = 0;
+            foreach (var e in stub_by_tuple.entries)
+            {
+                string addr = e.key;
+                TupleStub stub = e.@value;
+                if (stub.inside_min_common_gnode)
+                {
+                    int s_pos_cur = 0;
+                    int lvl = 0;
+                    while (true)
+                    {
+                        int s_pos = addr.index_of(":", s_pos_cur);
+                        if (s_pos == -1) break;
+                        s_pos_cur = s_pos+1;
+                        lvl++;
+                    }
+                    if (lvl < level) count++;
+                }
+            }
+            return count;
         }
     }
 
