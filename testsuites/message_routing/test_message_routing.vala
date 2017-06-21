@@ -168,12 +168,117 @@ class PeersTester : Object
     {
         gsizes = new ArrayList<int>.wrap({2,2,2,2});
         network = new HashMap<string,SimNode>();
+        var h00 = new HCoord(0,0);
+        var h01 = new HCoord(0,1);
+        var h10 = new HCoord(1,0);
+        var h11 = new HCoord(1,1);
+        var h20 = new HCoord(2,0);
+        var h21 = new HCoord(2,1);
+        var h30 = new HCoord(3,0);
+        var h31 = new HCoord(3,1);
+        // g-node 1:1:0
         var node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}));
         var node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}));
+        assert(node_a.network_by_hcoord.has_key(h00));
+        node_a.network_by_hcoord[h00].add(node_b);
+        assert(node_b.network_by_hcoord.has_key(h01));
+        node_b.network_by_hcoord[h01].add(node_a);
+        // g-node 1:1:1
         var node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}));
+        // g-node 1:1
+        assert(node_a.network_by_hcoord.has_key(h11));
+        node_a.network_by_hcoord[h11].add(node_b);
+        assert(node_b.network_by_hcoord.has_key(h11));
+        node_b.network_by_hcoord[h11].add(node_c);
+        assert(node_c.network_by_hcoord.has_key(h10));
+        node_c.network_by_hcoord[h10].add(node_b);
+        // g-node 1:0:1
+        var node_e = new SimNode(this, "e", new ArrayList<int>.wrap({1,1,0,1}));
+        var node_h = new SimNode(this, "h", new ArrayList<int>.wrap({0,1,0,1}));
+        assert(node_e.network_by_hcoord.has_key(h00));
+        node_e.network_by_hcoord[h00].add(node_h);
+        assert(node_h.network_by_hcoord.has_key(h01));
+        node_h.network_by_hcoord[h01].add(node_e);
+        // g-node 1:0:0
+        var node_f = new SimNode(this, "f", new ArrayList<int>.wrap({1,0,0,1}));
+        var node_g = new SimNode(this, "g", new ArrayList<int>.wrap({0,0,0,1}));
+        assert(node_f.network_by_hcoord.has_key(h00));
+        node_f.network_by_hcoord[h00].add(node_g);
+        assert(node_g.network_by_hcoord.has_key(h01));
+        node_g.network_by_hcoord[h01].add(node_f);
+        // g-node 1:0
+        assert(node_h.network_by_hcoord.has_key(h10));
+        node_h.network_by_hcoord[h10].add(node_e);
+        assert(node_e.network_by_hcoord.has_key(h10));
+        node_e.network_by_hcoord[h10].add(node_f);
+        assert(node_f.network_by_hcoord.has_key(h11));
+        node_f.network_by_hcoord[h11].add(node_e);
+        assert(node_g.network_by_hcoord.has_key(h11));
+        node_g.network_by_hcoord[h11].add(node_f);
+        // g-node 1
+        assert(node_a.network_by_hcoord.has_key(h20));
+        node_a.network_by_hcoord[h20].add(node_e);
+        node_a.network_by_hcoord[h20].add(node_h);
+        node_a.network_by_hcoord[h20].add(node_b);
+        assert(node_b.network_by_hcoord.has_key(h20));
+        node_b.network_by_hcoord[h20].add(node_e);
+        node_b.network_by_hcoord[h20].add(node_a);
+        node_b.network_by_hcoord[h20].add(node_c);
+        assert(node_c.network_by_hcoord.has_key(h20));
+        node_c.network_by_hcoord[h20].add(node_e);
+        node_c.network_by_hcoord[h20].add(node_b);
+        assert(node_e.network_by_hcoord.has_key(h21));
+        node_e.network_by_hcoord[h21].add(node_a);
+        node_e.network_by_hcoord[h21].add(node_b);
+        node_e.network_by_hcoord[h21].add(node_c);
+        node_e.network_by_hcoord[h21].add(node_h);
+        assert(node_h.network_by_hcoord.has_key(h21));
+        node_h.network_by_hcoord[h21].add(node_e);
+        node_h.network_by_hcoord[h21].add(node_a);
+        assert(node_f.network_by_hcoord.has_key(h21));
+        node_f.network_by_hcoord[h21].add(node_e);
+        assert(node_g.network_by_hcoord.has_key(h21));
+        node_g.network_by_hcoord[h21].add(node_f);
+        // g-node 0
+        var node_d = new SimNode(this, "d", new ArrayList<int>.wrap({0,1,1,0}));
+        // whole net
+        assert(node_a.network_by_hcoord.has_key(h30));
+        node_a.network_by_hcoord[h30].add(node_b);
+        node_a.network_by_hcoord[h30].add(node_e);
+        node_a.network_by_hcoord[h30].add(node_h);
+        assert(node_b.network_by_hcoord.has_key(h30));
+        node_b.network_by_hcoord[h30].add(node_c);
+        node_b.network_by_hcoord[h30].add(node_e);
+        node_b.network_by_hcoord[h30].add(node_a);
+        assert(node_c.network_by_hcoord.has_key(h30));
+        node_c.network_by_hcoord[h30].add(node_d);
+        node_c.network_by_hcoord[h30].add(node_e);
+        node_c.network_by_hcoord[h30].add(node_b);
+        assert(node_e.network_by_hcoord.has_key(h30));
+        node_e.network_by_hcoord[h30].add(node_c);
+        node_e.network_by_hcoord[h30].add(node_f);
+        node_e.network_by_hcoord[h30].add(node_b);
+        node_e.network_by_hcoord[h30].add(node_a);
+        node_e.network_by_hcoord[h30].add(node_h);
+        assert(node_h.network_by_hcoord.has_key(h30));
+        node_h.network_by_hcoord[h30].add(node_e);
+        node_h.network_by_hcoord[h30].add(node_a);
+        assert(node_f.network_by_hcoord.has_key(h30));
+        node_f.network_by_hcoord[h30].add(node_g);
+        node_f.network_by_hcoord[h30].add(node_e);
+        assert(node_g.network_by_hcoord.has_key(h30));
+        node_g.network_by_hcoord[h30].add(node_d);
+        node_g.network_by_hcoord[h30].add(node_f);
+        assert(node_d.network_by_hcoord.has_key(h31));
+        node_d.network_by_hcoord[h31].add(node_c);
+        node_d.network_by_hcoord[h31].add(node_g);
         // TODO
-        foreach (SimNode n in network.values)
+        LinkedList<string> lst_k = new LinkedList<string>();
+        lst_k.add_all(network.keys);
+        lst_k.sort();
+        foreach (string k in lst_k)
         {
+            SimNode n = network[k];
             print(@"Node '$(n.name)' (address $(address(n.pos))) has knowledge of g-nodes:\n");
             foreach (var e in n.network_by_hcoord.entries)
             {
