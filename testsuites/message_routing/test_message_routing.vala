@@ -279,12 +279,14 @@ class PeersTester : Object
         foreach (string k in lst_k)
         {
             SimNode n = network[k];
-            print(@"Node '$(n.name)' (address $(address(n.pos))) has knowledge of g-nodes:\n");
+            print(@"Node '$(n.name)': (address $(address(n.pos)))\n");
+            print(@"   It has knowledge of $(n.network_by_hcoord.entries.size) g-nodes:\n");
             foreach (var e in n.network_by_hcoord.entries)
             {
                 HCoord h = e.key;
                 Gee.List<SimNode> gwlist = e.@value;
-                print(@"   ($(h.lvl), $(h.pos)): $(gwlist.size) gateways for it.\n");
+                print(@"     ($(h.lvl), $(h.pos)): $(gwlist.size) gateways for it.\n");
+                assert(!gwlist.is_empty);
             }
             HashMap<int,ArrayList<string>> reachable_nodes =
                 new HashMap<int,ArrayList<string>>();
@@ -310,10 +312,17 @@ class PeersTester : Object
             }
             for (int lvl = 0; lvl < levels; lvl++)
             {
-                print(@"      Inside my g-node of level $(lvl+1) there are $(reachable_nodes[lvl].size) routable nodes:\n");
-                foreach (string addr in reachable_nodes[lvl])
+                int tot = n.nodes_inside_my_gnode(lvl+1);
+                int sub = 0;
+                if (lvl > 0) sub = n.nodes_inside_my_gnode(lvl);
+                assert(tot-sub == reachable_nodes[lvl].size);
+                if (reachable_nodes[lvl].size > 0)
                 {
-                    print(@"           $(addr) (wich is node '$(n.stub_by_tuple[addr].node.name)')\n");
+                    print(@"   Inside its g-node of level $(lvl+1) there are $(reachable_nodes[lvl].size) routable nodes:\n");
+                    foreach (string addr in reachable_nodes[lvl])
+                    {
+                        print(@"     $(addr) (wich is node '$(n.stub_by_tuple[addr].node.name)')\n");
+                    }
                 }
             }
         }
