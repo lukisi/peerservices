@@ -406,6 +406,29 @@ class PeersTester : Object
         public HashMap<string,TupleStub> stub_by_tuple;
         private MessageRouting.MessageRouting message_routing;
 
+        // Service 01: name-telephone directory
+        private HashMap<string,string> db_part;
+        private class RequestStore : Object, IPeersRequest
+        {
+            public string name {public set; public get;}
+            public string number {public set; public get;}
+        }
+        private class ResponseStoreOk : Object, IPeersResponse
+        {
+        }
+        private class RequestRetr : Object, IPeersRequest
+        {
+            public string name {public set; public get;}
+        }
+        private class ResponseRetrOk : Object, IPeersResponse
+        {
+            public string name {public set; public get;}
+            public string number {public set; public get;}
+        }
+        private class ResponseRetrNotFound : Object, IPeersResponse
+        {
+        }
+
         public SimNode(PeersTester tester, string name, Gee.List<int> pos)
         {
             assert(pos.size == tester.levels);
@@ -496,10 +519,36 @@ class PeersTester : Object
                  },
                  /* exec_service                  = */  (/*int*/ p_id, /*IPeersRequest*/ req,
                                                          /*Gee.List<int>*/ client_tuple) => {
-                     IPeersResponse ret = null;
-                     // TODO   can throw PeersRefuseExecutionError, PeersRedoFromStartError.
+                     IPeersResponse ret;
+                     // Could throw PeersRefuseExecutionError, PeersRedoFromStartError.
+                     if (p_id == 1)
+                     {
+                         if (req is RequestStore)
+                         {
+                             RequestStore _req = (RequestStore)req;
+                             db_part[_req.name] = _req.number;
+                             ret = new ResponseStoreOk();
+                         }
+                         else if (req is RequestRetr)
+                         {
+                             RequestRetr _req = (RequestRetr)req;
+                             if (db_part.has_key(_req.name))
+                             {
+                                 var retok = new ResponseRetrOk();
+                                 retok.name = _req.name;
+                                 retok.number = db_part[_req.name];
+                                 ret = retok;
+                             }
+                             else ret = new ResponseRetrNotFound();
+                         }
+                         else assert_not_reached();
+                     }
+                     else assert_not_reached();
                      return ret;
                  });
+
+            // Service 01: name-telephone directory
+            db_part = new HashMap<string,string>();
         }
 
         private void add_knowledge_node(SimNode other)
