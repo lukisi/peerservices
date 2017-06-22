@@ -478,7 +478,7 @@ class PeersTester : Object
                  /* get_client_internally         = */  (/*PeerTupleNode*/ n) => {
                      IPeersManagerStub ret = null;
 
-                     var addr = this.tester.address(n.tuple);
+                     var addr = address(n.tuple);
                      var tstub = stub_by_tuple[addr];
                      ret = new FakeUnicastStub.target_internally(tstub);
                      return ret;
@@ -557,6 +557,28 @@ class PeersTester : Object
             }
             return count;
         }
+
+        public void rpc_forward_peer_message(PeerMessageForwarder mf, SimNode caller)
+        {
+            // check if mf.p_id is optional
+            // In this testcase is always false.
+            bool optional = false;
+            int maps_retrieved_below_level = tester.levels;
+            // prepare CallerInfo
+            FakeCallerInfo caller_info = new FakeCallerInfo(caller);
+            // Call method of message_routing.
+            message_routing.forward_msg(mf, optional, maps_retrieved_below_level, caller_info);
+            // Done.
+            if (optional)
+            {
+                // not needed in this testcase, we should now
+                foreach (PeerTupleGNode t in mf.non_participant_tuple_list)
+                {
+                    // ... start tasklet and call message_routing.check_non_participation
+                    // then update participation maps.
+                }
+            }
+        }
     }
 
     class FakeCallerInfo : CallerInfo
@@ -594,8 +616,31 @@ class PeersTester : Object
 
         public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
         {
+            assert(by_gateway != null);
+            assert(caller != null);
+            assert(internally == null);
+            // This is a stub that sends a message in unicast (reliable, no wait).
+
+            // Here we could simulate StubError
             tasklet.ms_wait(2); // simulates network latency
-            error("not implemented yet");
+            ForwardPeerMessageTasklet ts = new ForwardPeerMessageTasklet();
+            ts.t = this;
+            ts.by_gateway = by_gateway;
+            ts.peer_message = (PeerMessageForwarder)peer_message;
+            ts.caller = caller;
+            tasklet.spawn(ts);
+        }
+        private class ForwardPeerMessageTasklet : Object, ITaskletSpawnable
+        {
+            public FakeUnicastStub t;
+            public SimNode by_gateway;
+            public PeerMessageForwarder peer_message;
+            public SimNode caller;
+            public void * func()
+            {
+                by_gateway.rpc_forward_peer_message(peer_message, caller);
+                return null;
+            }
         }
 
         public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
