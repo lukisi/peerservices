@@ -516,7 +516,7 @@ class PeersTester : Object
 
                      var addr = address(n.tuple);
                      var tstub = stub_by_tuple[addr];
-                     ret = new FakeUnicastStub.target_internally(tstub);
+                     ret = new FakeUnicastStub.target_internally(tstub, this);
                      return ret;
                  },
                  /* get_nodes_in_my_group         = */  (/*int*/ lvl) => {
@@ -684,6 +684,23 @@ class PeersTester : Object
                 }
             }
         }
+
+        public IPeersRequest rpc_get_request
+        (int msg_id, IPeerTupleNode respondant)
+        throws PeersUnknownMessageError, PeersInvalidRequest, DeserializeError
+        {
+            // check that interfaces are ok
+            if (!(respondant is PeerTupleNode))
+            {
+                warning("bad request rpc: get_request, invalid respondant.");
+                tasklet.exit_tasklet(null);
+            }
+            // Call method of message_routing.
+            return
+                message_routing.get_request
+                (msg_id, (PeerTupleNode)respondant);
+            // Done.
+        }
     }
 
     class FakeCallerInfo : CallerInfo
@@ -697,16 +714,16 @@ class PeersTester : Object
 
     class FakeUnicastStub : Object, IPeersManagerStub
     {
+        private SimNode caller;
         private TupleStub? internally;
-        public FakeUnicastStub.target_internally(TupleStub internally)
+        public FakeUnicastStub.target_internally(TupleStub internally, SimNode caller)
         {
             this.internally = internally;
             this.by_gateway = null;
-            this.caller = null;
+            this.caller = caller;
         }
 
         private SimNode? by_gateway;
-        private SimNode? caller;
         public FakeUnicastStub.target_by_gateway(SimNode by_gateway, SimNode caller)
         {
             this.by_gateway = by_gateway;
@@ -722,7 +739,6 @@ class PeersTester : Object
         public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
         {
             assert(by_gateway != null);
-            assert(caller != null);
             assert(internally == null);
             // This is a stub that sends a message in unicast (reliable, no wait).
 
@@ -755,7 +771,15 @@ class PeersTester : Object
 
         public IPeersRequest get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError, PeersInvalidRequest, StubError, DeserializeError
         {
-            error("not implemented yet");
+            assert(by_gateway == null);
+            assert(internally != null);
+            // This is a stub that connects via TCP and waits for answer.
+
+            // Here we could simulate StubError
+            tasklet.ms_wait(2); // simulates network latency
+            if (! internally.inside_min_common_gnode) warning("Tuple in message_forwarder is wider than expected");
+            SimNode srv_client = internally.node;
+            return srv_client.rpc_get_request(msg_id, respondant);
         }
 
         public void give_participant_maps (IPeerParticipantSet maps) throws StubError, DeserializeError
