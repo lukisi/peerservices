@@ -338,11 +338,19 @@ class PeersTester : Object
         }
 
         tasklet.ms_wait(10);
+        print("node_a saves john's number.\n");
         node_a.srv01_store(Srv01Names.John, "555 2343");
         tasklet.ms_wait(10);
+        print("node_e saves mark's number.\n");
         node_e.srv01_store(Srv01Names.Mark, "555 1234");
         tasklet.ms_wait(10);
+        print("node_h saves clark's number.\n");
         node_h.srv01_store(Srv01Names.Clark, "555 5467");
+        tasklet.ms_wait(10);
+        print("node_a retrieves clark's number.\n");
+        string? number = node_a.srv01_retr(Srv01Names.Clark);
+        assert(number != null);
+        print(@"node_a gets '$(Srv01Names.Clark)', '$(number)'\n");
         tasklet.ms_wait(10);
     }
 
@@ -667,6 +675,51 @@ class PeersTester : Object
             }
             print(@"  Done. Respondant = $(address(respondant.tuple))\n");
             assert(resp is ResponseStoreOk);
+        }
+
+        public string? srv01_retr(string name)
+        {
+            int p_id = 1;
+            bool optional = false;
+
+            // some pseudo-hash for hp(k)
+            PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,1,1}));
+            if (name == Srv01Names.Mark)
+                x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
+            if (name == Srv01Names.Sue)
+                x_macron = new PeerTupleNode(new ArrayList<int>.wrap({0,1,0,1}));
+            if (name == Srv01Names.Clark)
+                x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,0}));
+
+            RequestRetr request = new RequestRetr();
+            request.name = name;
+            int timeout_exec = 1000;
+            bool exclude_myself = false;
+            PeerTupleNode? respondant;
+
+            print(@"From node '$(this.name)' call service 01 retr '$(name)'.\n");
+            print(@"  Chosen perfect hash hp=$(address(x_macron.tuple)).\n");
+            IPeersResponse resp;
+            try {
+                // Call method of message_routing.
+                resp = message_routing.contact_peer
+                    (p_id,
+                     optional,
+                     x_macron,
+                     request,
+                     timeout_exec,
+                     exclude_myself,
+                     out respondant);
+                // Done.
+            } catch (PeersNoParticipantsInNetworkError e) {
+                assert_not_reached();
+            } catch (PeersDatabaseError e) {
+                assert_not_reached();
+            }
+            print(@"  Done. Respondant = $(address(respondant.tuple))\n");
+            if (resp is ResponseRetrOk) return ((ResponseRetrOk)resp).number;
+            else if (resp is ResponseRetrNotFound) return null;
+            else assert_not_reached();
         }
 
         public void rpc_forward_peer_message(PeerMessageForwarder mf, SimNode caller)
