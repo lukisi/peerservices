@@ -336,9 +336,14 @@ class PeersTester : Object
                 }
             }
         }
+
         tasklet.ms_wait(10);
-        // TODO node_a.srv01_store(Srv01Names.John, "555 2343");
-        // TODO tasklet.ms_wait(1000);
+        node_a.srv01_store(Srv01Names.John, "555 2343");
+        tasklet.ms_wait(10);
+        node_e.srv01_store(Srv01Names.Mark, "555 1234");
+        tasklet.ms_wait(10);
+        node_h.srv01_store(Srv01Names.Clark, "555 5467");
+        tasklet.ms_wait(10);
     }
 
     private static string address(Gee.List<int> pos)
@@ -641,6 +646,8 @@ class PeersTester : Object
             bool exclude_myself = false;
             PeerTupleNode? respondant;
 
+            print(@"From node '$(this.name)' call service 01 store '$(name)' => '$(number)'.\n");
+            print(@"  Chosen perfect hash hp=$(address(x_macron.tuple)).\n");
             IPeersResponse resp;
             try {
                 // Call method of message_routing.
@@ -658,9 +665,8 @@ class PeersTester : Object
             } catch (PeersDatabaseError e) {
                 assert_not_reached();
             }
-            print(@"respondant = $(address(respondant.tuple))\n");
+            print(@"  Done. Respondant = $(address(respondant.tuple))\n");
             assert(resp is ResponseStoreOk);
-            print(@"saved '$(name)' => '$(number)'\n");
         }
 
         public void rpc_forward_peer_message(PeerMessageForwarder mf, SimNode caller)
@@ -687,7 +693,7 @@ class PeersTester : Object
 
         public IPeersRequest rpc_get_request
         (int msg_id, IPeerTupleNode respondant)
-        throws PeersUnknownMessageError, PeersInvalidRequest, DeserializeError
+        throws PeersUnknownMessageError, PeersInvalidRequest
         {
             // check that interfaces are ok
             if (!(respondant is PeerTupleNode))
@@ -699,6 +705,20 @@ class PeersTester : Object
             return
                 message_routing.get_request
                 (msg_id, (PeerTupleNode)respondant);
+            // Done.
+        }
+
+        public void rpc_set_response
+        (int msg_id, IPeersResponse response, IPeerTupleNode respondant)
+        {
+            // check that interfaces are ok
+            if (!(respondant is PeerTupleNode))
+            {
+                warning("bad request rpc: set_response, invalid respondant.");
+                tasklet.exit_tasklet(null);
+            }
+            // Call method of message_routing.
+            message_routing.set_response(msg_id, response, (PeerTupleNode)respondant);
             // Done.
         }
     }
@@ -824,7 +844,15 @@ class PeersTester : Object
 
         public void set_response (int msg_id, IPeersResponse response, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
-            error("not implemented yet");
+            assert(by_gateway == null);
+            assert(internally != null);
+            // This is a stub that connects via TCP and waits for answer.
+
+            // Here we could simulate StubError
+            tasklet.ms_wait(2); // simulates network latency
+            if (! internally.inside_min_common_gnode) warning("Tuple in message_forwarder is wider than expected");
+            SimNode srv_client = internally.node;
+            srv_client.rpc_set_response(msg_id, response, respondant);
         }
     }
 }
