@@ -404,6 +404,7 @@ class PeersTester : Object
         public Gee.List<int> pos;
         public HashMap<HCoord, Gee.List<SimNode>> network_by_hcoord;
         public HashMap<string,TupleStub> stub_by_tuple;
+        private MessageRouting.MessageRouting message_routing;
 
         public SimNode(PeersTester tester, string name, Gee.List<int> pos)
         {
@@ -430,7 +431,75 @@ class PeersTester : Object
                 add_knowledge_node(other);
             }
 
-            tester.network[name] = this;
+            this.tester.network[name] = this;
+
+            message_routing = new MessageRouting.MessageRouting
+                (pos, tester.gsizes,
+                 /* gnode_exists                  = */  (/*int*/ lvl, /*int*/ pos) => {
+                     return exists_gnode(new HCoord(lvl,pos));
+                 },
+                 /* get_gateway                   = */  (/*int*/ level, /*int*/ pos,
+                                                         /*CallerInfo?*/ received_from,
+                                                         /*IPeersManagerStub?*/ failed) => {
+                     IPeersManagerStub? ret = null;
+
+                     // In this testcase we assume no failures in passing message to a neighbor
+                     assert(failed == null);
+
+                     HCoord dest = new HCoord(level,pos);
+                     if (exists_gnode(dest))
+                     {
+                         SimNode? gw = null;
+                         SimNode? prev = null;
+
+                         if (received_from != null)
+                         {
+                             FakeCallerInfo _received_from = (FakeCallerInfo)received_from;
+                             prev = _received_from.node;
+                         }
+
+                         int i = 0;
+                         while (network_by_hcoord[dest].size > i)
+                         {
+                             SimNode this_gw = network_by_hcoord[dest][i];
+                             if (this_gw == prev) i++;
+                             else
+                             {
+                                 gw = this_gw;
+                                 break;
+                             }
+                         }
+                         if (gw != null)
+                             ret = new FakeUnicastStub.target_by_gateway(gw, this);
+                     }
+
+                     return ret;
+                 },
+                 /* get_client_internally         = */  (/*PeerTupleNode*/ n) => {
+                     IPeersManagerStub ret = null;
+
+                     var addr = this.tester.address(n.tuple);
+                     var tstub = stub_by_tuple[addr];
+                     ret = new FakeUnicastStub.target_internally(tstub);
+                     return ret;
+                 },
+                 /* get_nodes_in_my_group         = */  (/*int*/ lvl) => {
+                     return nodes_inside_my_gnode(lvl);
+                 },
+                 /* my_gnode_participates         = */  (/*int*/ p_id, /*int*/ lvl) => {
+                     // All services are `strict` in this testcase
+                     return true;
+                 },
+                 /* get_non_participant_gnodes    = */  (/*int*/ p_id, /*int*/ target_levels) => {
+                     // All services are `strict` in this testcase
+                     return new ArrayList<HCoord>();
+                 },
+                 /* exec_service                  = */  (/*int*/ p_id, /*IPeersRequest*/ req,
+                                                         /*Gee.List<int>*/ client_tuple) => {
+                     IPeersResponse ret = null;
+                     // TODO   can throw PeersRefuseExecutionError, PeersRedoFromStartError.
+                     return ret;
+                 });
         }
 
         private void add_knowledge_node(SimNode other)
@@ -506,12 +575,15 @@ class PeersTester : Object
         {
             this.internally = internally;
             this.by_gateway = null;
+            this.caller = null;
         }
 
         private SimNode? by_gateway;
-        public FakeUnicastStub.target_by_gateway(SimNode by_gateway)
+        private SimNode? caller;
+        public FakeUnicastStub.target_by_gateway(SimNode by_gateway, SimNode caller)
         {
             this.by_gateway = by_gateway;
+            this.caller = caller;
             this.internally = null;
         }
 
