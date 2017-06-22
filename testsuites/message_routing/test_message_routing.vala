@@ -43,6 +43,16 @@ Object dup_object(Object obj)
     return ret;
 }
 
+namespace Srv01Names {
+    const string Mark = "Mark";
+    const string John = "John";
+    const string Luke = "Luke";
+    const string Stef = "Stef";
+    const string Sue = "Sue";
+    const string Bob = "Bob";
+    const string Clark = "Clark";
+}
+
 class PeersTester : Object
 {
     public void set_up ()
@@ -326,6 +336,9 @@ class PeersTester : Object
                 }
             }
         }
+        tasklet.ms_wait(10);
+        // TODO node_a.srv01_store(Srv01Names.John, "555 2343");
+        // TODO tasklet.ms_wait(1000);
     }
 
     private static string address(Gee.List<int> pos)
@@ -605,6 +618,49 @@ class PeersTester : Object
                 }
             }
             return count;
+        }
+
+        public void srv01_store(string name, string number)
+        {
+            int p_id = 1;
+            bool optional = false;
+
+            // some pseudo-hash for hp(k)
+            PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,1,1}));
+            if (name == Srv01Names.Mark)
+                x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
+            if (name == Srv01Names.Sue)
+                x_macron = new PeerTupleNode(new ArrayList<int>.wrap({0,1,0,1}));
+            if (name == Srv01Names.Clark)
+                x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,0}));
+
+            RequestStore request = new RequestStore();
+            request.name = name;
+            request.number = number;
+            int timeout_exec = 1000;
+            bool exclude_myself = false;
+            PeerTupleNode? respondant;
+
+            IPeersResponse resp;
+            try {
+                // Call method of message_routing.
+                resp = message_routing.contact_peer
+                    (p_id,
+                     optional,
+                     x_macron,
+                     request,
+                     timeout_exec,
+                     exclude_myself,
+                     out respondant);
+                // Done.
+            } catch (PeersNoParticipantsInNetworkError e) {
+                assert_not_reached();
+            } catch (PeersDatabaseError e) {
+                assert_not_reached();
+            }
+            print(@"respondant = $(address(respondant.tuple))\n");
+            assert(resp is ResponseStoreOk);
+            print(@"saved '$(name)' => '$(number)'\n");
         }
 
         public void rpc_forward_peer_message(PeerMessageForwarder mf, SimNode caller)
