@@ -1375,7 +1375,7 @@ namespace Netsukuku.PeerServices
         (IPeerParticipantSet maps, CallerInfo? _rpc_caller=null)
         {
             // check payload
-            if (! (maps is PeerParticipantSet)) return;
+            if (! (maps is PeerParticipantSet)) tasklet.exit_tasklet();
             PeerParticipantSet _maps = (PeerParticipantSet) maps;
             // TODO
             // begin
@@ -1386,10 +1386,10 @@ namespace Netsukuku.PeerServices
         (IPeerMessage peer_message, CallerInfo? _rpc_caller=null)
         {
             // check payload
-            if (! (peer_message is PeerMessageForwarder)) return;
+            if (! (peer_message is PeerMessageForwarder)) tasklet.exit_tasklet();
             PeerMessageForwarder mf = (PeerMessageForwarder) peer_message;
-            if (! check_valid_message(mf)) return;
-            if (_rpc_caller == null) return;
+            if (! check_valid_message(mf)) tasklet.exit_tasklet();
+            if (_rpc_caller == null) tasklet.exit_tasklet();
             // prepare
             bool optional = false;
             if (services.has_key(mf.p_id))
@@ -1504,7 +1504,7 @@ namespace Netsukuku.PeerServices
             if (! (tuple is PeerTupleGNode))
             {
                 debug("bad request rpc: set_next_destination, invalid tuple.");
-                return;
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_next_destination(msg_id, (PeerTupleGNode)tuple);
@@ -1518,7 +1518,7 @@ namespace Netsukuku.PeerServices
             if (! (tuple is PeerTupleGNode))
             {
                 debug("bad request rpc: set_failure, invalid tuple.");
-                return;
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_failure(msg_id, (PeerTupleGNode)tuple);
@@ -1532,7 +1532,7 @@ namespace Netsukuku.PeerServices
             if (! (tuple is PeerTupleGNode))
             {
                 debug("bad request rpc: set_non_participant, invalid tuple.");
-                return;
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_non_participant(msg_id, (PeerTupleGNode)tuple);
@@ -1551,9 +1551,9 @@ namespace Netsukuku.PeerServices
         (int p_id, IPeerTupleGNode tuple, CallerInfo? _rpc_caller=null)
         {
             // check payload
-            if (! (tuple is PeerTupleGNode)) return;
+            if (! (tuple is PeerTupleGNode)) tasklet.exit_tasklet();
             PeerTupleGNode gn = (PeerTupleGNode) tuple;
-            if (! check_valid_tuple_gnode(gn)) return;
+            if (! check_valid_tuple_gnode(gn)) tasklet.exit_tasklet();
             // begin
             if (services.has_key(p_id) && ! services[p_id].p_is_optional) return;
             map_handler.set_participant(p_id, gn);
