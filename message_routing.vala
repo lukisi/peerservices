@@ -136,8 +136,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             waiting_answer_map = new HashMap<int, WaitingAnswer>();
         }
 
-        // should be private, but for enabling access from the testsuite let's use internal
-        internal int dist(PeerTupleNode x_macron, PeerTupleNode x)
+        public int dist(PeerTupleNode x_macron, PeerTupleNode x)
         {
             assert(x_macron.tuple.size == x.tuple.size);
             int distance = 0;

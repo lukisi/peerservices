@@ -269,6 +269,7 @@ namespace Netsukuku.PeerServices
         private MapHandler.MapHandler map_handler;
         private PeerParticipantSet map;
         private Gee.List<int> my_services;
+        private MessageRouting.MessageRouting message_routing;
 
         public PeersManager
         (PeersManager? old_identity,
@@ -295,6 +296,7 @@ namespace Netsukuku.PeerServices
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
             this.guest_gnode_level = guest_gnode_level;
             this.host_gnode_level = host_gnode_level;
+
             map = new PeerParticipantSet(new ArrayList<int>.wrap(pos));
             my_services = new ArrayList<int>();
             map_handler = new MapHandler.MapHandler
@@ -328,6 +330,39 @@ namespace Netsukuku.PeerServices
             {
                 map_handler.enter_net(old_identity.map_handler, guest_gnode_level, host_gnode_level);
             }
+
+            message_routing = new MessageRouting.MessageRouting
+                (new ArrayList<int>.wrap(pos), new ArrayList<int>.wrap(gsizes),
+                 /* gnode_exists                  = */  (/*int*/ lvl, /*int*/ pos) => {
+                     return map_paths.i_peers_exists(lvl, pos);
+                 },
+                 /* get_gateway                   = */  (/*int*/ level, /*int*/ pos,
+                                                         /*CallerInfo?*/ received_from,
+                                                         /*IPeersManagerStub?*/ failed) => {
+                     IPeersManagerStub? ret = null;
+                     try {
+                        ret = map_paths.i_peers_gateway(level, pos, received_from, failed);
+                     } catch (PeersNonexistentDestinationError e) {
+                     }
+                     return ret;
+                 },
+                 /* get_client_internally         = */  (/*PeerTupleNode*/ n) => {
+                     return back_stub_factory.i_peers_get_tcp_inside(n.tuple);
+                 },
+                 /* get_nodes_in_my_group         = */  (/*int*/ lvl) => {
+                     return map_paths.i_peers_get_nodes_in_my_group(lvl);
+                 },
+                 /* my_gnode_participates         = */  (/*int*/ p_id, /*int*/ lvl) => {
+                     return my_gnode_participates(p_id, lvl);
+                 },
+                 /* get_non_participant_gnodes    = */  (/*int*/ p_id, /*int*/ target_levels) => {
+                     return get_non_participant_gnodes(p_id, target_levels);
+                 },
+                 /* exec_service                  = */  (/*int*/ p_id, /*IPeersRequest*/ req,
+                                                         /*Gee.List<int>*/ client_tuple) => {
+                     assert(services.has_key(p_id));
+                     return services[p_id].exec(req, client_tuple);
+                 });
         }
 
         private void participate(int p_id)
@@ -478,10 +513,11 @@ namespace Netsukuku.PeerServices
             return false;
         }
 
-        private Gee.List<HCoord> get_non_participant_gnodes(int p_id)
+        private Gee.List<HCoord> get_non_participant_gnodes(int p_id, int target_levels=-1)
         {
             // Returns a list of HCoord representing each gnode visible in my topology which, to my
             //  knowledge, do not participate to service p_id
+            if (target_levels == -1) target_levels = levels;
             ArrayList<HCoord> ret = new ArrayList<HCoord>();
             bool optional = false;
             if (services.has_key(p_id))
@@ -493,7 +529,7 @@ namespace Netsukuku.PeerServices
                 PeerParticipantMap? map = null;
                 if (participant_maps.has_key(p_id))
                     map = participant_maps[p_id];
-                foreach (HCoord lp in get_all_gnodes_up_to_lvl(levels))
+                foreach (HCoord lp in get_all_gnodes_up_to_lvl(target_levels))
                 {
                     if (map == null)
                         ret.add(lp);
@@ -520,6 +556,22 @@ namespace Netsukuku.PeerServices
             }
             ret.add(new HCoord(0, pos[0]));
             return ret;
+        }
+
+        private bool is_service_optional(int p_id)
+        {
+            bool ret = false;
+            if (services.has_key(p_id))
+                ret = services[p_id].p_is_optional;
+            else
+                ret = true;
+            return ret;
+        }
+
+        private void wait_participation_maps(int target_levels)
+        {
+            while (maps_retrieved_below_level < target_levels)
+                tasklet.ms_wait(10);
         }
 
         private void convert_tuple_gnode(PeerTupleGNode t, out int @case, out HCoord ret)
@@ -559,85 +611,6 @@ namespace Netsukuku.PeerServices
 
         /* Routing algorithm */
 
-        private int dist(PeerTupleNode x_macron, PeerTupleNode x)
-        {
-            assert(x_macron.tuple.size == x.tuple.size);
-            int distance = 0;
-            for (int j = x.tuple.size-1; j >= 0; j--)
-            {
-                distance *= gsizes[j];
-                distance += x.tuple[j] - x_macron.tuple[j];
-                if (x_macron.tuple[j] > x.tuple[j])
-                    distance += gsizes[j];
-            }
-            return distance;
-        }
-
-        internal HCoord? approximate(PeerTupleNode? x_macron,
-                                     Gee.List<HCoord> _exclude_list)
-        {
-            // Make sure that exclude_list is searchable
-            Gee.List<HCoord> exclude_list = new ArrayList<HCoord>((a, b) => a.equals(b));
-            exclude_list.add_all(_exclude_list);
-            // This function is x=Ht(x̄)
-            if (x_macron == null)
-            {
-                // It's me or nobody
-                HCoord x = new HCoord(0, pos[0]);
-                if (!(x in exclude_list))
-                    return x;
-                else
-                    return null;
-            }
-            // The search can be restricted to a certain g-node
-            int valid_levels = x_macron.tuple.size;
-            assert (valid_levels <= levels);
-            HCoord? ret = null;
-            int min_distance = -1;
-            // for each known g-node other than me
-            for (int l = 0; l < valid_levels; l++)
-                for (int p = 0; p < gsizes[l]; p++)
-                if (pos[l] != p)
-                if (map_paths.i_peers_exists(l, p))
-            {
-                HCoord x = new HCoord(l, p);
-                if (!(x in exclude_list))
-                {
-                    PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
-                    int distance = dist(x_macron, tuple_x);
-                    if (min_distance == -1 || distance < min_distance)
-                    {
-                        ret = x;
-                        min_distance = distance;
-                    }
-                }
-            }
-            // and then for me
-            HCoord x = new HCoord(0, pos[0]);
-            if (!(x in exclude_list))
-            {
-                PeerTupleNode tuple_x = make_tuple_node(x, valid_levels);
-                int distance = dist(x_macron, tuple_x);
-                if (min_distance == -1 || distance < min_distance)
-                {
-                    ret = x;
-                    min_distance = distance;
-                }
-            }
-            // If null yet, then nobody participates.
-            return ret;
-        }
-
-        private int find_timeout_routing(int nodes)
-        {
-            // number of msec to wait for a routing between a group of $(nodes) nodes.
-            int ret = 2000;
-            if (nodes > 100) ret = 20000;
-            if (nodes > 1000) ret = 200000;
-            // TODO explore values
-            return ret;
-        }
-
         internal IPeersResponse contact_peer
         (int p_id,
          PeerTupleNode x_macron,
@@ -648,358 +621,11 @@ namespace Netsukuku.PeerServices
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
-            int call_id = Random.int_range(0, int.MAX);
-            bool first_time = true;
-            debug(@"contact_peer called call_id=$(call_id)\n");
-            debug(@"hash_node for call_id=$(call_id) is $(debugging.tuple_node(x_macron).s).\n");
-            bool redofromstart = true;
-            while (redofromstart)
-            {
-                if (first_time) first_time = false;
-                else debug(@"contact_peer redo from start call_id=$(call_id)\n");
-                redofromstart = false;
-                ArrayList<string> refuse_messages = new ArrayList<string>();
-                respondant = null;
-                int target_levels = x_macron.tuple.size;
-                var exclude_gnode_list = new ArrayList<HCoord>();
-                bool optional = false;
-                if (services.has_key(p_id))
-                    optional = services[p_id].p_is_optional;
-                else
-                    optional = true;
-                // TODO check (if optional) target_levels vs . In case,  exclude_myself = true;
-                exclude_gnode_list.add_all(get_non_participant_gnodes(p_id));
-                if (exclude_myself)
-                    exclude_gnode_list.add(new HCoord(0, pos[0]));
-                PeerTupleGNodeContainer exclude_tuple_list;
-                if (_exclude_tuple_list != null)
-                    exclude_tuple_list = _exclude_tuple_list;
-                else
-                    exclude_tuple_list = new PeerTupleGNodeContainer(target_levels);
-                assert(exclude_tuple_list.top == target_levels);
-                foreach (PeerTupleGNode gn in exclude_tuple_list.list)
-                {
-                    int @case;
-                    HCoord ret;
-                    convert_tuple_gnode(gn, out @case, out ret);
-                    if (@case == 2)
-                        exclude_gnode_list.add(ret);
-                }
-                PeerTupleGNodeContainer non_participant_tuple_list = new PeerTupleGNodeContainer(target_levels);
-                IPeersResponse? response = null;
-                while (true)
-                {
-                    HCoord? x = approximate(x_macron, exclude_gnode_list);
-                    if (x == null)
-                    {
-                        if (! refuse_messages.is_empty)
-                        {
-                            string err_msg = "";
-                            foreach (string msg in refuse_messages) err_msg += @"$(msg) - ";
-                            debug(@"contact_peer throws PeersDatabaseError call_id=$(call_id)\n");
-                            throw new PeersDatabaseError.GENERIC(err_msg);
-                        }
-                        debug(@"contact_peer throws PeersNoParticipantsInNetworkError call_id=$(call_id)\n");
-                        throw new PeersNoParticipantsInNetworkError.GENERIC("");
-                    }
-                    if (x.lvl == 0 && x.pos == pos[0])
-                    {
-                        try {
-                            IPeersRequest copied_request = (IPeersRequest)dup_object(request);
-                            IPeersResponse response_to_be_copied
-                                = services[p_id].exec(copied_request, new ArrayList<int>());
-                            response = (IPeersResponse)dup_object(response_to_be_copied);
-                        } catch (PeersRedoFromStartError e) {
-                            redofromstart = true;
-                            break;
-                        } catch (PeersRefuseExecutionError e) {
-                            refuse_messages.add(e.message);
-                            if (refuse_messages.size > 10)
-                            {
-                                refuse_messages.remove_at(0);
-                                refuse_messages.remove_at(0);
-                                refuse_messages.insert(0, "...");
-                            }
-                            exclude_gnode_list.add(new HCoord(0, pos[0]));
-                            continue; // next iteration of cicle 1.
-                        }
-                        respondant = make_tuple_node(new HCoord(0, pos[0]), target_levels);
-                        debug(@"contact_peer returns a response call_id=$(call_id)\n");
-                        debug(@"response for call_id=$(call_id) was provided by $(debugging.tuple_node(respondant).s).\n");
-                        return response;
-                    }
-                    PeerMessageForwarder mf = new PeerMessageForwarder();
-                    mf.inside_level = target_levels;
-                    mf.n = make_tuple_node(new HCoord(0, pos[0]), x.lvl+1);
-                    // That is n0·n1·...·nj, where j = x.lvl
-                    if (x.lvl == 0)
-                        mf.x_macron = null;
-                    else
-                        mf.x_macron = new PeerTupleNode(x_macron.tuple.slice(0, x.lvl));
-                        // That is x̄0·x̄1·...·x̄j-1.
-                    mf.lvl = x.lvl;
-                    mf.pos = x.pos;
-                    mf.p_id = p_id;
-                    mf.msg_id = Random.int_range(0, int.MAX);
-                    debug(@"contact_peer generates msg_id=$(mf.msg_id),  call_id=$(call_id).\n");
-                    foreach (PeerTupleGNode t in exclude_tuple_list.list)
-                    {
-                        debug(@"exclude_tuple_list contains $(debugging.tuple_gnode(t).s).\n");
-                        int @case;
-                        HCoord ret;
-                        convert_tuple_gnode(t, out @case, out ret);
-                        if (@case == 3)
-                        {
-                            if (ret.equals(x))
-                            {
-                                debug(@" it is inside ($(x.lvl), $(x.pos)).\n");
-                                int eps = t.top - t.tuple.size;
-                                PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
-                                mf.exclude_tuple_list.add(_t);
-                            }
-                        }
-                    }
-                    foreach (PeerTupleGNode t in non_participant_tuple_list.list)
-                    {
-                        if (visible_by_someone_inside_my_gnode(t, x.lvl+1))
-                            mf.non_participant_tuple_list.add(t);
-                    }
-                    int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(x.lvl+1));
-                    WaitingAnswer waiting_answer = new WaitingAnswer(request, make_tuple_gnode(x, x.lvl+1));
-                    waiting_answer_map[mf.msg_id] = waiting_answer;
-                    IPeersManagerStub gwstub;
-                    IPeersManagerStub? failed = null;
-                    bool redo_approximate = false;
-                    while (true)
-                    {
-                        try {
-                            gwstub = map_paths.i_peers_gateway(x.lvl, x.pos, null, failed);
-                        } catch (PeersNonexistentDestinationError e) {
-                            redo_approximate = true;
-                            break;
-                        }
-                        try {
-                            gwstub.forward_peer_message(mf);
-                        } catch (StubError e) {
-                            failed = gwstub;
-                            continue;
-                        } catch (DeserializeError e) {
-                            assert_not_reached();
-                        }
-                        break;
-                    }
-                    if (redo_approximate)
-                    {
-                        waiting_answer_map.unset(mf.msg_id);
-                        tasklet.ms_wait(20);
-                        continue;
-                    }
-                    int timeout = timeout_routing;
-                    while (true)
-                    {
-                        try {
-                            waiting_answer.ch.recv_with_timeout(timeout);
-                            if (waiting_answer.exclude_gnode != null)
-                            {
-                                PeerTupleGNode t = rebase_tuple_gnode(waiting_answer.exclude_gnode, target_levels);
-                                // t represents the same g-node of waiting_answer.exclude_gnode, but with top=target_levels
-                                int @case;
-                                HCoord ret;
-                                convert_tuple_gnode(t, out @case, out ret);
-                                if (@case == 2)
-                                {
-                                    exclude_gnode_list.add(ret);
-                                }
-                                debug(@"adding t=$(debugging.tuple_gnode(t).s) to exclude_tuple_list because of failure msg_id=$(mf.msg_id).\n");
-                                exclude_tuple_list.add(t);
-                                waiting_answer_map.unset(mf.msg_id);
-                                break;
-                            }
-                            else if (waiting_answer.non_participant_gnode != null)
-                            {
-                                PeerTupleGNode t = rebase_tuple_gnode(waiting_answer.non_participant_gnode, target_levels);
-                                // t represents the same g-node of waiting_answer.non_participant_gnode, but with top=target_levels
-                                int @case;
-                                HCoord ret;
-                                convert_tuple_gnode(t, out @case, out ret);
-                                if (@case == 2)
-                                {
-                                    if (optional)
-                                    {
-                                        if (participant_maps.has_key(p_id))
-                                        {
-                                            PeerParticipantMap map = participant_maps[p_id];
-                                            map.participant_list.remove(ret);
-                                        }
-                                    }
-                                    exclude_gnode_list.add(ret);
-                                }
-                                exclude_tuple_list.add(t);
-                                non_participant_tuple_list.add(t);
-                                waiting_answer_map.unset(mf.msg_id);
-                                break;
-                            }
-                            else if (respondant == null && waiting_answer.respondant_node != null)
-                            {
-                                respondant = rebase_tuple_node(waiting_answer.respondant_node, target_levels);
-                                // respondant represents the same node of waiting_answer.respondant_node, but with top=target_levels
-                                timeout = timeout_exec;
-                            }
-                            else if (waiting_answer.response != null)
-                            {
-                                response = waiting_answer.response;
-                                waiting_answer_map.unset(mf.msg_id);
-                                break;
-                            }
-                            else if (respondant != null && waiting_answer.refuse_message != null)
-                            {
-                                refuse_messages.add(waiting_answer.refuse_message);
-                                if (refuse_messages.size > 10)
-                                {
-                                    refuse_messages.remove_at(0);
-                                    refuse_messages.remove_at(0);
-                                    refuse_messages.insert(0, "...");
-                                }
-                                PeerTupleGNode t = rebase_tuple_gnode(tuple_node_to_tuple_gnode(respondant), target_levels);
-                                // t represents the same node of respondant, but as GNode and with top=target_levels
-                                int @case;
-                                HCoord ret;
-                                convert_tuple_gnode(t, out @case, out ret);
-                                if (@case == 2)
-                                {
-                                    exclude_gnode_list.add(ret);
-                                }
-                                debug(@"adding t=$(debugging.tuple_gnode(t).s) to exclude_tuple_list because of refuse msg_id=$(mf.msg_id).\n");
-                                exclude_tuple_list.add(t);
-                                respondant = null;
-                                waiting_answer_map.unset(mf.msg_id);
-                                break;
-                            }
-                            else if (respondant != null && waiting_answer.redo_from_start)
-                            {
-                                redofromstart = true;
-                                respondant = null;
-                                break;
-                            }
-                            else
-                            {
-                                // A new destination (min_target) is found, nothing to do.
-                            }
-                        } catch (ChannelError e) {
-                            // TIMEOUT_EXPIRED
-                            PeerTupleGNode t = rebase_tuple_gnode(waiting_answer.min_target, target_levels);
-                            // t represents the same g-node of waiting_answer.min_target, but with top=target_levels
-                            int @case;
-                            HCoord ret;
-                            convert_tuple_gnode(t, out @case, out ret);
-                            if (@case == 2)
-                            {
-                                exclude_gnode_list.add(ret);
-                            }
-                            exclude_tuple_list.add(t);
-                            respondant = null;
-                            waiting_answer_map.unset(mf.msg_id);
-                            break;
-                        }
-                    }
-                    if (redofromstart) break;
-                    if (response != null)
-                        break;
-                }
-                if (redofromstart)
-                {
-                    debug(@"got a redo_from_start,  call_id=$(call_id).\n");
-                    continue;
-                }
-                debug(@"contact_peer returns a response call_id=$(call_id)\n");
-                debug(@"response for call_id=$(call_id) was provided by $(debugging.tuple_node(respondant).s).\n");
-                return response;
-            }
-            assert_not_reached();
-        }
-
-        /* Participation publish algorithms */
-
-        private bool check_non_participation(int p_id, int lvl, int _pos)
-        {
-            // Decide if it's secure to state that lvl,_pos does not participate to service p_id.
-            PeerTupleNode? x_macron = null;
-            if (lvl > 0)
-            {
-                ArrayList<int> tuple = new ArrayList<int>();
-                for (int i = 0; i < lvl; i++) tuple.add(0);
-                x_macron = new PeerTupleNode(tuple);
-            }
-            PeerTupleNode n = make_tuple_node(new HCoord(0, pos[0]), lvl+1);
-            PeerMessageForwarder mf = new PeerMessageForwarder();
-            mf.inside_level = levels;
-            mf.n = n;
-            mf.x_macron = x_macron;
-            mf.lvl = lvl;
-            mf.pos = _pos;
-            mf.p_id = p_id;
-            mf.msg_id = Random.int_range(0, int.MAX);
-            debug(@"check_non_participation generates msg_id=$(mf.msg_id).\n");
-            int timeout_routing = find_timeout_routing(map_paths.i_peers_get_nodes_in_my_group(lvl+1));
-            WaitingAnswer waiting_answer = new WaitingAnswer(null, make_tuple_gnode(new HCoord(lvl, _pos), lvl+1));
-            IPeersManagerStub gwstub;
-            IPeersManagerStub? failed = null;
-            while (true)
-            {
-                try {
-                    gwstub = map_paths.i_peers_gateway(lvl, _pos, null, failed);
-                } catch (PeersNonexistentDestinationError e) {
-                    waiting_answer_map.unset(mf.msg_id);
-                    return true;
-                }
-                try {
-                    gwstub.forward_peer_message(mf);
-                } catch (StubError e) {
-                    failed = gwstub;
-                    continue;
-                } catch (DeserializeError e) {
-                    assert_not_reached();
-                }
-                break;
-            }
-            try {
-                waiting_answer.ch.recv_with_timeout(timeout_routing);
-                if (waiting_answer.exclude_gnode != null)
-                {
-                    waiting_answer_map.unset(mf.msg_id);
-                    return false;
-                }
-                else if (waiting_answer.non_participant_gnode != null)
-                {
-                    int @case;
-                    HCoord ret;
-                    convert_tuple_gnode(waiting_answer.non_participant_gnode, out @case, out ret);
-                    if (@case == 2)
-                    {
-                        waiting_answer_map.unset(mf.msg_id);
-                        return true;
-                    }
-                    else
-                    {
-                        waiting_answer_map.unset(mf.msg_id);
-                        return false;
-                    }
-                }
-                else if (waiting_answer.response != null)
-                {
-                    waiting_answer_map.unset(mf.msg_id);
-                    return false;
-                }
-                else
-                {
-                    waiting_answer_map.unset(mf.msg_id);
-                    return false;
-                }
-            } catch (ChannelError e) {
-                // TIMEOUT_EXPIRED
-                waiting_answer_map.unset(mf.msg_id);
-                return false;
-            }
+            bool optional = is_service_optional(p_id);
+            if (optional) wait_participation_maps(x_macron.tuple.size);
+            return message_routing.contact_peer
+                (p_id, optional, x_macron, request, timeout_exec,
+                 exclude_myself, out respondant, _exclude_tuple_list);
         }
 
         /* Algorithms to maintain a robust distributed database */
@@ -1229,7 +855,7 @@ namespace Netsukuku.PeerServices
                                     {
                                         PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
                                         PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
-                                        if (dist(h_p_k, tuple_n_inside_l) < dist(h_p_k, respondant_inside_l))
+                                        if (message_routing.dist(h_p_k, tuple_n_inside_l) < message_routing.dist(h_p_k, respondant_inside_l))
                                         {
                                             ttl_db_start_retrieve(tdd, k);
                                             tasklet.ms_wait(2000);
@@ -1284,7 +910,7 @@ namespace Netsukuku.PeerServices
                                     {
                                         PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
                                         PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
-                                        if (dist(h_p_k, tuple_n_inside_l) < dist(h_p_k, respondant_inside_l))
+                                        if (message_routing.dist(h_p_k, tuple_n_inside_l) < message_routing.dist(h_p_k, respondant_inside_l))
                                         {
                                             ttl_db_start_retrieve(tdd, k);
                                             if (ttl_db_is_out_of_memory(tdd))
@@ -1809,203 +1435,15 @@ namespace Netsukuku.PeerServices
             PeerMessageForwarder mf = (PeerMessageForwarder) peer_message;
             if (! check_valid_message(mf)) return;
             if (_rpc_caller == null) return;
-            // begin
-            debugging.DebugMessageForwarder deb = debugging.message_forwarder(mf);
-            debug(@"... with mf = {msg_id=$(deb.msg_id), to=$(deb.x_macron) inside ($(deb.lvl), $(deb.pos)),\n");
-            debug(@"               exclude_tuple_list=$(deb.exclude_tuple_list)}.\n");
+            // prepare
             bool optional = false;
-            bool exclude_myself = false;
             if (services.has_key(mf.p_id))
                 optional = services[mf.p_id].p_is_optional;
             else
                 optional = true;
-            // TODO check (if optional) mf.inside_level vs . In case,  exclude_myself = true;
-            if (pos[mf.lvl] == mf.pos)
-            {
-                if (! my_gnode_participates(mf.p_id, mf.lvl))
-                {
-                    IPeersManagerStub nstub
-                        = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                    PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
-                    try {
-                        nstub.set_non_participant(mf.msg_id, gn);
-                    } catch (StubError e) {
-                        // ignore
-                    } catch (DeserializeError e) {
-                        // ignore
-                    }
-                }
-                else
-                {
-                    ArrayList<HCoord> exclude_gnode_list = new ArrayList<HCoord>();
-                    exclude_gnode_list.add_all(get_non_participant_gnodes(mf.p_id));
-                    if (exclude_myself)
-                        exclude_gnode_list.add(new HCoord(0, pos[0]));
-                    foreach (PeerTupleGNode gn in mf.exclude_tuple_list)
-                    {
-                        int @case;
-                        HCoord ret;
-                        convert_tuple_gnode(gn, out @case, out ret);
-                        if (@case == 1)
-                            exclude_gnode_list.add_all(get_all_gnodes_up_to_lvl(ret.lvl));
-                        else if (@case == 2)
-                            exclude_gnode_list.add(ret);
-                    }
-                    bool delivered = false;
-                    while (! delivered)
-                    {
-                        HCoord? x = approximate(mf.x_macron, exclude_gnode_list);
-                        if (x == null)
-                        {
-                            IPeersManagerStub nstub
-                                = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                            PeerTupleGNode gn = make_tuple_gnode(new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
-                            try {
-                                nstub.set_failure(mf.msg_id, gn);
-                            } catch (StubError e) {
-                                // ignore
-                            } catch (DeserializeError e) {
-                                // ignore
-                            }
-                            break;
-                        }
-                        else if (x.lvl == 0 && x.pos == pos[0])
-                        {
-                            IPeersManagerStub nstub
-                                = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                            PeerTupleNode tuple_respondant = make_tuple_node(new HCoord(0, pos[0]), mf.n.tuple.size);
-                            try {
-                                IPeersRequest request
-                                    = nstub.get_request(mf.msg_id, tuple_respondant);
-                                try {
-                                    IPeersResponse resp = services[mf.p_id].exec(request, mf.n.tuple);
-                                    nstub.set_response(mf.msg_id, resp, tuple_respondant);
-                                } catch (PeersRedoFromStartError e) {
-                                    try {
-                                        nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
-                                    } catch (StubError e) {
-                                        // ignore
-                                    } catch (DeserializeError e) {
-                                        // ignore
-                                    }
-                                } catch (PeersRefuseExecutionError e) {
-                                    try {
-                                        string err_message = "";
-                                        if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
-                                                err_message = "WRITE_OUT_OF_MEMORY: ";
-                                        if (e is PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE)
-                                                err_message = "READ_NOT_FOUND_NOT_EXHAUSTIVE: ";
-                                        if (e is PeersRefuseExecutionError.GENERIC)
-                                                err_message = "GENERIC: ";
-                                        err_message += e.message;
-                                        nstub.set_refuse_message(mf.msg_id, err_message, tuple_respondant);
-                                    } catch (StubError e) {
-                                        // ignore
-                                    } catch (DeserializeError e) {
-                                        // ignore
-                                    }
-                                }
-                            } catch (PeersUnknownMessageError e) {
-                                // ignore
-                            } catch (PeersInvalidRequest e) {
-                                // ignore
-                            } catch (StubError e) {
-                                // ignore
-                            } catch (DeserializeError e) {
-                                // ignore
-                            }
-                            break;
-                        }
-                        else
-                        {
-                            PeerMessageForwarder mf2 = (PeerMessageForwarder)Json.gobject_deserialize
-                                    (typeof(PeerMessageForwarder), Json.gobject_serialize(mf));
-                            mf2.lvl = x.lvl;
-                            mf2.pos = x.pos;
-                            if (x.lvl == 0)
-                                mf2.x_macron = null;
-                            else
-                                mf2.x_macron = new PeerTupleNode(mf.x_macron.tuple.slice(0, x.lvl));
-                            mf2.exclude_tuple_list.clear();
-                            mf2.non_participant_tuple_list.clear();
-                            foreach (PeerTupleGNode t in mf.exclude_tuple_list)
-                            {
-                                int @case;
-                                HCoord ret;
-                                convert_tuple_gnode(t, out @case, out ret);
-                                if (@case == 3)
-                                {
-                                    if (ret.equals(x))
-                                    {
-                                        int eps = t.top - t.tuple.size;
-                                        PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
-                                        mf2.exclude_tuple_list.add(_t);
-                                    }
-                                }
-                            }
-                            foreach (PeerTupleGNode t in mf.non_participant_tuple_list)
-                            {
-                                if (visible_by_someone_inside_my_gnode(t, x.lvl+1))
-                                    mf2.non_participant_tuple_list.add(t);
-                            }
-                            IPeersManagerStub gwstub;
-                            IPeersManagerStub? failed = null;
-                            while (true)
-                            {
-                                try {
-                                    gwstub = map_paths.i_peers_gateway(mf2.lvl, mf2.pos, _rpc_caller, failed);
-                                } catch (PeersNonexistentDestinationError e) {
-                                    tasklet.ms_wait(20);
-                                    break;
-                                }
-                                try {
-                                    gwstub.forward_peer_message(mf2);
-                                } catch (StubError e) {
-                                    failed = gwstub;
-                                    continue;
-                                } catch (DeserializeError e) {
-                                    assert_not_reached();
-                                }
-                                delivered = true;
-                                IPeersManagerStub nstub
-                                    = back_stub_factory.i_peers_get_tcp_inside(mf.n.tuple);
-                                PeerTupleGNode gn = make_tuple_gnode(x, mf.n.tuple.size);
-                                try {
-                                    nstub.set_next_destination(mf.msg_id, gn);
-                                } catch (StubError e) {
-                                    // ignore
-                                } catch (DeserializeError e) {
-                                    // ignore
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            else
-            {
-                IPeersManagerStub gwstub;
-                IPeersManagerStub? failed = null;
-                while (true)
-                {
-                    try {
-                        gwstub = map_paths.i_peers_gateway(mf.lvl, mf.pos, _rpc_caller, failed);
-                    } catch (PeersNonexistentDestinationError e) {
-                        // give up routing
-                        break;
-                    }
-                    try {
-                        gwstub.forward_peer_message(mf);
-                    } catch (StubError e) {
-                        failed = gwstub;
-                        continue;
-                    } catch (DeserializeError e) {
-                        assert_not_reached();
-                    }
-                    break;
-                }
-            }
+            // call message_routing
+            message_routing.forward_msg(mf, optional, maps_retrieved_below_level, _rpc_caller);
+            // if optional, check non_participant_tuple_list
             if (optional && participant_maps.has_key(mf.p_id))
             {
                 foreach (PeerTupleGNode t in mf.non_participant_tuple_list)
@@ -2034,11 +1472,15 @@ namespace Netsukuku.PeerServices
             public int p_id;
             public void * func()
             {
-                if (t.check_non_participation(p_id, ret.lvl, ret.pos))
-                    if (t.participant_maps.has_key(p_id))
-                        t.participant_maps[p_id].participant_list.remove(ret); 
+                t.check_non_participation_tasklet(ret, p_id);
                 return null;
             }
+        }
+        internal void check_non_participation_tasklet(HCoord ret, int p_id)
+        {
+            if (message_routing.check_non_participation(ret, p_id))
+                if (participant_maps.has_key(p_id))
+                    participant_maps[p_id].participant_list.remove(ret);
         }
 
         public IPeersRequest get_request
