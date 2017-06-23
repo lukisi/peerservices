@@ -837,11 +837,6 @@ class PeersTester : Object
             }
         }
 
-        public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
-        {
-            error("not implemented yet");
-        }
-
         public IPeersRequest get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError, PeersInvalidRequest, StubError, DeserializeError
         {
             assert(by_gateway == null);

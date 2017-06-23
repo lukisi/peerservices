@@ -425,11 +425,6 @@ class PeersTester : Object
             error("not implemented yet");
         }
 
-        public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
-        {
-            error("not implemented yet");
-        }
-
         public IPeersRequest get_request (int msg_id, IPeerTupleNode respondant) throws PeersUnknownMessageError, PeersInvalidRequest, StubError, DeserializeError
         {
             error("not implemented yet");
@@ -497,11 +492,6 @@ class PeersTester : Object
         }
 
         public void forward_peer_message (IPeerMessage peer_message) throws StubError, DeserializeError
-        {
-            error("not implemented yet");
-        }
-
-        public IPeerParticipantSet get_participant_set (int lvl) throws PeersInvalidRequest, StubError, DeserializeError
         {
             error("not implemented yet");
         }

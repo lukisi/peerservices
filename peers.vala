@@ -1365,43 +1365,21 @@ namespace Netsukuku.PeerServices
 
         /* Remotable methods */
 
-        public IPeerParticipantSet get_participant_set
-        (int lvl, CallerInfo? _rpc_caller=null)
-        throws PeersInvalidRequest
-        {
-            error("deprecated");
-            /*
-            // check payload
-            if (lvl <= 0 || lvl > levels) throw new PeersInvalidRequest.GENERIC("level out of range");
-            // begin
-            PeerParticipantSet ret = new PeerParticipantSet();
-            foreach (int p_id in participant_maps.keys)
-            {
-                PeerParticipantMap map = new PeerParticipantMap();
-                PeerParticipantMap my_map = participant_maps[p_id];
-                bool participation_at_lvl = false;
-                foreach (HCoord hc in my_map.participant_list)
-                {
-                    if (hc.lvl >= lvl) map.participant_list.add(hc);
-                    else participation_at_lvl = true;
-                }
-                if (participation_at_lvl) map.participant_list.add(new HCoord(lvl, pos[lvl]));
-                ret.participant_set[p_id] = map;
-            }
-            return ret;
-            */
-        }
-
         public IPeerParticipantSet ask_participant_maps
         (CallerInfo? _rpc_caller=null)
         {
-            error("not yet implemented");
+            return map_handler.produce_maps_below_level(maps_retrieved_below_level);
         }
 
         public void give_participant_maps
         (IPeerParticipantSet maps, CallerInfo? _rpc_caller=null)
         {
-            error("not yet implemented");
+            // check payload
+            if (! (maps is PeerParticipantSet)) return;
+            PeerParticipantSet _maps = (PeerParticipantSet) maps;
+            // TODO
+            // begin
+            map_handler.give_participant_maps(_maps);
         }
 
         public void forward_peer_message
