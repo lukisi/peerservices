@@ -47,7 +47,6 @@ libpeers_la_SOURCES = \
 	map_handler.vala \
 	message_routing.vala \
 	utils.vala \
-	peers_debug.vala \
 	$(NULL)
 
 libpeers_la_VALAFLAGS = \

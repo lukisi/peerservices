@@ -114,31 +114,6 @@ namespace Netsukuku.PeerServices
     {
     }
 
-    internal class WaitingAnswer : Object
-    {
-        public IChannel ch;
-        public IPeersRequest? request;
-        public PeerTupleGNode min_target;
-        public PeerTupleGNode? exclude_gnode;
-        public PeerTupleGNode? non_participant_gnode;
-        public PeerTupleNode? respondant_node;
-        public IPeersResponse? response;
-        public string? refuse_message;
-        public bool redo_from_start;
-        public WaitingAnswer(IPeersRequest? request, PeerTupleGNode min_target)
-        {
-            ch = tasklet.get_channel();
-            this.request = request;
-            this.min_target = min_target;
-            exclude_gnode = null;
-            non_participant_gnode = null;
-            respondant_node = null;
-            response = null;
-            refuse_message = null;
-            redo_from_start = false;
-        }
-    }
-
     internal class Timer : Object
     {
         private TimeVal start;
@@ -256,7 +231,6 @@ namespace Netsukuku.PeerServices
         private IPeersBackStubFactory back_stub_factory;
         private IPeersNeighborsFactory neighbors_factory;
         private HashMap<int, PeerService> services;
-        private HashMap<int, WaitingAnswer> waiting_answer_map;
         private HashMap<int, PeerParticipantMap> participant_maps;
         private ArrayList<HCoord> recent_published_list;
         public int guest_gnode_level {get; private set;}
@@ -291,7 +265,6 @@ namespace Netsukuku.PeerServices
             this.back_stub_factory = back_stub_factory;
             this.neighbors_factory = neighbors_factory;
             services = new HashMap<int, PeerService>();
-            waiting_answer_map = new HashMap<int, WaitingAnswer>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
             this.guest_gnode_level = guest_gnode_level;
@@ -363,6 +336,10 @@ namespace Netsukuku.PeerServices
                      assert(services.has_key(p_id));
                      return services[p_id].exec(req, client_tuple);
                  });
+            message_routing.gnode_is_not_participating.connect((/*HCoord*/ g, /*int*/ p_id) => {
+                if (participant_maps.has_key(p_id))
+                    participant_maps[p_id].participant_list.remove(g);
+            });
         }
 
         private void participate(int p_id)
@@ -1484,247 +1461,112 @@ namespace Netsukuku.PeerServices
         }
 
         public IPeersRequest get_request
-        (int msg_id, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleNode respondant, CallerInfo? _rpc_caller=null)
         throws PeersUnknownMessageError, PeersInvalidRequest
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (!(respondant is PeerTupleNode))
             {
-                debug("PeersManager.get_request: ignored because unknown msg_id");
-                throw new PeersUnknownMessageError.GENERIC("unknown msg_id");
+                warning("bad request rpc: get_request, invalid respondant.");
+                tasklet.exit_tasklet(null);
             }
-            if (! (_respondant is PeerTupleNode))
-            {
-                debug("PeersManager.get_request: ignored because unknown class as IPeerTupleNode");
-                throw new PeersInvalidRequest.GENERIC("unknown class as IPeerTupleNode");
-            }
-            PeerTupleNode respondant = (PeerTupleNode)_respondant;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            // must be inside my search g-node
-            if (wa.min_target.top != respondant.top)
-            {
-                debug("PeersManager.get_request: ignored because not same g-node of research");
-                throw new PeersInvalidRequest.GENERIC("not same g-node of research");
-            }
-            // ok
-            wa.respondant_node = respondant;
-            wa.ch.send_async(0);
-            // might be a fake request
-            if (wa.request == null) throw new PeersUnknownMessageError.GENERIC("was a fake request");
-            else return wa.request;
+            // Call method of message_routing.
+            return
+                message_routing.get_request
+                (msg_id, (PeerTupleNode)respondant);
+            // Done.
         }
 
         public void set_response
-        (int msg_id, IPeersResponse response, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeersResponse response, IPeerTupleNode respondant, CallerInfo? _rpc_caller=null)
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (!(respondant is PeerTupleNode))
             {
-                debug("PeersManager.set_response: ignored because unknown msg_id");
-                return;
+                warning("bad request rpc: set_response, invalid respondant.");
+                tasklet.exit_tasklet(null);
             }
-            if (! (_respondant is PeerTupleNode))
-            {
-                debug("PeersManager.set_response: ignored because unknown class as IPeerTupleNode");
-                return;
-            }
-            PeerTupleNode respondant = (PeerTupleNode)_respondant;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            bool mismatch = false;
-            if (wa.respondant_node == null) mismatch = true;
-            else if (wa.respondant_node.tuple.size != respondant.tuple.size) mismatch = true;
-            else
-            {
-                for (int j = 0; j < respondant.tuple.size; j++)
-                {
-                    if (respondant.tuple[j] != wa.respondant_node.tuple[j])
-                    {
-                        mismatch = true;
-                        break;
-                    }
-                }
-            }
-            if (mismatch)
-            {
-                debug("PeersManager.set_response: ignored because did not send request to that node");
-                return;
-            }
-            wa.response = response;
-            wa.ch.send_async(0);
+            // Call method of message_routing.
+            message_routing.set_response(msg_id, response, (PeerTupleNode)respondant);
+            // Done.
         }
 
         public void set_refuse_message
-        (int msg_id, string refuse_message, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
+        (int msg_id, string refuse_message, IPeerTupleNode respondant, CallerInfo? _rpc_caller=null)
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (!(respondant is PeerTupleNode))
             {
-                debug("PeersManager.set_refuse_message: ignored because unknown msg_id");
-                return;
+                warning("bad request rpc: set_refuse_message, invalid respondant.");
+                tasklet.exit_tasklet(null);
             }
-            if (! (_respondant is PeerTupleNode))
-            {
-                debug("PeersManager.set_refuse_message: ignored because unknown class as IPeerTupleNode");
-                return;
-            }
-            PeerTupleNode respondant = (PeerTupleNode)_respondant;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            bool mismatch = false;
-            if (wa.respondant_node == null) mismatch = true;
-            else if (wa.respondant_node.tuple.size != respondant.tuple.size) mismatch = true;
-            else
-            {
-                for (int j = 0; j < respondant.tuple.size; j++)
-                {
-                    if (respondant.tuple[j] != wa.respondant_node.tuple[j])
-                    {
-                        mismatch = true;
-                        break;
-                    }
-                }
-            }
-            if (mismatch)
-            {
-                debug("PeersManager.set_refuse_message: ignored because did not send request to that node");
-                return;
-            }
-            wa.refuse_message = refuse_message;
-            debug(@"PeersManager.set_refuse_message: $(refuse_message)");
-            wa.ch.send_async(0);
+            // Call method of message_routing.
+            message_routing.set_refuse_message(msg_id, refuse_message, (PeerTupleNode)respondant);
+            // Done.
         }
 
         public void set_redo_from_start
-        (int msg_id, IPeerTupleNode _respondant, CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleNode respondant, CallerInfo? _rpc_caller=null)
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (!(respondant is PeerTupleNode))
             {
-                debug("PeersManager.set_redo_from_start: ignored because unknown msg_id");
-                return;
+                warning("bad request rpc: set_redo_from_start, invalid respondant.");
+                tasklet.exit_tasklet(null);
             }
-            if (! (_respondant is PeerTupleNode))
-            {
-                debug("PeersManager.set_redo_from_start: ignored because unknown class as IPeerTupleNode");
-                return;
-            }
-            PeerTupleNode respondant = (PeerTupleNode)_respondant;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            bool mismatch = false;
-            if (wa.respondant_node == null) mismatch = true;
-            else if (wa.respondant_node.tuple.size != respondant.tuple.size) mismatch = true;
-            else
-            {
-                for (int j = 0; j < respondant.tuple.size; j++)
-                {
-                    if (respondant.tuple[j] != wa.respondant_node.tuple[j])
-                    {
-                        mismatch = true;
-                        break;
-                    }
-                }
-            }
-            if (mismatch)
-            {
-                debug("PeersManager.set_redo_from_start: ignored because did not send request to that node");
-                return;
-            }
-            wa.redo_from_start = true;
-            wa.ch.send_async(0);
+            // Call method of message_routing.
+            message_routing.set_redo_from_start(msg_id, (PeerTupleNode)respondant);
+            // Done.
         }
 
         public void set_next_destination
-        (int msg_id, IPeerTupleGNode _tuple, CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode tuple, CallerInfo? _rpc_caller=null)
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (! (tuple is PeerTupleGNode))
             {
-                debug("PeersManager.set_next_destination: ignored because unknown msg_id");
+                debug("bad request rpc: set_next_destination, invalid tuple.");
                 return;
             }
-            if (! (_tuple is PeerTupleGNode))
-            {
-                debug("PeersManager.set_next_destination: ignored because unknown class as IPeerTupleGNode");
-                return;
-            }
-            PeerTupleGNode tuple = (PeerTupleGNode)_tuple;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            // must maintain the smallest value k
-            if (wa.min_target.top != tuple.top)
-            {
-                debug("PeersManager.set_next_destination: ignored because not same g-node of research");
-                return;
-            }
-            int old_k = wa.min_target.top - wa.min_target.tuple.size;
-            if (tuple.top - tuple.tuple.size >= old_k)
-            {
-                debug("PeersManager.set_next_destination: ignored because already reached a lower level");
-                return;
-            }
-            wa.min_target = tuple;
-            wa.ch.send_async(0);
+            // Call method of message_routing.
+            message_routing.set_next_destination(msg_id, (PeerTupleGNode)tuple);
+            // Done.
         }
 
         public void set_failure
-        (int msg_id, IPeerTupleGNode _tuple, CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode tuple, CallerInfo? _rpc_caller=null)
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (! (tuple is PeerTupleGNode))
             {
-                debug("PeersManager.set_failure: ignored because unknown msg_id");
+                debug("bad request rpc: set_failure, invalid tuple.");
                 return;
             }
-            if (! (_tuple is PeerTupleGNode))
-            {
-                debug("PeersManager.set_failure: ignored because unknown class as IPeerTupleGNode");
-                return;
-            }
-            PeerTupleGNode tuple = (PeerTupleGNode)_tuple;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            // must be lower than the smallest value k
-            if (wa.min_target.top != tuple.top)
-            {
-                debug("PeersManager.set_failure: ignored because not same g-node of research");
-                return;
-            }
-            int old_k = wa.min_target.top - wa.min_target.tuple.size;
-            if (tuple.top - tuple.tuple.size > old_k)
-            {
-                debug("PeersManager.set_failure: ignored because already reached a lower level");
-                return;
-            }
-            wa.exclude_gnode = tuple;
-            wa.ch.send_async(0);
+            // Call method of message_routing.
+            message_routing.set_failure(msg_id, (PeerTupleGNode)tuple);
+            // Done.
         }
 
         public void set_non_participant
-        (int msg_id, IPeerTupleGNode _tuple, CallerInfo? _rpc_caller=null)
+        (int msg_id, IPeerTupleGNode tuple, CallerInfo? _rpc_caller=null)
         {
-            if (! waiting_answer_map.has_key(msg_id))
+            // check that interfaces are ok
+            if (! (tuple is PeerTupleGNode))
             {
-                debug("PeersManager.set_non_participant: ignored because unknown msg_id");
+                debug("bad request rpc: set_non_participant, invalid tuple.");
                 return;
             }
-            if (! (_tuple is PeerTupleGNode))
-            {
-                debug("PeersManager.set_non_participant: ignored because unknown class as IPeerTupleGNode");
-                return;
-            }
-            PeerTupleGNode tuple = (PeerTupleGNode)_tuple;
-            WaitingAnswer wa = waiting_answer_map[msg_id];
-            // must be lower than the smallest value k
-            if (wa.min_target.top != tuple.top)
-            {
-                debug("PeersManager.set_non_participant: ignored because not same g-node of research");
-                return;
-            }
-            int old_k = wa.min_target.top - wa.min_target.tuple.size;
-            if (tuple.top - tuple.tuple.size > old_k)
-            {
-                debug("PeersManager.set_non_participant: ignored because already reached a lower level");
-                return;
-            }
-            wa.non_participant_gnode = tuple;
-            wa.ch.send_async(0);
+            // Call method of message_routing.
+            message_routing.set_non_participant(msg_id, (PeerTupleGNode)tuple);
+            // Done.
         }
 
         public void set_missing_optional_maps
         (int msg_id, CallerInfo? _rpc_caller=null)
         {
-            error("not yet implemented");
+            // Call method of message_routing.
+            message_routing.set_missing_optional_maps(msg_id);
+            // Done.
         }
 
         public void set_participant

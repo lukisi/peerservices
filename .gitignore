@@ -4,7 +4,6 @@ data_structs.c
 map_handler.c
 message_routing.c
 utils.c
-peers_debug.c
 peers.h
 peers.vapi
 main.c
