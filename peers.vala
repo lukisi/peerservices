@@ -1213,15 +1213,6 @@ namespace Netsukuku.PeerServices
             fkdd.dh = new DatabaseHandler();
             fkdd.dh.p_id = p_id;
             fkdd.dh.ready = false;
-            if (srv.p_is_optional)
-            {
-                // TODO search a mechanism to validate the situation
-                //   where maps_retrieved_below_level < levels.
-                if (maps_retrieved_below_level < levels)
-                {
-                    error("not implemented yet");
-                }
-            }
             fkdd.dh.not_completed_keys = new ArrayList<Object>(fkdd.key_equal_data);
             fkdd.dh.retrieving_keys = new HashMap<Object, IChannel>(fkdd.key_hash_data, fkdd.key_equal_data);
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
@@ -1330,6 +1321,8 @@ namespace Netsukuku.PeerServices
         }
         private void tasklet_fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k, IChannel ch)
         {
+            bool optional = is_service_optional(fkdd.dh.p_id);
+            if (optional) wait_participation_maps(fkdd.evaluate_hash_node(k).size);
             Object? record = null;
             IPeersRequest r = new RequestWaitThenSendRecord(k);
             int timeout_exec = RequestWaitThenSendRecord.timeout_exec;
@@ -1377,7 +1370,6 @@ namespace Netsukuku.PeerServices
             // check payload
             if (! (maps is PeerParticipantSet)) tasklet.exit_tasklet();
             PeerParticipantSet _maps = (PeerParticipantSet) maps;
-            // TODO
             // begin
             map_handler.give_participant_maps(_maps);
         }
