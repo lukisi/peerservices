@@ -239,13 +239,14 @@ namespace Netsukuku.PeerServices.MessageRouting
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
+            int target_levels = x_macron.tuple.size;
+            if (! i_am_real_up_to(target_levels-1)) error("A virtual node cannot be a client of p2p.");
             bool redofromstart = true;
             while (redofromstart)
             {
                 redofromstart = false;
                 ArrayList<string> refuse_messages = new ArrayList<string>();
                 respondant = null;
-                int target_levels = x_macron.tuple.size;
                 var exclude_gnode_list = new ArrayList<HCoord>();
                 exclude_gnode_list.add_all(get_non_participant_gnodes(p_id, target_levels));
                 if (exclude_myself)
