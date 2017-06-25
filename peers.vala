@@ -152,7 +152,6 @@ namespace Netsukuku.PeerServices
             // ...
         }
         internal int p_id;
-        internal bool ready;
         internal HashMap<Object,IChannel> retrieving_keys;
         // for TTL-based services
         internal HashMap<Object,Timer> not_exhaustive_keys;
@@ -765,7 +764,6 @@ namespace Netsukuku.PeerServices
             PeerService srv = services[p_id];
             tdd.dh = new DatabaseHandler();
             tdd.dh.p_id = p_id;
-            tdd.dh.ready = false;
             if (srv.p_is_optional)
             {
                 // TODO search a mechanism to validate the situation
@@ -779,7 +777,6 @@ namespace Netsukuku.PeerServices
             tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
-            tdd.dh.ready = true;
             debug("database handler is ready.\n");
             if (new_network)
             {
@@ -930,7 +927,7 @@ namespace Netsukuku.PeerServices
         ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, int common_lvl)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
-            if (tdd.dh == null || ! tdd.dh.ready)
+            if (tdd.dh == null)
                 throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
             if (r is RequestSendKeys)
             {
@@ -1212,14 +1209,12 @@ namespace Netsukuku.PeerServices
             PeerService srv = services[p_id];
             fkdd.dh = new DatabaseHandler();
             fkdd.dh.p_id = p_id;
-            fkdd.dh.ready = false;
             fkdd.dh.not_completed_keys = new ArrayList<Object>(fkdd.key_equal_data);
             fkdd.dh.retrieving_keys = new HashMap<Object, IChannel>(fkdd.key_hash_data, fkdd.key_equal_data);
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
             fkdd.dh.not_completed_keys.add_all(k_set);
-            fkdd.dh.ready = true;
-            bool wait_before_network_activity = false;
             debug("database handler is ready.\n");
+            bool wait_before_network_activity = false;
             foreach (Object k in k_set)
             {
                 int l = fkdd.evaluate_hash_node(k).size;
@@ -1241,7 +1236,7 @@ namespace Netsukuku.PeerServices
         fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, int common_lvl)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
-            if (fkdd.dh == null || ! fkdd.dh.ready)
+            if (fkdd.dh == null)
                 throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
             if (fkdd.is_read_only_request(r))
             {
