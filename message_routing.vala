@@ -160,19 +160,22 @@ namespace Netsukuku.PeerServices.MessageRouting
             // This function is x=Ht(x̄)
             if (x_macron == null)
             {
-                // It's me or nobody
+                // It's me or nobody.
+                // In this case, this node is certainly not a *virtual* node,
+                // because a *virtual* node never is allowed to act as a client.
                 HCoord x = new HCoord(0, pos[0]);
                 if (!(x in exclude_list))
                     return x;
                 else
                     return null;
             }
-            // The search can be restricted to a certain g-node
+            // The search can be restricted to a certain g-node.
             int valid_levels = x_macron.tuple.size;
             assert (valid_levels <= levels);
             HCoord? ret = null;
             int min_distance = -1;
-            // for each known g-node other than me
+            // First, evaluate *dist* for each known g-node other than me.
+            // This search already excludes *virtual* g-nodes.
             for (int l = 0; l < valid_levels; l++)
                 for (int p = 0; p < gsizes[l]; p++)
                 if (pos[l] != p)
@@ -190,9 +193,11 @@ namespace Netsukuku.PeerServices.MessageRouting
                     }
                 }
             }
-            // and then for me
+            // Then evaluate *dist* for me.
+            // Consider that a *virtual* node cannot answer a request. At least not a node
+            //  that has *virtual* positions below level `valid_levels`.
             HCoord x = new HCoord(0, pos[0]);
-            if (!(x in exclude_list))
+            if (!(x in exclude_list) && i_am_real_up_to(valid_levels-1))
             {
                 PeerTupleNode tuple_x = Utils.make_tuple_node(pos, x, valid_levels);
                 int distance = dist(x_macron, tuple_x);
@@ -204,6 +209,13 @@ namespace Netsukuku.PeerServices.MessageRouting
             }
             // If null yet, then nobody participates.
             return ret;
+        }
+
+        private bool i_am_real_up_to(int lvl)
+        {
+            for (int i = 0; i <= lvl; i++)
+                if (pos[i] >= gsizes[i]) return false;
+            return true;
         }
 
         private int find_timeout_routing(int nodes)
