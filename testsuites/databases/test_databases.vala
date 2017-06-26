@@ -53,7 +53,7 @@ class PeersTester : Object
     {
     }
 
-    public void test_routing1()
+    public void prepare_network()
     {
         gsizes = new ArrayList<int>.wrap({2,2,2,2});
         network = new HashMap<string,SimNode>();
@@ -235,24 +235,6 @@ class PeersTester : Object
         HCoord ret;
         Utils.convert_tuple_gnode(me, gn_other, out @case, out ret);
         return ret;
-    }
-
-    public static int main(string[] args)
-    {
-        GLib.Test.init(ref args);
-
-        // Initialize tasklet system
-        PthTaskletImplementer.init();
-        tasklet = PthTaskletImplementer.get_tasklet_system();
-
-        GLib.Test.add_func ("/Databases/Bar", () => {
-            var x = new PeersTester();
-            x.set_up();
-            // x.test_bar();
-            x.tear_down();
-        });
-        GLib.Test.run();
-        return 0;
     }
 
     Gee.List<int> gsizes;
@@ -620,6 +602,30 @@ class PeersTester : Object
             SimNode srv_client = internally.node;
             srv_client.rpc_set_response(msg_id, response, respondant);
         }
+    }
+
+    public void test_bar()
+    {
+        prepare_network();
+        // TODO
+    }
+
+    public static int main(string[] args)
+    {
+        GLib.Test.init(ref args);
+
+        // Initialize tasklet system
+        PthTaskletImplementer.init();
+        tasklet = PthTaskletImplementer.get_tasklet_system();
+
+        GLib.Test.add_func ("/Databases/Bar", () => {
+            var x = new PeersTester();
+            x.set_up();
+            x.test_bar();
+            x.tear_down();
+        });
+        GLib.Test.run();
+        return 0;
     }
 }
 
