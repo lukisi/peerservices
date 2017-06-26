@@ -11,6 +11,7 @@ TESTS = \
 	test_data_structs \
 	test_map_handler \
 	test_message_routing \
+	test_databases \
 	$(NULL)
 
 check_PROGRAMS = \
@@ -18,6 +19,7 @@ check_PROGRAMS = \
 	test_data_structs \
 	test_map_handler \
 	test_message_routing \
+	test_databases \
 	$(NULL)
 
 # noinst_PROGRAMS =  \
@@ -46,6 +48,7 @@ libpeers_la_SOURCES = \
 	data_structs.vala \
 	map_handler.vala \
 	message_routing.vala \
+	databases.vala \
 	utils.vala \
 	$(NULL)
 
@@ -241,6 +244,54 @@ test_message_routing_CPPFLAGS = \
 	$(NULL)
 
 test_message_routing_LDADD = \
+	$(GOBJECT_LIBS) \
+	$(GEE_LIBS) \
+	$(JSONGLIB_LIBS) \
+	$(TASKLETSYSTEM_LIBS) \
+	$(PTHTASKLET_LIBS) \
+	$(NTKDCOMMON_LIBS) \
+	$(NTKDRPC_LIBS) \
+	$(NULL)
+
+# test_databases does some tests on internal classes, hence we need to compile
+#  it with source files, not with the convenience library. The source files
+#  are symbolic links to avoid name clashes with vala-generated C files.
+test_databases_SOURCES = \
+	testsuites/databases/test_databases.vala \
+	testsuites/databases/databases.vala \
+	testsuites/databases/message_routing.vala \
+	testsuites/databases/serializables.vala \
+	testsuites/databases/utils.vala \
+	testsuites/databases/data_structs.vala \
+	$(NULL)
+
+test_databases_VALAFLAGS = \
+	--vapidir $(GEE_PREFIX)/share/vala/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
+	--vapidir $(PTHTASKLET_VAPIDIR) \
+	--vapidir $(NTKDCOMMON_VAPIDIR) \
+	--vapidir $(NTKDRPC_VAPIDIR) \
+	--pkg gee-0.8 \
+	--pkg json-glib-1.0 \
+	--pkg tasklet-system \
+	--pkg pth-tasklet \
+	--pkg ntkd-common \
+	--pkg ntkdrpc \
+	$(NULL)
+
+test_databases_CPPFLAGS = \
+	-w \
+	$(GOBJECT_CFLAGS) \
+	$(GEE_CFLAGS) \
+	$(JSONGLIB_CFLAGS) \
+	$(TASKLETSYSTEM_CFLAGS) \
+	$(PTHTASKLET_CFLAGS) \
+	$(NTKDCOMMON_CFLAGS) \
+	$(NTKDRPC_CFLAGS) \
+	$(NULL)
+
+test_databases_LDADD = \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \

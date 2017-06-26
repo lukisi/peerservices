@@ -3,6 +3,7 @@ serializables.c
 data_structs.c
 map_handler.c
 message_routing.c
+databases.c
 utils.c
 peers.h
 peers.vapi
@@ -26,6 +27,12 @@ testsuites/message_routing/serializables.c
 testsuites/message_routing/test_message_routing.c
 testsuites/message_routing/utils.c
 testsuites/message_routing/data_structs.c
+testsuites/databases/databases.c
+testsuites/databases/message_routing.c
+testsuites/databases/serializables.c
+testsuites/databases/test_databases.c
+testsuites/databases/utils.c
+testsuites/databases/data_structs.c
 testsuites/simulator/simulator.c
 testsuites/simulator/simulator_debug.c
 testsuites/simulator/service_ttl_100.c
