@@ -589,6 +589,34 @@ class PeersTester : Object
             message_routing.set_response(msg_id, response, (PeerTupleNode)respondant);
             // Done.
         }
+
+        public void rpc_set_failure
+        (int msg_id, IPeerTupleGNode tuple)
+        {
+            // check that interfaces are ok
+            if (!(tuple is PeerTupleGNode))
+            {
+                warning("bad request rpc: set_failure, invalid tuple.");
+                tasklet.exit_tasklet(null);
+            }
+            // Call method of message_routing.
+            message_routing.set_failure(msg_id, (PeerTupleGNode)tuple);
+            // Done.
+        }
+
+        public void rpc_set_next_destination
+        (int msg_id, IPeerTupleGNode tuple)
+        {
+            // check that interfaces are ok
+            if (!(tuple is PeerTupleGNode))
+            {
+                warning("bad request rpc: set_next_destination, invalid tuple.");
+                tasklet.exit_tasklet(null);
+            }
+            // Call method of message_routing.
+            message_routing.set_next_destination(msg_id, (PeerTupleGNode)tuple);
+            // Done.
+        }
     }
 
     class FakeCallerInfo : CallerInfo
@@ -672,7 +700,15 @@ class PeersTester : Object
 
         public void set_failure (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
         {
-            error("not implemented yet");
+            assert(by_gateway == null);
+            assert(internally != null);
+            // This is a stub that connects via TCP and waits for answer.
+
+            // Here we could simulate StubError
+            tasklet.ms_wait(2); // simulates network latency
+            if (! internally.inside_min_common_gnode) warning("Tuple in message_forwarder is wider than expected");
+            SimNode srv_client = internally.node;
+            srv_client.rpc_set_failure(msg_id, tuple);
         }
 
         public void set_missing_optional_maps (int msg_id) throws StubError, DeserializeError
@@ -682,7 +718,15 @@ class PeersTester : Object
 
         public void set_next_destination (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
         {
-            error("not implemented yet");
+            assert(by_gateway == null);
+            assert(internally != null);
+            // This is a stub that connects via TCP and waits for answer.
+
+            // Here we could simulate StubError
+            tasklet.ms_wait(2); // simulates network latency
+            if (! internally.inside_min_common_gnode) warning("Tuple in message_forwarder is wider than expected");
+            SimNode srv_client = internally.node;
+            srv_client.rpc_set_next_destination(msg_id, tuple);
         }
 
         public void set_non_participant (int msg_id, IPeerTupleGNode tuple) throws StubError, DeserializeError
