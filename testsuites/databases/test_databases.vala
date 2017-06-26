@@ -43,6 +43,16 @@ Object dup_object(Object obj)
     return ret;
 }
 
+namespace Srv01Names {
+    const string Mark = "Mark";
+    const string John = "John";
+    const string Luke = "Luke";
+    const string Stef = "Stef";
+    const string Sue = "Sue";
+    const string Bob = "Bob";
+    const string Clark = "Clark";
+}
+
 class PeersTester : Object
 {
     public void set_up ()
@@ -52,6 +62,15 @@ class PeersTester : Object
     public void tear_down ()
     {
     }
+
+    private SimNode node_a;
+    private SimNode node_b;
+    private SimNode node_c;
+    private SimNode node_d;
+    private SimNode node_e;
+    private SimNode node_f;
+    private SimNode node_g;
+    private SimNode node_h;
 
     public void prepare_network()
     {
@@ -66,14 +85,14 @@ class PeersTester : Object
         var h30 = new HCoord(3,0);
         var h31 = new HCoord(3,1);
         // g-node 1:1:0
-        var node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}));
-        var node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}));
+        node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}));
+        node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}));
         assert(node_a.exists_gnode(h00));
         node_a.add_gateway_to_gnode(node_b, h00);
         assert(node_b.exists_gnode(h01));
         node_b.add_gateway_to_gnode(node_a, h01);
         // g-node 1:1:1
-        var node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}));
+        node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}));
         // g-node 1:1
         assert(node_a.exists_gnode(h11));
         node_a.add_gateway_to_gnode(node_b, h11);
@@ -82,15 +101,15 @@ class PeersTester : Object
         assert(node_c.exists_gnode(h10));
         node_c.add_gateway_to_gnode(node_b, h10);
         // g-node 1:0:1
-        var node_e = new SimNode(this, "e", new ArrayList<int>.wrap({1,1,0,1}));
-        var node_h = new SimNode(this, "h", new ArrayList<int>.wrap({0,1,0,1}));
+        node_e = new SimNode(this, "e", new ArrayList<int>.wrap({1,1,0,1}));
+        node_h = new SimNode(this, "h", new ArrayList<int>.wrap({0,1,0,1}));
         assert(node_e.exists_gnode(h00));
         node_e.add_gateway_to_gnode(node_h, h00);
         assert(node_h.exists_gnode(h01));
         node_h.add_gateway_to_gnode(node_e, h01);
         // g-node 1:0:0
-        var node_f = new SimNode(this, "f", new ArrayList<int>.wrap({1,0,0,1}));
-        var node_g = new SimNode(this, "g", new ArrayList<int>.wrap({0,0,0,1}));
+        node_f = new SimNode(this, "f", new ArrayList<int>.wrap({1,0,0,1}));
+        node_g = new SimNode(this, "g", new ArrayList<int>.wrap({0,0,0,1}));
         assert(node_f.exists_gnode(h00));
         node_f.add_gateway_to_gnode(node_g, h00);
         assert(node_g.exists_gnode(h01));
@@ -129,7 +148,7 @@ class PeersTester : Object
         assert(node_g.exists_gnode(h21));
         node_g.add_gateway_to_gnode(node_f, h21);
         // g-node 0
-        var node_d = new SimNode(this, "d", new ArrayList<int>.wrap({0,1,1,0}));
+        node_d = new SimNode(this, "d", new ArrayList<int>.wrap({0,1,1,0}));
         // whole net
         assert(node_a.exists_gnode(h30));
         node_a.add_gateway_to_gnode(node_b, h30);
@@ -264,6 +283,38 @@ class PeersTester : Object
         public HashMap<HCoord, Gee.List<SimNode>> network_by_hcoord;
         public HashMap<string,TupleStub> stub_by_tuple;
         private MessageRouting.MessageRouting message_routing;
+        private Databases.Databases databases;
+
+        // Service 01: name-telephone directory
+        private HashMap<string,string> db_part;
+        private class RequestStore : Object, IPeersRequest
+        {
+            public string name {public set; public get;}
+            public string number {public set; public get;}
+        }
+        private class ResponseStoreOk : Object, IPeersResponse
+        {
+        }
+        private class RequestRetr : Object, IPeersRequest
+        {
+            public string name {public set; public get;}
+        }
+        private class ResponseRetrOk : Object, IPeersResponse
+        {
+            public string name {public set; public get;}
+            public string number {public set; public get;}
+        }
+        private class ResponseRetrNotFound : Object, IPeersResponse
+        {
+        }
+        private class RequestReplica : Object, IPeersRequest
+        {
+            public string name {public set; public get;}
+            public string number {public set; public get;}
+        }
+        private class ResponseReplicaOk : Object, IPeersResponse
+        {
+        }
 
         public SimNode(PeersTester tester, string name, Gee.List<int> pos)
         {
@@ -359,11 +410,52 @@ class PeersTester : Object
                      // Could throw PeersRefuseExecutionError, PeersRedoFromStartError.
                      if (p_id == 1)
                      {
-                         error("not implemented yet");
+                         if (req is RequestReplica)
+                         {
+                             RequestReplica _req = (RequestReplica)req;
+                             print(@"SimNode $(name): replica for '$(_req.name)' => '$(_req.number)'.\n");
+                             db_part[_req.name] = _req.number;
+                             ret = new ResponseReplicaOk();
+                         }
+                         else assert_not_reached();
                      }
                      else assert_not_reached();
                      return ret;
                  });
+
+            databases = new Databases.Databases
+                (pos, tester.gsizes,
+                 /* contact_peer     = */  (/*int*/ p_id,
+                                            /*bool*/ optional,
+                                            /*PeerTupleNode*/ x_macron,
+                                            /*IPeersRequest*/ request,
+                                            /*int*/ timeout_exec,
+                                            /*bool*/ exclude_myself,
+                                            out /*PeerTupleNode?*/ respondant,
+                                            /*PeerTupleGNodeContainer?*/ exclude_tuple_list) => {
+                     IPeersResponse ret;
+                     try {
+                         // Call method of message_routing.
+                         ret = message_routing.contact_peer
+                             (p_id,
+                              optional,
+                              x_macron,
+                              request,
+                              timeout_exec,
+                              exclude_myself,
+                              out respondant,
+                              exclude_tuple_list);
+                         // Done.
+                     } catch (PeersNoParticipantsInNetworkError e) {
+                         assert_not_reached();
+                     } catch (PeersDatabaseError e) {
+                         assert_not_reached();
+                     }
+                     return ret;
+                 });
+
+            // Service 01: name-telephone directory
+            db_part = new HashMap<string,string>();
         }
 
         private void add_knowledge_node(SimNode other)
@@ -420,6 +512,29 @@ class PeersTester : Object
                 }
             }
             return count;
+        }
+
+        public void fake_servant_store_and_replica(string name, string number, PeerTupleNode x_macron)
+        {
+            int p_id = 1;
+            bool optional = false;
+
+            print(@"SimNode $(this.name): store for '$(name)' => '$(number)'.\n");
+            db_part[name] = number;
+
+            RequestReplica request = new RequestReplica();
+            request.name = name;
+            request.number = number;
+
+            IPeersResponse? resp;
+            Databases.IPeersContinuation cont;
+            int q = 5;
+            bool ret = databases.begin_replica(q, p_id, optional, x_macron.tuple,
+                                               request, 1000, out resp, out cont);
+            while (ret)
+            {
+                ret = databases.next_replica(cont, out resp);
+            }
         }
 
         public void rpc_forward_peer_message(PeerMessageForwarder mf, SimNode caller)
@@ -607,7 +722,16 @@ class PeersTester : Object
     public void test_bar()
     {
         prepare_network();
-        // TODO
+        tasklet.ms_wait(10);
+
+        // Now suppose a service request has been done to save a record
+        //  and the servant is node_e = 1:0:1:1.
+        string name = Srv01Names.Mark;
+        PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
+        string number = "555 1234";
+        node_e.fake_servant_store_and_replica(name, number, x_macron);
+
+        tasklet.ms_wait(10);
     }
 
     public static int main(string[] args)
