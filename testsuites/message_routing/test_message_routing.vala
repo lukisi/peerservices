@@ -752,7 +752,7 @@ class PeersTester : Object
             if (!(respondant is PeerTupleNode))
             {
                 warning("bad request rpc: get_request, invalid respondant.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             return
@@ -768,7 +768,7 @@ class PeersTester : Object
             if (!(respondant is PeerTupleNode))
             {
                 warning("bad request rpc: set_response, invalid respondant.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_response(msg_id, response, (PeerTupleNode)respondant);
@@ -782,7 +782,7 @@ class PeersTester : Object
             if (!(tuple is PeerTupleGNode))
             {
                 warning("bad request rpc: set_failure, invalid tuple.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_failure(msg_id, (PeerTupleGNode)tuple);
@@ -796,7 +796,7 @@ class PeersTester : Object
             if (!(tuple is PeerTupleGNode))
             {
                 warning("bad request rpc: set_next_destination, invalid tuple.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_next_destination(msg_id, (PeerTupleGNode)tuple);

@@ -1433,7 +1433,7 @@ namespace Netsukuku.PeerServices
             if (!(respondant is PeerTupleNode))
             {
                 warning("bad request rpc: get_request, invalid respondant.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             return
@@ -1449,7 +1449,7 @@ namespace Netsukuku.PeerServices
             if (!(respondant is PeerTupleNode))
             {
                 warning("bad request rpc: set_response, invalid respondant.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_response(msg_id, response, (PeerTupleNode)respondant);
@@ -1463,7 +1463,7 @@ namespace Netsukuku.PeerServices
             if (!(respondant is PeerTupleNode))
             {
                 warning("bad request rpc: set_refuse_message, invalid respondant.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_refuse_message(msg_id, refuse_message, (PeerTupleNode)respondant);
@@ -1477,7 +1477,7 @@ namespace Netsukuku.PeerServices
             if (!(respondant is PeerTupleNode))
             {
                 warning("bad request rpc: set_redo_from_start, invalid respondant.");
-                tasklet.exit_tasklet(null);
+                tasklet.exit_tasklet();
             }
             // Call method of message_routing.
             message_routing.set_redo_from_start(msg_id, (PeerTupleNode)respondant);
@@ -1490,7 +1490,7 @@ namespace Netsukuku.PeerServices
             // check that interfaces are ok
             if (! (tuple is PeerTupleGNode))
             {
-                debug("bad request rpc: set_next_destination, invalid tuple.");
+                warning("bad request rpc: set_next_destination, invalid tuple.");
                 tasklet.exit_tasklet();
             }
             // Call method of message_routing.
@@ -1504,7 +1504,7 @@ namespace Netsukuku.PeerServices
             // check that interfaces are ok
             if (! (tuple is PeerTupleGNode))
             {
-                debug("bad request rpc: set_failure, invalid tuple.");
+                warning("bad request rpc: set_failure, invalid tuple.");
                 tasklet.exit_tasklet();
             }
             // Call method of message_routing.
@@ -1518,7 +1518,7 @@ namespace Netsukuku.PeerServices
             // check that interfaces are ok
             if (! (tuple is PeerTupleGNode))
             {
-                debug("bad request rpc: set_non_participant, invalid tuple.");
+                warning("bad request rpc: set_non_participant, invalid tuple.");
                 tasklet.exit_tasklet();
             }
             // Call method of message_routing.
