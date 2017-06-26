@@ -433,25 +433,17 @@ class PeersTester : Object
                                             /*bool*/ exclude_myself,
                                             out /*PeerTupleNode?*/ respondant,
                                             /*PeerTupleGNodeContainer?*/ exclude_tuple_list) => {
-                     IPeersResponse ret;
-                     try {
-                         // Call method of message_routing.
-                         ret = message_routing.contact_peer
-                             (p_id,
-                              optional,
-                              x_macron,
-                              request,
-                              timeout_exec,
-                              exclude_myself,
-                              out respondant,
-                              exclude_tuple_list);
-                         // Done.
-                     } catch (PeersNoParticipantsInNetworkError e) {
-                         assert_not_reached();
-                     } catch (PeersDatabaseError e) {
-                         assert_not_reached();
-                     }
-                     return ret;
+                     // Call method of message_routing.
+                     return message_routing.contact_peer
+                         (p_id,
+                          optional,
+                          x_macron,
+                          request,
+                          timeout_exec,
+                          exclude_myself,
+                          out respondant,
+                          exclude_tuple_list);
+                     // Done.
                  });
 
             // Service 01: name-telephone directory
@@ -514,7 +506,7 @@ class PeersTester : Object
             return count;
         }
 
-        public void fake_servant_store_and_replica(string name, string number, PeerTupleNode x_macron)
+        public void fake_servant_store_and_replica(string name, string number, PeerTupleNode x_macron, int quantity)
         {
             int p_id = 1;
             bool optional = false;
@@ -528,8 +520,7 @@ class PeersTester : Object
 
             IPeersResponse? resp;
             Databases.IPeersContinuation cont;
-            int q = 5;
-            bool ret = databases.begin_replica(q, p_id, optional, x_macron.tuple,
+            bool ret = databases.begin_replica(quantity, p_id, optional, x_macron.tuple,
                                                request, 1000, out resp, out cont);
             while (ret)
             {
@@ -773,7 +764,8 @@ class PeersTester : Object
         string name = Srv01Names.Mark;
         PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
         string number = "555 1234";
-        node_e.fake_servant_store_and_replica(name, number, x_macron);
+        int quantity = 9;
+        node_e.fake_servant_store_and_replica(name, number, x_macron, quantity);
 
         tasklet.ms_wait(10);
     }

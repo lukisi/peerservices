@@ -32,7 +32,8 @@ namespace Netsukuku.PeerServices.Databases
           int timeout_exec,
           bool exclude_myself,
           out PeerTupleNode? respondant,
-          PeerTupleGNodeContainer? exclude_tuple_list=null);
+          PeerTupleGNodeContainer? exclude_tuple_list=null)
+         throws PeersNoParticipantsInNetworkError, PeersDatabaseError;
 
     public interface IPeersContinuation : Object
     {
