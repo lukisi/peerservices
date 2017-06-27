@@ -426,7 +426,6 @@ class PeersTester : Object
             databases = new Databases.Databases
                 (pos, tester.gsizes,
                  /* contact_peer     = */  (/*int*/ p_id,
-                                            /*bool*/ optional,
                                             /*PeerTupleNode*/ x_macron,
                                             /*IPeersRequest*/ request,
                                             /*int*/ timeout_exec,
@@ -434,6 +433,8 @@ class PeersTester : Object
                                             out /*PeerTupleNode?*/ respondant,
                                             /*PeerTupleGNodeContainer?*/ exclude_tuple_list) => {
                      // Call method of message_routing.
+                     bool optional = is_service_optional(p_id);
+                     if (optional) wait_participation_maps(x_macron.tuple.size);
                      return message_routing.contact_peer
                          (p_id,
                           optional,
@@ -448,6 +449,17 @@ class PeersTester : Object
 
             // Service 01: name-telephone directory
             db_part = new HashMap<string,string>();
+        }
+
+        private bool is_service_optional(int p_id)
+        {
+            assert(p_id == 1); // The only service simulated in this testcase
+            return false;
+        }
+
+        private void wait_participation_maps(int target_levels)
+        {
+            assert_not_reached(); // The only service simulated in this testcase is not optional.
         }
 
         private void add_knowledge_node(SimNode other)
@@ -509,7 +521,7 @@ class PeersTester : Object
         public void fake_servant_store_and_replica(string name, string number, PeerTupleNode x_macron, int quantity)
         {
             int p_id = 1;
-            bool optional = false;
+            bool optional = is_service_optional(p_id);
 
             print(@"SimNode $(this.name): store for '$(name)' => '$(number)'.\n");
             db_part[name] = number;
@@ -520,7 +532,7 @@ class PeersTester : Object
 
             IPeersResponse? resp;
             Databases.IPeersContinuation cont;
-            bool ret = databases.begin_replica(quantity, p_id, optional, x_macron.tuple,
+            bool ret = databases.begin_replica(quantity, p_id, x_macron.tuple,
                                                request, 1000, out resp, out cont);
             while (ret)
             {
@@ -532,7 +544,7 @@ class PeersTester : Object
         {
             // check if mf.p_id is optional
             // In this testcase is always false.
-            bool optional = false;
+            bool optional = is_service_optional(mf.p_id);
             int maps_retrieved_below_level = tester.levels;
             // prepare CallerInfo
             FakeCallerInfo caller_info = new FakeCallerInfo(caller);

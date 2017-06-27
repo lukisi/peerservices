@@ -26,7 +26,6 @@ namespace Netsukuku.PeerServices.Databases
      */
     internal delegate IPeersResponse ContactPeer
          (int p_id,
-          bool optional,
           PeerTupleNode x_macron,
           IPeersRequest request,
           int timeout_exec,
@@ -67,7 +66,6 @@ namespace Netsukuku.PeerServices.Databases
         {
             public int q;
             public int p_id;
-            public bool optional;
             public PeerTupleNode x_macron;
             public IPeersRequest r;
             public int timeout_exec;
@@ -78,7 +76,6 @@ namespace Netsukuku.PeerServices.Databases
         public bool begin_replica
                 (int q,
                  int p_id,
-                 bool optional,
                  Gee.List<int> perfect_tuple,
                  IPeersRequest r,
                  int timeout_exec,
@@ -88,7 +85,6 @@ namespace Netsukuku.PeerServices.Databases
             ReplicaContinuation _cont = new ReplicaContinuation();
             _cont.q = q;
             _cont.p_id = p_id;
-            _cont.optional = optional;
             _cont.x_macron = new PeerTupleNode(perfect_tuple);
             _cont.r = r;
             _cont.timeout_exec = timeout_exec;
@@ -106,7 +102,7 @@ namespace Netsukuku.PeerServices.Databases
             PeerTupleNode respondant;
             try {
                 resp = contact_peer
-                    (_cont.p_id, _cont.optional, _cont.x_macron, _cont.r,
+                    (_cont.p_id, _cont.x_macron, _cont.r,
                      _cont.timeout_exec, true,
                      out respondant, _cont.exclude_tuple_list);
             } catch (PeersNoParticipantsInNetworkError e) {

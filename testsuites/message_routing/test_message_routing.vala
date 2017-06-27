@@ -577,6 +577,17 @@ class PeersTester : Object
             db_part = new HashMap<string,string>();
         }
 
+        private bool is_service_optional(int p_id)
+        {
+            assert(p_id == 1); // The only service simulated in this testcase
+            return false;
+        }
+
+        private void wait_participation_maps(int target_levels)
+        {
+            assert_not_reached(); // The only service simulated in this testcase is not optional.
+        }
+
         private void add_knowledge_node(SimNode other)
         {
             HCoord g = find_hcoord(pos, other.pos);
@@ -636,7 +647,7 @@ class PeersTester : Object
         public void srv01_store(string name, string number)
         {
             int p_id = 1;
-            bool optional = false;
+            bool optional = is_service_optional(p_id);
 
             // some pseudo-hash for hp(k)
             PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,1,1}));
@@ -646,6 +657,7 @@ class PeersTester : Object
                 x_macron = new PeerTupleNode(new ArrayList<int>.wrap({0,1,0,1}));
             if (name == Srv01Names.Clark)
                 x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,0}));
+            if (optional) wait_participation_maps(x_macron.tuple.size);
 
             RequestStore request = new RequestStore();
             request.name = name;
@@ -680,7 +692,7 @@ class PeersTester : Object
         public string? srv01_retr(string name)
         {
             int p_id = 1;
-            bool optional = false;
+            bool optional = is_service_optional(p_id);
 
             // some pseudo-hash for hp(k)
             PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,1,1}));
@@ -690,6 +702,7 @@ class PeersTester : Object
                 x_macron = new PeerTupleNode(new ArrayList<int>.wrap({0,1,0,1}));
             if (name == Srv01Names.Clark)
                 x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,0}));
+            if (optional) wait_participation_maps(x_macron.tuple.size);
 
             RequestRetr request = new RequestRetr();
             request.name = name;
