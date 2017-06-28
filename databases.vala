@@ -112,9 +112,17 @@ namespace Netsukuku.PeerServices.Databases
      */
     internal delegate bool IsServiceOptional(int p_id);
 
-    /* WaitParticipationMaps: Wait until the participation maps are retrieved up to a given level.
+    /* WaitParticipationMaps: Wait until the participation maps are retrieved below target_levels.
      */
-    internal delegate void WaitParticipationMaps(int level);
+    internal delegate void WaitParticipationMaps(int target_levels);
+
+    /* ComputeDist: Compute distance between 2 PeerTupleNode.
+     */
+    internal delegate int ComputeDist(PeerTupleNode x_macron, PeerTupleNode x);
+
+    /* GetNodesInMyGroup: Determine the number of nodes in my g-node of a given level.
+     */
+    internal delegate int GetNodesInMyGroup(int lvl);
 
     internal class Timer : Object
     {
@@ -156,6 +164,8 @@ namespace Netsukuku.PeerServices.Databases
         private AssertServiceRegistered assert_service_registered;
         private IsServiceOptional is_service_optional;
         private WaitParticipationMaps wait_participation_maps;
+        private ComputeDist compute_dist;
+        private GetNodesInMyGroup get_nodes_in_my_group;
 
         public Databases
         (Gee.List<int> pos,
@@ -163,7 +173,9 @@ namespace Netsukuku.PeerServices.Databases
          owned ContactPeer contact_peer,
          owned AssertServiceRegistered assert_service_registered,
          owned IsServiceOptional is_service_optional,
-         owned WaitParticipationMaps wait_participation_maps
+         owned WaitParticipationMaps wait_participation_maps,
+         owned ComputeDist compute_dist,
+         owned GetNodesInMyGroup get_nodes_in_my_group
          )
         {
             this.pos = new ArrayList<int>();
@@ -176,6 +188,8 @@ namespace Netsukuku.PeerServices.Databases
             this.assert_service_registered = (owned) assert_service_registered;
             this.is_service_optional = (owned) is_service_optional;
             this.wait_participation_maps = (owned) wait_participation_maps;
+            this.compute_dist = (owned) compute_dist;
+            this.get_nodes_in_my_group = (owned) get_nodes_in_my_group;
         }
 
         /* Algorithms to maintain a robust distributed database */

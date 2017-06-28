@@ -445,6 +445,23 @@ class PeersTester : Object
                           out respondant,
                           exclude_tuple_list);
                      // Done.
+                 },
+                 /* assert_service_registered = */  (/*int*/ p_id) => {
+                     assert(p_id == 1); // The only service simulated in this testcase
+                     // void
+                 },
+                 /* is_service_optional       = */  (/*int*/ p_id) => {
+                     return is_service_optional(p_id);
+                 },
+                 /* wait_participation_maps   = */  (/*int*/ target_levels) => {
+                     wait_participation_maps(target_levels);
+                 },
+                 /* compute_dist              = */  (/*PeerTupleNode*/ x_macron,
+                                                      /*PeerTupleNode*/ x) => {
+                     return message_routing.dist(x_macron, x);
+                 },
+                 /* get_nodes_in_my_group     = */  (/*int*/ lvl) => {
+                     return nodes_inside_my_gnode(lvl);
                  });
 
             // Service 01: name-telephone directory
