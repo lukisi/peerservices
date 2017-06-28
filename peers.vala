@@ -735,14 +735,18 @@ namespace Netsukuku.PeerServices
                 tdd.dh.not_found_keys.remove(k);
         }
 
-        public void ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id, bool new_network)
+        public void ttl_db_on_startup
+        (ITemporalDatabaseDescriptor tdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
         {
             assert(services.has_key(p_id));
             TtlDbOnStartupTasklet ts = new TtlDbOnStartupTasklet();
             ts.t = this;
             ts.tdd = tdd;
             ts.p_id = p_id;
-            ts.new_network = new_network;
+            ts.guest_gnode_level = guest_gnode_level;
+            ts.new_gnode_level = new_gnode_level;
+            ts.prev_id_tdd = prev_id_tdd;
             tasklet.spawn(ts);
         }
         private class TtlDbOnStartupTasklet : Object, ITaskletSpawnable
@@ -750,16 +754,21 @@ namespace Netsukuku.PeerServices
             public PeersManager t;
             public ITemporalDatabaseDescriptor tdd;
             public int p_id;
-            public bool new_network;
+            public int guest_gnode_level;
+            public int new_gnode_level;
+            public ITemporalDatabaseDescriptor? prev_id_tdd;
             public void * func()
             {
                 debug("starting tasklet_ttl_db_on_startup.\n");
-                t.tasklet_ttl_db_on_startup(tdd, p_id, new_network);
+                t.tasklet_ttl_db_on_startup
+                    (tdd, p_id, guest_gnode_level, new_gnode_level, prev_id_tdd);
                 debug("ending tasklet_ttl_db_on_startup.\n");
                 return null;
             }
         }
-        private void tasklet_ttl_db_on_startup(ITemporalDatabaseDescriptor tdd, int p_id, bool new_network)
+        private void tasklet_ttl_db_on_startup
+        (ITemporalDatabaseDescriptor tdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
         {
             PeerService srv = services[p_id];
             tdd.dh = new DatabaseHandler();
@@ -769,11 +778,29 @@ namespace Netsukuku.PeerServices
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
             debug("database handler is ready.\n");
-            if (new_network)
+            if (prev_id_tdd == null)
             {
                 tdd.dh.timer_default_not_exhaustive = null;
                 debug("we're exhaustive because it's a new network.\n");
                 return;
+            }
+            foreach (Object k in prev_id_tdd.ttl_db_get_all_keys())
+            {
+                var h_p_k = tdd.evaluate_hash_node(k);
+                int l = h_p_k.size;
+                if (guest_gnode_level >= l)
+                {
+                    if (prev_id_tdd.my_records_contains(k))
+                    {
+                        tdd.set_record_for_key(k, dup_object(prev_id_tdd.get_record_for_key(k)));
+                    }
+                    // else I am not exhaustive for key `k`
+                }
+                else if (new_gnode_level >= l)
+                {
+                    tdd.dh.not_found_keys.add(k);
+                }
+                // else I am not exhaustive for key `k`
             }
             IPeersRequest r = new RequestSendKeys(tdd.ttl_db_max_records);
             PeerTupleNode tuple_n;
@@ -1173,14 +1200,18 @@ namespace Netsukuku.PeerServices
             while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
         }
 
-        public void fixed_keys_db_on_startup(IFixedKeysDatabaseDescriptor fkdd, int p_id, int level_new_gnode)
+        public void fixed_keys_db_on_startup
+        (IFixedKeysDatabaseDescriptor fkdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
         {
             assert(services.has_key(p_id));
             FixedKeysDbOnStartupTasklet ts = new FixedKeysDbOnStartupTasklet();
             ts.t = this;
             ts.fkdd = fkdd;
             ts.p_id = p_id;
-            ts.level_new_gnode = level_new_gnode;
+            ts.guest_gnode_level = guest_gnode_level;
+            ts.new_gnode_level = new_gnode_level;
+            ts.prev_id_fkdd = prev_id_fkdd;
             tasklet.spawn(ts);
         }
         private class FixedKeysDbOnStartupTasklet : Object, ITaskletSpawnable
@@ -1188,16 +1219,21 @@ namespace Netsukuku.PeerServices
             public PeersManager t;
             public IFixedKeysDatabaseDescriptor fkdd;
             public int p_id;
-            public int level_new_gnode;
+            public int guest_gnode_level;
+            public int new_gnode_level;
+            public IFixedKeysDatabaseDescriptor? prev_id_fkdd;
             public void * func()
             {
                 debug("starting tasklet_fixed_keys_db_on_startup.\n");
-                t.tasklet_fixed_keys_db_on_startup(fkdd, p_id, level_new_gnode); 
+                t.tasklet_fixed_keys_db_on_startup
+                    (fkdd, p_id, guest_gnode_level, new_gnode_level, prev_id_fkdd);
                 debug("ending tasklet_fixed_keys_db_on_startup.\n");
                 return null;
             }
         }
-        private void tasklet_fixed_keys_db_on_startup(IFixedKeysDatabaseDescriptor fkdd, int p_id, int level_new_gnode)
+        private void tasklet_fixed_keys_db_on_startup
+        (IFixedKeysDatabaseDescriptor fkdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
         {
             PeerService srv = services[p_id];
             fkdd.dh = new DatabaseHandler();
@@ -1211,7 +1247,13 @@ namespace Netsukuku.PeerServices
             foreach (Object k in k_set)
             {
                 int l = fkdd.evaluate_hash_node(k).size;
-                if (level_new_gnode >= l)
+                if (guest_gnode_level >= l)
+                {
+                    assert(prev_id_fkdd != null);
+                    fkdd.set_record_for_key(k, prev_id_fkdd.get_record_for_key(k));
+                    fkdd.dh.not_completed_keys.remove(k);
+                }
+                else if (new_gnode_level >= l)
                 {
                     fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
                     fkdd.dh.not_completed_keys.remove(k);
