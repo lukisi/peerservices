@@ -764,15 +764,6 @@ namespace Netsukuku.PeerServices
             PeerService srv = services[p_id];
             tdd.dh = new DatabaseHandler();
             tdd.dh.p_id = p_id;
-            if (srv.p_is_optional)
-            {
-                // TODO search a mechanism to validate the situation
-                //   where maps_retrieved_below_level < levels.
-                if (maps_retrieved_below_level < levels)
-                {
-                    error("not implemented yet");
-                }
-            }
             tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
             tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
@@ -1143,6 +1134,8 @@ namespace Netsukuku.PeerServices
         }
         private void tasklet_ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k, IChannel ch)
         {
+            bool optional = is_service_optional(tdd.dh.p_id);
+            if (optional) wait_participation_maps(tdd.evaluate_hash_node(k).size);
             Object? record = null;
             IPeersRequest r = new RequestWaitThenSendRecord(k);
             try {
