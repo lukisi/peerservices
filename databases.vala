@@ -20,6 +20,76 @@ using Gee;
 using TaskletSystem;
 using Netsukuku.PeerServices;
 
+namespace Netsukuku.PeerServices
+{
+    public interface IPeersContinuation : Object
+    {
+    }
+
+    public class DatabaseHandler : Object
+    {
+        internal DatabaseHandler()
+        {
+            // ...
+        }
+        internal int p_id;
+        internal HashMap<Object,IChannel> retrieving_keys;
+        // for TTL-based services
+        internal HashMap<Object,Databases.Timer> not_exhaustive_keys;
+        internal ArrayList<Object> not_found_keys;
+        internal Databases.Timer? timer_default_not_exhaustive;
+        // for few-fixed-keys services
+        internal ArrayList<Object> not_completed_keys;
+    }
+
+    public interface IDatabaseDescriptor : Object
+    {
+        public abstract bool is_valid_key(Object k);
+        public abstract Gee.List<int> evaluate_hash_node(Object k);
+        public abstract bool key_equal_data(Object k1, Object k2);
+        public abstract uint key_hash_data(Object k);
+        public abstract bool is_valid_record(Object k, Object rec);
+        public abstract bool my_records_contains(Object k);
+        public abstract Object get_record_for_key(Object k);
+        public abstract void set_record_for_key(Object k, Object rec);
+
+        public abstract Object get_key_from_request(IPeersRequest r);
+        public abstract int get_timeout_exec(IPeersRequest r);
+        public abstract bool is_insert_request(IPeersRequest r);
+        public abstract bool is_read_only_request(IPeersRequest r);
+        public abstract bool is_update_request(IPeersRequest r);
+        public abstract bool is_replica_value_request(IPeersRequest r);
+        public abstract bool is_replica_delete_request(IPeersRequest r);
+        public abstract IPeersResponse prepare_response_not_found(IPeersRequest r);
+        public abstract IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec);
+        public abstract IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError;
+
+        public DatabaseHandler dh {get {return dh_getter();} set {dh_setter(value);}}
+        public abstract unowned DatabaseHandler dh_getter();
+        public abstract void dh_setter(DatabaseHandler x);
+    }
+
+    public interface ITemporalDatabaseDescriptor : Object, IDatabaseDescriptor
+    {
+        public int ttl_db_max_records {get {return ttl_db_max_records_getter();}}
+        public abstract int ttl_db_max_records_getter();
+        public abstract int ttl_db_my_records_size();
+        public int ttl_db_max_keys {get {return ttl_db_max_keys_getter();}}
+        public abstract int ttl_db_max_keys_getter();
+        public int ttl_db_msec_ttl {get {return ttl_db_msec_ttl_getter();}}
+        public abstract int ttl_db_msec_ttl_getter();
+        public abstract Gee.List<Object> ttl_db_get_all_keys();
+        public int ttl_db_timeout_exec_send_keys {get {return ttl_db_timeout_exec_send_keys_getter();}}
+        public abstract int ttl_db_timeout_exec_send_keys_getter();
+    }
+
+    public interface IFixedKeysDatabaseDescriptor : Object, IDatabaseDescriptor
+    {
+        public abstract Gee.List<Object> get_full_key_domain();
+        public abstract Object get_default_record_for_key(Object k);
+    }
+}
+
 namespace Netsukuku.PeerServices.Databases
 {
     /* ContactPeer: Start message to servant.
@@ -34,8 +104,35 @@ namespace Netsukuku.PeerServices.Databases
           PeerTupleGNodeContainer? exclude_tuple_list=null)
          throws PeersNoParticipantsInNetworkError, PeersDatabaseError;
 
-    public interface IPeersContinuation : Object
+    internal class Timer : Object
     {
+        private TimeVal start;
+        private long msec_ttl;
+        public Timer(long msec_ttl)
+        {
+            start = TimeVal();
+            start.get_current_time();
+            this.msec_ttl = msec_ttl;
+        }
+
+        private long get_lap()
+        {
+            TimeVal lap = TimeVal();
+            lap.get_current_time();
+            long sec = lap.tv_sec - start.tv_sec;
+            long usec = lap.tv_usec - start.tv_usec;
+            if (usec < 0)
+            {
+                usec += 1000000;
+                sec--;
+            }
+            return sec*1000000 + usec;
+        }
+
+        public bool is_expired()
+        {
+            return get_lap() > msec_ttl*1000;
+        }
     }
 
     internal class Databases : Object
@@ -114,6 +211,80 @@ namespace Netsukuku.PeerServices.Databases
             PeerTupleGNode respondant_as_gnode = new PeerTupleGNode(respondant.tuple, respondant.tuple.size);
             _cont.exclude_tuple_list.add(respondant_as_gnode);
             return _cont.replicas.size < _cont.q;
+        }
+
+        internal bool ttl_db_is_exhaustive(ITemporalDatabaseDescriptor tdd, Object k)
+        {
+            if (tdd.dh.not_exhaustive_keys.has_key(k))
+            {
+                assert(! (k in tdd.dh.not_found_keys));
+                if (tdd.dh.not_exhaustive_keys[k].is_expired())
+                    tdd.dh.not_exhaustive_keys.unset(k);
+                else return false;
+            }
+            if (k in tdd.dh.not_found_keys)
+            {
+                assert(! (tdd.dh.not_exhaustive_keys.has_key(k)));
+                return true;
+            }
+            if (tdd.dh.timer_default_not_exhaustive == null)
+                return true;
+            if (tdd.dh.timer_default_not_exhaustive.is_expired())
+            {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("TemporalDatabase becomes default_exhaustive\n");
+                return true;
+            }
+            return false;
+        }
+
+        internal bool ttl_db_is_out_of_memory(ITemporalDatabaseDescriptor tdd)
+        {
+            if (tdd.ttl_db_my_records_size() + tdd.dh.retrieving_keys.size >= tdd.ttl_db_max_records)
+                return true;
+            return false;
+        }
+
+        internal void ttl_db_add_not_exhaustive(ITemporalDatabaseDescriptor tdd, Object k)
+        {
+            int max_not_exhaustive_keys = tdd.ttl_db_max_keys / 2;
+            assert(! (k in tdd.dh.not_found_keys));
+            if (tdd.dh.not_exhaustive_keys.has_key(k))
+            {
+                tdd.dh.not_exhaustive_keys[k] = new Timer(tdd.ttl_db_msec_ttl);
+                return;
+            }
+            if (tdd.dh.not_exhaustive_keys.size < max_not_exhaustive_keys)
+            {
+                tdd.dh.not_exhaustive_keys[k] = new Timer(tdd.ttl_db_msec_ttl);
+                return;
+            }
+            tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
+            debug("TemporalDatabase becomes default_not_exhaustive\n");
+            tdd.dh.not_exhaustive_keys.clear();
+        }
+
+        internal void ttl_db_add_not_found(ITemporalDatabaseDescriptor tdd, Object k)
+        {
+            int max_not_found_keys = tdd.ttl_db_max_keys / 2;
+            assert(! (tdd.dh.not_exhaustive_keys.has_key(k)));
+            if (k in tdd.dh.not_found_keys)
+                tdd.dh.not_found_keys.remove(k);
+            if (tdd.dh.not_found_keys.size >= max_not_found_keys)
+                tdd.dh.not_found_keys.remove_at(0);
+            tdd.dh.not_found_keys.add(k);
+        }
+
+        internal void ttl_db_remove_not_exhaustive(ITemporalDatabaseDescriptor tdd, Object k)
+        {
+            if (tdd.dh.not_exhaustive_keys.has_key(k))
+                tdd.dh.not_exhaustive_keys.unset(k);
+        }
+
+        internal void ttl_db_remove_not_found(ITemporalDatabaseDescriptor tdd, Object k)
+        {
+            if (k in tdd.dh.not_found_keys)
+                tdd.dh.not_found_keys.remove(k);
         }
     }
 }

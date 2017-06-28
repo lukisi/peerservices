@@ -531,7 +531,7 @@ class PeersTester : Object
             request.number = number;
 
             IPeersResponse? resp;
-            Databases.IPeersContinuation cont;
+            IPeersContinuation cont;
             bool ret = databases.begin_replica(quantity, p_id, x_macron.tuple,
                                                request, 1000, out resp, out cont);
             while (ret)

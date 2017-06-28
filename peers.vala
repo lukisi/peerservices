@@ -110,104 +110,6 @@ namespace Netsukuku.PeerServices
     {
     }
 
-    public interface IPeersContinuation : Object
-    {
-    }
-
-    internal class Timer : Object
-    {
-        private TimeVal start;
-        private long msec_ttl;
-        public Timer(long msec_ttl)
-        {
-            start = TimeVal();
-            start.get_current_time();
-            this.msec_ttl = msec_ttl;
-        }
-
-        private long get_lap()
-        {
-            TimeVal lap = TimeVal();
-            lap.get_current_time();
-            long sec = lap.tv_sec - start.tv_sec;
-            long usec = lap.tv_usec - start.tv_usec;
-            if (usec < 0)
-            {
-                usec += 1000000;
-                sec--;
-            }
-            return sec*1000000 + usec;
-        }
-
-        public bool is_expired()
-        {
-            return get_lap() > msec_ttl*1000;
-        }
-    }
-
-    public class DatabaseHandler : Object
-    {
-        internal DatabaseHandler()
-        {
-            // ...
-        }
-        internal int p_id;
-        internal HashMap<Object,IChannel> retrieving_keys;
-        // for TTL-based services
-        internal HashMap<Object,Timer> not_exhaustive_keys;
-        internal ArrayList<Object> not_found_keys;
-        internal Timer? timer_default_not_exhaustive;
-        // for few-fixed-keys services
-        internal ArrayList<Object> not_completed_keys;
-    }
-
-    public interface IDatabaseDescriptor : Object
-    {
-        public abstract bool is_valid_key(Object k);
-        public abstract Gee.List<int> evaluate_hash_node(Object k);
-        public abstract bool key_equal_data(Object k1, Object k2);
-        public abstract uint key_hash_data(Object k);
-        public abstract bool is_valid_record(Object k, Object rec);
-        public abstract bool my_records_contains(Object k);
-        public abstract Object get_record_for_key(Object k);
-        public abstract void set_record_for_key(Object k, Object rec);
-
-        public abstract Object get_key_from_request(IPeersRequest r);
-        public abstract int get_timeout_exec(IPeersRequest r);
-        public abstract bool is_insert_request(IPeersRequest r);
-        public abstract bool is_read_only_request(IPeersRequest r);
-        public abstract bool is_update_request(IPeersRequest r);
-        public abstract bool is_replica_value_request(IPeersRequest r);
-        public abstract bool is_replica_delete_request(IPeersRequest r);
-        public abstract IPeersResponse prepare_response_not_found(IPeersRequest r);
-        public abstract IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec);
-        public abstract IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError;
-
-        public DatabaseHandler dh {get {return dh_getter();} set {dh_setter(value);}}
-        public abstract unowned DatabaseHandler dh_getter();
-        public abstract void dh_setter(DatabaseHandler x);
-    }
-
-    public interface ITemporalDatabaseDescriptor : Object, IDatabaseDescriptor
-    {
-        public int ttl_db_max_records {get {return ttl_db_max_records_getter();}}
-        public abstract int ttl_db_max_records_getter();
-        public abstract int ttl_db_my_records_size();
-        public int ttl_db_max_keys {get {return ttl_db_max_keys_getter();}}
-        public abstract int ttl_db_max_keys_getter();
-        public int ttl_db_msec_ttl {get {return ttl_db_msec_ttl_getter();}}
-        public abstract int ttl_db_msec_ttl_getter();
-        public abstract Gee.List<Object> ttl_db_get_all_keys();
-        public int ttl_db_timeout_exec_send_keys {get {return ttl_db_timeout_exec_send_keys_getter();}}
-        public abstract int ttl_db_timeout_exec_send_keys_getter();
-    }
-
-    public interface IFixedKeysDatabaseDescriptor : Object, IDatabaseDescriptor
-    {
-        public abstract Gee.List<Object> get_full_key_domain();
-        public abstract Object get_default_record_for_key(Object k);
-    }
-
     internal ITasklet tasklet;
     public class PeersManager : Object,
                                 IPeersManagerSkeleton
@@ -699,15 +601,15 @@ namespace Netsukuku.PeerServices
             assert(! (k in tdd.dh.not_found_keys));
             if (tdd.dh.not_exhaustive_keys.has_key(k))
             {
-                tdd.dh.not_exhaustive_keys[k] = new Timer(tdd.ttl_db_msec_ttl);
+                tdd.dh.not_exhaustive_keys[k] = new Databases.Timer(tdd.ttl_db_msec_ttl);
                 return;
             }
             if (tdd.dh.not_exhaustive_keys.size < max_not_exhaustive_keys)
             {
-                tdd.dh.not_exhaustive_keys[k] = new Timer(tdd.ttl_db_msec_ttl);
+                tdd.dh.not_exhaustive_keys[k] = new Databases.Timer(tdd.ttl_db_msec_ttl);
                 return;
             }
-            tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
+            tdd.dh.timer_default_not_exhaustive = new Databases.Timer(tdd.ttl_db_msec_ttl);
             debug("TemporalDatabase becomes default_not_exhaustive\n");
             tdd.dh.not_exhaustive_keys.clear();
         }
@@ -773,9 +675,9 @@ namespace Netsukuku.PeerServices
             PeerService srv = services[p_id];
             tdd.dh = new DatabaseHandler();
             tdd.dh.p_id = p_id;
-            tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
+            tdd.dh.timer_default_not_exhaustive = new Databases.Timer(tdd.ttl_db_msec_ttl);
             tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
-            tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
+            tdd.dh.not_exhaustive_keys = new HashMap<Object, Databases.Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
             debug("database handler is ready.\n");
             if (prev_id_tdd == null)
@@ -821,7 +723,7 @@ namespace Netsukuku.PeerServices
                 debug("we're exhaustive because nobody participates.\n");
                 return;
             }
-            Timer timer_startup = new Timer(tdd.ttl_db_msec_ttl / 10);
+            Databases.Timer timer_startup = new Databases.Timer(tdd.ttl_db_msec_ttl / 10);
             try
             {
                 if (_ret is RequestSendKeysResponse)
