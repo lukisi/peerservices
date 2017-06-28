@@ -145,6 +145,7 @@ namespace Netsukuku.PeerServices
         private PeerParticipantSet map;
         private Gee.List<int> my_services;
         private MessageRouting.MessageRouting message_routing;
+        private Databases.Databases databases;
 
         public PeersManager
         (PeersManager? old_identity,
@@ -241,6 +242,46 @@ namespace Netsukuku.PeerServices
                 if (participant_maps.has_key(p_id))
                     participant_maps[p_id].participant_list.remove(g);
             });
+
+            databases = new Databases.Databases
+                (new ArrayList<int>.wrap(pos), new ArrayList<int>.wrap(gsizes),
+                 /* contact_peer     = */  (/*int*/ p_id,
+                                            /*PeerTupleNode*/ x_macron,
+                                            /*IPeersRequest*/ request,
+                                            /*int*/ timeout_exec,
+                                            /*bool*/ exclude_myself,
+                                            out /*PeerTupleNode?*/ respondant,
+                                            /*PeerTupleGNodeContainer?*/ exclude_tuple_list) => {
+                     // Call method of message_routing.
+                     bool optional = is_service_optional(p_id);
+                     if (optional) wait_participation_maps(x_macron.tuple.size);
+                     return message_routing.contact_peer
+                         (p_id,
+                          optional,
+                          x_macron,
+                          request,
+                          timeout_exec,
+                          exclude_myself,
+                          out respondant,
+                          exclude_tuple_list);
+                     // Done.
+                 },
+                 /* assert_service_registered = */  (/*int*/ p_id) => {
+                     assert(services.has_key(p_id));
+                 },
+                 /* is_service_optional       = */  (/*int*/ p_id) => {
+                     return is_service_optional(p_id);
+                 },
+                 /* wait_participation_maps   = */  (/*int*/ target_levels) => {
+                     wait_participation_maps(target_levels);
+                 },
+                 /* compute_dist              = */  (/*PeerTupleNode*/ x_macron,
+                                                      /*PeerTupleNode*/ x) => {
+                     return message_routing.dist(x_macron, x);
+                 },
+                 /* get_nodes_in_my_group     = */  (/*int*/ lvl) => {
+                     return map_paths.i_peers_get_nodes_in_my_group(lvl);
+                 });
         }
 
         private void participate(int p_id)
@@ -508,17 +549,6 @@ namespace Netsukuku.PeerServices
 
         /* Algorithms to maintain a robust distributed database */
 
-        private class ReplicaContinuation : Object, IPeersContinuation
-        {
-            public int q;
-            public int p_id;
-            public PeerTupleNode x_macron;
-            public IPeersRequest r;
-            public int timeout_exec;
-            public ArrayList<PeerTupleNode> replicas;
-            public PeerTupleGNodeContainer exclude_tuple_list;
-        }
-
         public bool begin_replica
                 (int q,
                  int p_id,
@@ -528,578 +558,29 @@ namespace Netsukuku.PeerServices
                  out IPeersResponse? resp,
                  out IPeersContinuation cont)
         {
-            ReplicaContinuation _cont = new ReplicaContinuation();
-            _cont.q = q;
-            _cont.p_id = p_id;
-            _cont.x_macron = new PeerTupleNode(perfect_tuple);
-            _cont.r = r;
-            _cont.timeout_exec = timeout_exec;
-            _cont.replicas = new ArrayList<PeerTupleNode>();
-            _cont.exclude_tuple_list = new PeerTupleGNodeContainer(_cont.x_macron.tuple.size);
-            cont = _cont;
-            return next_replica(cont, out resp);
+            return databases.begin_replica
+                (q, p_id, perfect_tuple, r, timeout_exec, out resp, out cont);
         }
 
         public bool next_replica(IPeersContinuation cont, out IPeersResponse? resp)
         {
-            ReplicaContinuation _cont = (ReplicaContinuation)cont;
-            resp = null;
-            if (_cont.replicas.size >= _cont.q) return false;
-            PeerTupleNode respondant;
-            try {
-                debug("starting contact_peer for a request of replica.\n");
-                resp = contact_peer
-                    (_cont.p_id, _cont.x_macron, _cont.r,
-                     _cont.timeout_exec, true,
-                     out respondant, _cont.exclude_tuple_list);
-            } catch (PeersNoParticipantsInNetworkError e) {
-                return false;
-            } catch (PeersDatabaseError e) {
-                return false;
-            }
-            _cont.replicas.add(respondant);
-            PeerTupleGNode respondant_as_gnode = new PeerTupleGNode(respondant.tuple, respondant.tuple.size);
-            _cont.exclude_tuple_list.add(respondant_as_gnode);
-            return _cont.replicas.size < _cont.q; 
-        }
-
-        internal bool ttl_db_is_exhaustive(ITemporalDatabaseDescriptor tdd, Object k)
-        {
-            if (tdd.dh.not_exhaustive_keys.has_key(k))
-            {
-                assert(! (k in tdd.dh.not_found_keys));
-                if (tdd.dh.not_exhaustive_keys[k].is_expired())
-                    tdd.dh.not_exhaustive_keys.unset(k);
-                else return false;
-            }
-            if (k in tdd.dh.not_found_keys)
-            {
-                assert(! (tdd.dh.not_exhaustive_keys.has_key(k)));
-                return true;
-            }
-            if (tdd.dh.timer_default_not_exhaustive == null)
-                return true;
-            if (tdd.dh.timer_default_not_exhaustive.is_expired())
-            {
-                tdd.dh.timer_default_not_exhaustive = null;
-                debug("TemporalDatabase becomes default_exhaustive\n");
-                return true;
-            }
-            return false;
-        }
-
-        internal bool ttl_db_is_out_of_memory(ITemporalDatabaseDescriptor tdd)
-        {
-            if (tdd.ttl_db_my_records_size() + tdd.dh.retrieving_keys.size >= tdd.ttl_db_max_records)
-                return true;
-            return false;
-        }
-
-        internal void ttl_db_add_not_exhaustive(ITemporalDatabaseDescriptor tdd, Object k)
-        {
-            int max_not_exhaustive_keys = tdd.ttl_db_max_keys / 2;
-            assert(! (k in tdd.dh.not_found_keys));
-            if (tdd.dh.not_exhaustive_keys.has_key(k))
-            {
-                tdd.dh.not_exhaustive_keys[k] = new Databases.Timer(tdd.ttl_db_msec_ttl);
-                return;
-            }
-            if (tdd.dh.not_exhaustive_keys.size < max_not_exhaustive_keys)
-            {
-                tdd.dh.not_exhaustive_keys[k] = new Databases.Timer(tdd.ttl_db_msec_ttl);
-                return;
-            }
-            tdd.dh.timer_default_not_exhaustive = new Databases.Timer(tdd.ttl_db_msec_ttl);
-            debug("TemporalDatabase becomes default_not_exhaustive\n");
-            tdd.dh.not_exhaustive_keys.clear();
-        }
-
-        internal void ttl_db_add_not_found(ITemporalDatabaseDescriptor tdd, Object k)
-        {
-            int max_not_found_keys = tdd.ttl_db_max_keys / 2;
-            assert(! (tdd.dh.not_exhaustive_keys.has_key(k)));
-            if (k in tdd.dh.not_found_keys)
-                tdd.dh.not_found_keys.remove(k);
-            if (tdd.dh.not_found_keys.size >= max_not_found_keys)
-                tdd.dh.not_found_keys.remove_at(0);
-            tdd.dh.not_found_keys.add(k);
-        }
-
-        internal void ttl_db_remove_not_exhaustive(ITemporalDatabaseDescriptor tdd, Object k)
-        {
-            if (tdd.dh.not_exhaustive_keys.has_key(k))
-                tdd.dh.not_exhaustive_keys.unset(k);
-        }
-
-        internal void ttl_db_remove_not_found(ITemporalDatabaseDescriptor tdd, Object k)
-        {
-            if (k in tdd.dh.not_found_keys)
-                tdd.dh.not_found_keys.remove(k);
+            return databases.next_replica
+                (cont, out resp);
         }
 
         public void ttl_db_on_startup
         (ITemporalDatabaseDescriptor tdd, int p_id,
          int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
         {
-            assert(services.has_key(p_id));
-            TtlDbOnStartupTasklet ts = new TtlDbOnStartupTasklet();
-            ts.t = this;
-            ts.tdd = tdd;
-            ts.p_id = p_id;
-            ts.guest_gnode_level = guest_gnode_level;
-            ts.new_gnode_level = new_gnode_level;
-            ts.prev_id_tdd = prev_id_tdd;
-            tasklet.spawn(ts);
-        }
-        private class TtlDbOnStartupTasklet : Object, ITaskletSpawnable
-        {
-            public PeersManager t;
-            public ITemporalDatabaseDescriptor tdd;
-            public int p_id;
-            public int guest_gnode_level;
-            public int new_gnode_level;
-            public ITemporalDatabaseDescriptor? prev_id_tdd;
-            public void * func()
-            {
-                debug("starting tasklet_ttl_db_on_startup.\n");
-                t.tasklet_ttl_db_on_startup
-                    (tdd, p_id, guest_gnode_level, new_gnode_level, prev_id_tdd);
-                debug("ending tasklet_ttl_db_on_startup.\n");
-                return null;
-            }
-        }
-        private void tasklet_ttl_db_on_startup
-        (ITemporalDatabaseDescriptor tdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
-        {
-            PeerService srv = services[p_id];
-            tdd.dh = new DatabaseHandler();
-            tdd.dh.p_id = p_id;
-            tdd.dh.timer_default_not_exhaustive = new Databases.Timer(tdd.ttl_db_msec_ttl);
-            tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
-            tdd.dh.not_exhaustive_keys = new HashMap<Object, Databases.Timer>(tdd.key_hash_data, tdd.key_equal_data);
-            tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
-            debug("database handler is ready.\n");
-            if (prev_id_tdd == null)
-            {
-                tdd.dh.timer_default_not_exhaustive = null;
-                debug("we're exhaustive because it's a new network.\n");
-                return;
-            }
-            foreach (Object k in prev_id_tdd.ttl_db_get_all_keys())
-            {
-                var h_p_k = tdd.evaluate_hash_node(k);
-                int l = h_p_k.size;
-                if (guest_gnode_level >= l)
-                {
-                    if (prev_id_tdd.my_records_contains(k))
-                    {
-                        tdd.set_record_for_key(k, dup_object(prev_id_tdd.get_record_for_key(k)));
-                    }
-                    // else I am not exhaustive for key `k`
-                }
-                else if (new_gnode_level >= l)
-                {
-                    tdd.dh.not_found_keys.add(k);
-                }
-                // else I am not exhaustive for key `k`
-            }
-            IPeersRequest r = new RequestSendKeys(tdd.ttl_db_max_records);
-            PeerTupleNode tuple_n;
-            PeerTupleNode respondant;
-            IPeersResponse _ret;
-            try
-            {
-                tuple_n = make_tuple_node(new HCoord(0, pos[0]), levels);
-                debug("starting contact_peer for a request of send_keys.\n");
-                _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
-                debug("returned from contact_peer for a request of send_keys.\n");
-            } catch (PeersNoParticipantsInNetworkError e) {
-                tdd.dh.timer_default_not_exhaustive = null;
-                debug("we're exhaustive because nobody participates.\n");
-                return;
-            } catch (PeersDatabaseError e) {
-                tdd.dh.timer_default_not_exhaustive = null;
-                debug("we're exhaustive because nobody participates.\n");
-                return;
-            }
-            Databases.Timer timer_startup = new Databases.Timer(tdd.ttl_db_msec_ttl / 10);
-            try
-            {
-                if (_ret is RequestSendKeysResponse)
-                {
-                    RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
-                    debug(@"it is a valid response with $(ret.keys.size) keys.\n");
-                    foreach (Object k in ret.keys)
-                    {
-                        if (! ttl_db_is_out_of_memory(tdd))
-                        {
-                            if (tdd.is_valid_key(k))
-                            {
-                                if ((! tdd.my_records_contains(k)) &&
-                                    (! ttl_db_is_exhaustive(tdd, k)) &&
-                                    (! tdd.dh.retrieving_keys.has_key(k)))
-                                {
-                                    PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
-                                    int l = h_p_k.tuple.size;
-                                    int @case;
-                                    HCoord gn;
-                                    convert_tuple_gnode(tuple_node_to_tuple_gnode(respondant), out @case, out gn);
-                                    if (gn.lvl <= l)
-                                    {
-                                        PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
-                                        PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
-                                        if (message_routing.dist(h_p_k, tuple_n_inside_l) < message_routing.dist(h_p_k, respondant_inside_l))
-                                        {
-                                            ttl_db_start_retrieve(tdd, k);
-                                            tasklet.ms_wait(2000);
-                                            if (timer_startup.is_expired())
-                                            {
-                                                debug("we're not exhaustive, but the time is over.\n");
-                                                return;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer(levels);
-                PeerTupleGNode t_respondant = new PeerTupleGNode(respondant.tuple, levels);
-                exclude_tuple_list.add(t_respondant);
-                while (true)
-                {
-                    if (ttl_db_is_out_of_memory(tdd))
-                    {
-                        debug("we're not exhaustive, but the memory is over.\n");
-                        return;
-                    }
-                    tasklet.ms_wait(2000);
-                    if (timer_startup.is_expired())
-                    {
-                        debug("we're not exhaustive, but the time is over.\n");
-                        return;
-                    }
-                    respondant = null;
-                    debug("starting contact_peer for another request of send_keys.\n");
-                    _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant, exclude_tuple_list);
-                    if (_ret is RequestSendKeysResponse)
-                    {
-                        RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
-                        foreach (Object k in ret.keys)
-                        {
-                            if (tdd.is_valid_key(k))
-                            {
-                                if ((! tdd.my_records_contains(k)) &&
-                                    (! ttl_db_is_exhaustive(tdd, k)) &&
-                                    (! tdd.dh.retrieving_keys.has_key(k)))
-                                {
-                                    PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
-                                    int l = h_p_k.tuple.size;
-                                    int @case;
-                                    HCoord gn;
-                                    convert_tuple_gnode(tuple_node_to_tuple_gnode(respondant), out @case, out gn);
-                                    if (gn.lvl <= l)
-                                    {
-                                        PeerTupleNode tuple_n_inside_l = rebase_tuple_node(tuple_n, l);
-                                        PeerTupleNode respondant_inside_l = rebase_tuple_node(respondant, l);
-                                        if (message_routing.dist(h_p_k, tuple_n_inside_l) < message_routing.dist(h_p_k, respondant_inside_l))
-                                        {
-                                            ttl_db_start_retrieve(tdd, k);
-                                            if (ttl_db_is_out_of_memory(tdd))
-                                            {
-                                                debug("we're not exhaustive, but the memory is over.\n");
-                                                return;
-                                            }
-                                            tasklet.ms_wait(2000);
-                                            if (timer_startup.is_expired())
-                                            {
-                                                debug("we're not exhaustive, but the time is over.\n");
-                                                return;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (ttl_db_is_out_of_memory(tdd))
-                        {
-                            debug("we're not exhaustive, but the memory is over.\n");
-                            return;
-                        }
-                    }
-                    t_respondant = tuple_node_to_tuple_gnode(respondant);
-                    exclude_tuple_list.add(t_respondant);
-                }
-            } catch (PeersNoParticipantsInNetworkError e) {
-                tdd.dh.timer_default_not_exhaustive = null;
-                debug("we're exhaustive because we got answers from every participant.\n");
-                return;
-            } catch (PeersDatabaseError e) {
-                tdd.dh.timer_default_not_exhaustive = null;
-                debug("we're exhaustive because we got answers from every participant.\n");
-                return;
-            }
+            databases.ttl_db_on_startup
+                (tdd, p_id, guest_gnode_level, new_gnode_level, prev_id_tdd);
         }
 
         public IPeersResponse
         ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, int common_lvl)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
-            if (tdd.dh == null)
-                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
-            if (r is RequestSendKeys)
-            {
-                RequestSendKeys _r = (RequestSendKeys)r;
-                RequestSendKeysResponse ret = new RequestSendKeysResponse();
-                foreach (Object k in tdd.ttl_db_get_all_keys())
-                {
-                    ret.keys.add(k);
-                    if (ret.keys.size >= _r.max_count) break;
-                }
-                return ret;
-            }
-            if (tdd.is_insert_request(r))
-            {
-                debug("ttl_db_on_request: insert request.\n");
-                Object k = tdd.get_key_from_request(r);
-                if (tdd.my_records_contains(k))
-                {
-                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
-                    assert(! (k in tdd.dh.not_found_keys));
-                    return tdd.prepare_response_not_free(r, tdd.get_record_for_key(k));
-                }
-                if (ttl_db_is_exhaustive(tdd, k))
-                {
-                    debug("ttl_db_on_request: insert request: exhaustive for k.\n");
-                    if (ttl_db_is_out_of_memory(tdd))
-                    {
-                        ttl_db_remove_not_found(tdd, k);
-                        ttl_db_add_not_exhaustive(tdd, k);
-                        throw new PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY("my node is out of memory");
-                    }
-                    else
-                    {
-                        ttl_db_remove_not_found(tdd, k);
-                        ttl_db_remove_not_exhaustive(tdd, k);
-                        IPeersResponse res = tdd.execute(r);
-                        if (! tdd.my_records_contains(k))
-                            ttl_db_add_not_found(tdd, k);
-                        return res;
-                    }
-                }
-                else
-                {
-                    debug("ttl_db_on_request: insert request: not exhaustive for k.\n");
-                    if (tdd.dh.retrieving_keys.has_key(k))
-                    {
-                        IChannel ch = tdd.dh.retrieving_keys[k];
-                        try {
-                            ch.recv_with_timeout(tdd.get_timeout_exec(r) - 1000);
-                        } catch (ChannelError e) {
-                        }
-                        throw new PeersRedoFromStartError.GENERIC("");
-                    }
-                    else
-                    {
-                        if (! ttl_db_is_out_of_memory(tdd))
-                            ttl_db_start_retrieve(tdd, k);
-                        ttl_db_remove_not_found(tdd, k);
-                        ttl_db_add_not_exhaustive(tdd, k);
-                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
-                    }
-                }
-            }
-            if (tdd.is_read_only_request(r))
-            {
-                Object k = tdd.get_key_from_request(r);
-                if (tdd.my_records_contains(k))
-                {
-                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
-                    assert(! (k in tdd.dh.not_found_keys));
-                    return tdd.execute(r);
-                }
-                if (ttl_db_is_exhaustive(tdd, k))
-                {
-                    ttl_db_add_not_found(tdd, k);
-                    return tdd.prepare_response_not_found(r);
-                }
-                else
-                {
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
-                }
-            }
-            if (r is RequestWaitThenSendRecord)
-            {
-                Object k = ((RequestWaitThenSendRecord)r).k;
-                if ((! tdd.my_records_contains(k)) && (! ttl_db_is_exhaustive(tdd, k)))
-                {
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
-                }
-                int delta = eval_coherence_delta(map_paths.i_peers_get_nodes_in_my_group(common_lvl));
-                if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
-                    delta = RequestWaitThenSendRecord.timeout_exec - 1000;
-                tasklet.ms_wait(delta);
-                if (tdd.my_records_contains(k))
-                {
-                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
-                    assert(! (k in tdd.dh.not_found_keys));
-                    return new RequestWaitThenSendRecordResponse(tdd.get_record_for_key(k));
-                }
-                if (ttl_db_is_exhaustive(tdd, k))
-                {
-                    ttl_db_add_not_found(tdd, k);
-                    return new RequestWaitThenSendRecordNotFound();
-                }
-                else
-                {
-                    throw new PeersRedoFromStartError.GENERIC("");
-                }
-            }
-            if (tdd.is_update_request(r))
-            {
-                Object k = tdd.get_key_from_request(r);
-                if (tdd.my_records_contains(k))
-                {
-                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
-                    assert(! (k in tdd.dh.not_found_keys));
-                    return tdd.execute(r);
-                }
-                if (ttl_db_is_exhaustive(tdd, k))
-                {
-                    ttl_db_add_not_found(tdd, k);
-                    return tdd.prepare_response_not_found(r);
-                }
-                else
-                {
-                    if (tdd.dh.retrieving_keys.has_key(k))
-                    {
-                        IChannel ch = tdd.dh.retrieving_keys[k];
-                        try {
-                            ch.recv_with_timeout(tdd.get_timeout_exec(r) - 1000);
-                        } catch (ChannelError e) {
-                        }
-                        throw new PeersRedoFromStartError.GENERIC("");
-                    }
-                    else
-                    {
-                        if (! ttl_db_is_out_of_memory(tdd))
-                            ttl_db_start_retrieve(tdd, k);
-                        ttl_db_remove_not_found(tdd, k);
-                        ttl_db_add_not_exhaustive(tdd, k);
-                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
-                    }
-                }
-            }
-            if (tdd.is_replica_value_request(r))
-            {
-                Object k = tdd.get_key_from_request(r);
-                if (tdd.my_records_contains(k))
-                {
-                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
-                    assert(! (k in tdd.dh.not_found_keys));
-                    var res = tdd.execute(r);
-                    assert(tdd.my_records_contains(k));
-                    return res;
-                }
-                if (! ttl_db_is_out_of_memory(tdd))
-                {
-                    ttl_db_remove_not_found(tdd, k);
-                    ttl_db_remove_not_exhaustive(tdd, k);
-                    var res = tdd.execute(r);
-                    assert(tdd.my_records_contains(k));
-                    return res;
-                }
-                else
-                {
-                    ttl_db_remove_not_found(tdd, k);
-                    ttl_db_add_not_exhaustive(tdd, k);
-                    throw new PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY("my node is out of memory");
-                }
-            }
-            if (tdd.is_replica_delete_request(r))
-            {
-                Object k = tdd.get_key_from_request(r);
-                var res = tdd.execute(r);
-                assert(! tdd.my_records_contains(k));
-                ttl_db_remove_not_exhaustive(tdd, k);
-                ttl_db_add_not_found(tdd, k);
-                return res;
-            }
-            // none of previous cases
-            return tdd.execute(r);
-        }
-        private int eval_coherence_delta(int num_nodes)
-        {
-            if (num_nodes < 50) return 2000;
-            if (num_nodes < 500) return 20000;
-            if (num_nodes < 5000) return 30000;
-            return 50000;
-        }
-
-        internal void ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k)
-        {
-            IChannel ch = tasklet.get_channel();
-            tdd.dh.retrieving_keys[k] = ch;
-            TtlDbStartRetrieveTasklet ts = new TtlDbStartRetrieveTasklet();
-            ts.t = this;
-            ts.tdd = tdd;
-            ts.k = k;
-            ts.ch = ch;
-            tasklet.spawn(ts);
-        }
-        private class TtlDbStartRetrieveTasklet : Object, ITaskletSpawnable
-        {
-            public PeersManager t;
-            public ITemporalDatabaseDescriptor tdd;
-            public Object k;
-            public IChannel ch;
-            public void * func()
-            {
-                t.tasklet_ttl_db_start_retrieve(tdd, k, ch); 
-                return null;
-            }
-        }
-        private void tasklet_ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k, IChannel ch)
-        {
-            bool optional = is_service_optional(tdd.dh.p_id);
-            if (optional) wait_participation_maps(tdd.evaluate_hash_node(k).size);
-            Object? record = null;
-            IPeersRequest r = new RequestWaitThenSendRecord(k);
-            try {
-                PeerTupleNode respondant;
-                PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
-                debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
-                IPeersResponse res = contact_peer(tdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, true, out respondant);
-                if (res is RequestWaitThenSendRecordResponse)
-                {
-                    debug(@"the request of wait_then_send_record returned a record.\n");
-                    record = ((RequestWaitThenSendRecordResponse)res).record;
-                }
-            } catch (PeersNoParticipantsInNetworkError e) {
-                debug(@"the request of wait_then_send_record threw a PeersNoParticipantsInNetworkError.\n");
-                // nop
-            } catch (PeersDatabaseError e) {
-                debug(@"the request of wait_then_send_record threw a PeersDatabaseError.\n");
-                // nop
-            }
-            if (record != null && tdd.is_valid_record(k, record))
-            {
-                debug(@"putting the record in my memory.\n");
-                ttl_db_remove_not_exhaustive(tdd, k);
-                ttl_db_remove_not_found(tdd, k);
-                tdd.set_record_for_key(k, record);
-            }
-            else
-            {
-                debug(@"the request of wait_then_send_record returned a not_found.\n");
-                ttl_db_remove_not_exhaustive(tdd, k);
-                ttl_db_add_not_found(tdd, k);
-            }
-            IChannel temp_ch = tdd.dh.retrieving_keys[k];
-            tdd.dh.retrieving_keys.unset(k);
-            while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
+            return databases.ttl_db_on_request(tdd, r, common_lvl);
         }
 
         public void fixed_keys_db_on_startup
@@ -1167,6 +648,14 @@ namespace Netsukuku.PeerServices
                     wait_before_network_activity = true;
                 }
             }
+        }
+
+        private int eval_coherence_delta(int num_nodes)
+        {
+            if (num_nodes < 50) return 2000;
+            if (num_nodes < 500) return 20000;
+            if (num_nodes < 5000) return 30000;
+            return 50000;
         }
 
         public IPeersResponse

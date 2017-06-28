@@ -321,5 +321,469 @@ namespace Netsukuku.PeerServices.Databases
             if (k in tdd.dh.not_found_keys)
                 tdd.dh.not_found_keys.remove(k);
         }
+
+        public void ttl_db_on_startup
+        (ITemporalDatabaseDescriptor tdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
+        {
+            assert_service_registered(p_id);
+            TtlDbOnStartupTasklet ts = new TtlDbOnStartupTasklet();
+            ts.t = this;
+            ts.tdd = tdd;
+            ts.p_id = p_id;
+            ts.guest_gnode_level = guest_gnode_level;
+            ts.new_gnode_level = new_gnode_level;
+            ts.prev_id_tdd = prev_id_tdd;
+            tasklet.spawn(ts);
+        }
+        private class TtlDbOnStartupTasklet : Object, ITaskletSpawnable
+        {
+            public Databases t;
+            public ITemporalDatabaseDescriptor tdd;
+            public int p_id;
+            public int guest_gnode_level;
+            public int new_gnode_level;
+            public ITemporalDatabaseDescriptor? prev_id_tdd;
+            public void * func()
+            {
+                debug("starting tasklet_ttl_db_on_startup.\n");
+                t.tasklet_ttl_db_on_startup
+                    (tdd, p_id, guest_gnode_level, new_gnode_level, prev_id_tdd);
+                debug("ending tasklet_ttl_db_on_startup.\n");
+                return null;
+            }
+        }
+        private void tasklet_ttl_db_on_startup
+        (ITemporalDatabaseDescriptor tdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
+        {
+            tdd.dh = new DatabaseHandler();
+            tdd.dh.p_id = p_id;
+            tdd.dh.timer_default_not_exhaustive = new Timer(tdd.ttl_db_msec_ttl);
+            tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
+            tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
+            tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
+            debug("database handler is ready.\n");
+            if (prev_id_tdd == null)
+            {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because it's a new network.\n");
+                return;
+            }
+            foreach (Object k in prev_id_tdd.ttl_db_get_all_keys())
+            {
+                var h_p_k = tdd.evaluate_hash_node(k);
+                int l = h_p_k.size;
+                if (guest_gnode_level >= l)
+                {
+                    if (prev_id_tdd.my_records_contains(k))
+                    {
+                        tdd.set_record_for_key(k, dup_object(prev_id_tdd.get_record_for_key(k)));
+                    }
+                    // else I am not exhaustive for key `k`
+                }
+                else if (new_gnode_level >= l)
+                {
+                    tdd.dh.not_found_keys.add(k);
+                }
+                // else I am not exhaustive for key `k`
+            }
+            IPeersRequest r = new RequestSendKeys(tdd.ttl_db_max_records);
+            PeerTupleNode tuple_n;
+            PeerTupleNode respondant;
+            IPeersResponse _ret;
+            try
+            {
+                tuple_n = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), levels);
+                debug("starting contact_peer for a request of send_keys.\n");
+                _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
+                debug("returned from contact_peer for a request of send_keys.\n");
+            } catch (PeersNoParticipantsInNetworkError e) {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because nobody participates.\n");
+                return;
+            } catch (PeersDatabaseError e) {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because nobody participates.\n");
+                return;
+            }
+            Timer timer_startup = new Timer(tdd.ttl_db_msec_ttl / 10);
+            try
+            {
+                if (_ret is RequestSendKeysResponse)
+                {
+                    RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
+                    debug(@"it is a valid response with $(ret.keys.size) keys.\n");
+                    foreach (Object k in ret.keys)
+                    {
+                        if (! ttl_db_is_out_of_memory(tdd))
+                        {
+                            if (tdd.is_valid_key(k))
+                            {
+                                if ((! tdd.my_records_contains(k)) &&
+                                    (! ttl_db_is_exhaustive(tdd, k)) &&
+                                    (! tdd.dh.retrieving_keys.has_key(k)))
+                                {
+                                    PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
+                                    int l = h_p_k.tuple.size;
+                                    int @case;
+                                    HCoord gn;
+                                    Utils.convert_tuple_gnode(pos, Utils.tuple_node_to_tuple_gnode(respondant), out @case, out gn);
+                                    if (gn.lvl <= l)
+                                    {
+                                        PeerTupleNode tuple_n_inside_l = Utils.rebase_tuple_node(pos, tuple_n, l);
+                                        PeerTupleNode respondant_inside_l = Utils.rebase_tuple_node(pos, respondant, l);
+                                        if (compute_dist(h_p_k, tuple_n_inside_l) < compute_dist(h_p_k, respondant_inside_l))
+                                        {
+                                            ttl_db_start_retrieve(tdd, k);
+                                            tasklet.ms_wait(2000);
+                                            if (timer_startup.is_expired())
+                                            {
+                                                debug("we're not exhaustive, but the time is over.\n");
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                PeerTupleGNodeContainer exclude_tuple_list = new PeerTupleGNodeContainer(levels);
+                PeerTupleGNode t_respondant = new PeerTupleGNode(respondant.tuple, levels);
+                exclude_tuple_list.add(t_respondant);
+                while (true)
+                {
+                    if (ttl_db_is_out_of_memory(tdd))
+                    {
+                        debug("we're not exhaustive, but the memory is over.\n");
+                        return;
+                    }
+                    tasklet.ms_wait(2000);
+                    if (timer_startup.is_expired())
+                    {
+                        debug("we're not exhaustive, but the time is over.\n");
+                        return;
+                    }
+                    respondant = null;
+                    debug("starting contact_peer for another request of send_keys.\n");
+                    _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant, exclude_tuple_list);
+                    if (_ret is RequestSendKeysResponse)
+                    {
+                        RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
+                        foreach (Object k in ret.keys)
+                        {
+                            if (tdd.is_valid_key(k))
+                            {
+                                if ((! tdd.my_records_contains(k)) &&
+                                    (! ttl_db_is_exhaustive(tdd, k)) &&
+                                    (! tdd.dh.retrieving_keys.has_key(k)))
+                                {
+                                    PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
+                                    int l = h_p_k.tuple.size;
+                                    int @case;
+                                    HCoord gn;
+                                    Utils.convert_tuple_gnode(pos, Utils.tuple_node_to_tuple_gnode(respondant), out @case, out gn);
+                                    if (gn.lvl <= l)
+                                    {
+                                        PeerTupleNode tuple_n_inside_l = Utils.rebase_tuple_node(pos, tuple_n, l);
+                                        PeerTupleNode respondant_inside_l = Utils.rebase_tuple_node(pos, respondant, l);
+                                        if (compute_dist(h_p_k, tuple_n_inside_l) < compute_dist(h_p_k, respondant_inside_l))
+                                        {
+                                            ttl_db_start_retrieve(tdd, k);
+                                            if (ttl_db_is_out_of_memory(tdd))
+                                            {
+                                                debug("we're not exhaustive, but the memory is over.\n");
+                                                return;
+                                            }
+                                            tasklet.ms_wait(2000);
+                                            if (timer_startup.is_expired())
+                                            {
+                                                debug("we're not exhaustive, but the time is over.\n");
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (ttl_db_is_out_of_memory(tdd))
+                        {
+                            debug("we're not exhaustive, but the memory is over.\n");
+                            return;
+                        }
+                    }
+                    t_respondant = Utils.tuple_node_to_tuple_gnode(respondant);
+                    exclude_tuple_list.add(t_respondant);
+                }
+            } catch (PeersNoParticipantsInNetworkError e) {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because we got answers from every participant.\n");
+                return;
+            } catch (PeersDatabaseError e) {
+                tdd.dh.timer_default_not_exhaustive = null;
+                debug("we're exhaustive because we got answers from every participant.\n");
+                return;
+            }
+        }
+
+        public IPeersResponse
+        ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, int common_lvl)
+        throws PeersRefuseExecutionError, PeersRedoFromStartError
+        {
+            if (tdd.dh == null)
+                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
+            if (r is RequestSendKeys)
+            {
+                RequestSendKeys _r = (RequestSendKeys)r;
+                RequestSendKeysResponse ret = new RequestSendKeysResponse();
+                foreach (Object k in tdd.ttl_db_get_all_keys())
+                {
+                    ret.keys.add(k);
+                    if (ret.keys.size >= _r.max_count) break;
+                }
+                return ret;
+            }
+            if (tdd.is_insert_request(r))
+            {
+                debug("ttl_db_on_request: insert request.\n");
+                Object k = tdd.get_key_from_request(r);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    return tdd.prepare_response_not_free(r, tdd.get_record_for_key(k));
+                }
+                if (ttl_db_is_exhaustive(tdd, k))
+                {
+                    debug("ttl_db_on_request: insert request: exhaustive for k.\n");
+                    if (ttl_db_is_out_of_memory(tdd))
+                    {
+                        ttl_db_remove_not_found(tdd, k);
+                        ttl_db_add_not_exhaustive(tdd, k);
+                        throw new PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY("my node is out of memory");
+                    }
+                    else
+                    {
+                        ttl_db_remove_not_found(tdd, k);
+                        ttl_db_remove_not_exhaustive(tdd, k);
+                        IPeersResponse res = tdd.execute(r);
+                        if (! tdd.my_records_contains(k))
+                            ttl_db_add_not_found(tdd, k);
+                        return res;
+                    }
+                }
+                else
+                {
+                    debug("ttl_db_on_request: insert request: not exhaustive for k.\n");
+                    if (tdd.dh.retrieving_keys.has_key(k))
+                    {
+                        IChannel ch = tdd.dh.retrieving_keys[k];
+                        try {
+                            ch.recv_with_timeout(tdd.get_timeout_exec(r) - 1000);
+                        } catch (ChannelError e) {
+                        }
+                        throw new PeersRedoFromStartError.GENERIC("");
+                    }
+                    else
+                    {
+                        if (! ttl_db_is_out_of_memory(tdd))
+                            ttl_db_start_retrieve(tdd, k);
+                        ttl_db_remove_not_found(tdd, k);
+                        ttl_db_add_not_exhaustive(tdd, k);
+                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                    }
+                }
+            }
+            if (tdd.is_read_only_request(r))
+            {
+                Object k = tdd.get_key_from_request(r);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    return tdd.execute(r);
+                }
+                if (ttl_db_is_exhaustive(tdd, k))
+                {
+                    ttl_db_add_not_found(tdd, k);
+                    return tdd.prepare_response_not_found(r);
+                }
+                else
+                {
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                }
+            }
+            if (r is RequestWaitThenSendRecord)
+            {
+                Object k = ((RequestWaitThenSendRecord)r).k;
+                if ((! tdd.my_records_contains(k)) && (! ttl_db_is_exhaustive(tdd, k)))
+                {
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                }
+                int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
+                if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
+                    delta = RequestWaitThenSendRecord.timeout_exec - 1000;
+                tasklet.ms_wait(delta);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    return new RequestWaitThenSendRecordResponse(tdd.get_record_for_key(k));
+                }
+                if (ttl_db_is_exhaustive(tdd, k))
+                {
+                    ttl_db_add_not_found(tdd, k);
+                    return new RequestWaitThenSendRecordNotFound();
+                }
+                else
+                {
+                    throw new PeersRedoFromStartError.GENERIC("");
+                }
+            }
+            if (tdd.is_update_request(r))
+            {
+                Object k = tdd.get_key_from_request(r);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    return tdd.execute(r);
+                }
+                if (ttl_db_is_exhaustive(tdd, k))
+                {
+                    ttl_db_add_not_found(tdd, k);
+                    return tdd.prepare_response_not_found(r);
+                }
+                else
+                {
+                    if (tdd.dh.retrieving_keys.has_key(k))
+                    {
+                        IChannel ch = tdd.dh.retrieving_keys[k];
+                        try {
+                            ch.recv_with_timeout(tdd.get_timeout_exec(r) - 1000);
+                        } catch (ChannelError e) {
+                        }
+                        throw new PeersRedoFromStartError.GENERIC("");
+                    }
+                    else
+                    {
+                        if (! ttl_db_is_out_of_memory(tdd))
+                            ttl_db_start_retrieve(tdd, k);
+                        ttl_db_remove_not_found(tdd, k);
+                        ttl_db_add_not_exhaustive(tdd, k);
+                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                    }
+                }
+            }
+            if (tdd.is_replica_value_request(r))
+            {
+                Object k = tdd.get_key_from_request(r);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    var res = tdd.execute(r);
+                    assert(tdd.my_records_contains(k));
+                    return res;
+                }
+                if (! ttl_db_is_out_of_memory(tdd))
+                {
+                    ttl_db_remove_not_found(tdd, k);
+                    ttl_db_remove_not_exhaustive(tdd, k);
+                    var res = tdd.execute(r);
+                    assert(tdd.my_records_contains(k));
+                    return res;
+                }
+                else
+                {
+                    ttl_db_remove_not_found(tdd, k);
+                    ttl_db_add_not_exhaustive(tdd, k);
+                    throw new PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY("my node is out of memory");
+                }
+            }
+            if (tdd.is_replica_delete_request(r))
+            {
+                Object k = tdd.get_key_from_request(r);
+                var res = tdd.execute(r);
+                assert(! tdd.my_records_contains(k));
+                ttl_db_remove_not_exhaustive(tdd, k);
+                ttl_db_add_not_found(tdd, k);
+                return res;
+            }
+            // none of previous cases
+            return tdd.execute(r);
+        }
+        private int eval_coherence_delta(int num_nodes)
+        {
+            if (num_nodes < 50) return 2000;
+            if (num_nodes < 500) return 20000;
+            if (num_nodes < 5000) return 30000;
+            return 50000;
+        }
+
+        internal void ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k)
+        {
+            IChannel ch = tasklet.get_channel();
+            tdd.dh.retrieving_keys[k] = ch;
+            TtlDbStartRetrieveTasklet ts = new TtlDbStartRetrieveTasklet();
+            ts.t = this;
+            ts.tdd = tdd;
+            ts.k = k;
+            ts.ch = ch;
+            tasklet.spawn(ts);
+        }
+        private class TtlDbStartRetrieveTasklet : Object, ITaskletSpawnable
+        {
+            public Databases t;
+            public ITemporalDatabaseDescriptor tdd;
+            public Object k;
+            public IChannel ch;
+            public void * func()
+            {
+                t.tasklet_ttl_db_start_retrieve(tdd, k, ch);
+                return null;
+            }
+        }
+        private void tasklet_ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k, IChannel ch)
+        {
+            bool optional = is_service_optional(tdd.dh.p_id);
+            if (optional) wait_participation_maps(tdd.evaluate_hash_node(k).size);
+            Object? record = null;
+            IPeersRequest r = new RequestWaitThenSendRecord(k);
+            try {
+                PeerTupleNode respondant;
+                PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
+                debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
+                IPeersResponse res = contact_peer(tdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, true, out respondant);
+                if (res is RequestWaitThenSendRecordResponse)
+                {
+                    debug(@"the request of wait_then_send_record returned a record.\n");
+                    record = ((RequestWaitThenSendRecordResponse)res).record;
+                }
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug(@"the request of wait_then_send_record threw a PeersNoParticipantsInNetworkError.\n");
+                // nop
+            } catch (PeersDatabaseError e) {
+                debug(@"the request of wait_then_send_record threw a PeersDatabaseError.\n");
+                // nop
+            }
+            if (record != null && tdd.is_valid_record(k, record))
+            {
+                debug(@"putting the record in my memory.\n");
+                ttl_db_remove_not_exhaustive(tdd, k);
+                ttl_db_remove_not_found(tdd, k);
+                tdd.set_record_for_key(k, record);
+            }
+            else
+            {
+                debug(@"the request of wait_then_send_record returned a not_found.\n");
+                ttl_db_remove_not_exhaustive(tdd, k);
+                ttl_db_add_not_found(tdd, k);
+            }
+            IChannel temp_ch = tdd.dh.retrieving_keys[k];
+            tdd.dh.retrieving_keys.unset(k);
+            while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
+        }
     }
 }
