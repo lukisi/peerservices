@@ -155,6 +155,14 @@ namespace Netsukuku.PeerServices.Databases
         }
     }
 
+    internal int eval_coherence_delta(int num_nodes)
+    {
+        if (num_nodes < 50) return 2000;
+        if (num_nodes < 500) return 20000;
+        if (num_nodes < 5000) return 30000;
+        return 50000;
+    }
+
     internal class Databases : Object
     {
         private int levels;
@@ -714,13 +722,6 @@ namespace Netsukuku.PeerServices.Databases
             // none of previous cases
             return tdd.execute(r);
         }
-        private int eval_coherence_delta(int num_nodes)
-        {
-            if (num_nodes < 50) return 2000;
-            if (num_nodes < 500) return 20000;
-            if (num_nodes < 5000) return 30000;
-            return 50000;
-        }
 
         internal void ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k)
         {
@@ -784,6 +785,191 @@ namespace Netsukuku.PeerServices.Databases
             IChannel temp_ch = tdd.dh.retrieving_keys[k];
             tdd.dh.retrieving_keys.unset(k);
             while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
+        }
+
+        public void fixed_keys_db_on_startup
+        (IFixedKeysDatabaseDescriptor fkdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
+        {
+            assert_service_registered(p_id);
+            FixedKeysDbOnStartupTasklet ts = new FixedKeysDbOnStartupTasklet();
+            ts.t = this;
+            ts.fkdd = fkdd;
+            ts.p_id = p_id;
+            ts.guest_gnode_level = guest_gnode_level;
+            ts.new_gnode_level = new_gnode_level;
+            ts.prev_id_fkdd = prev_id_fkdd;
+            tasklet.spawn(ts);
+        }
+        private class FixedKeysDbOnStartupTasklet : Object, ITaskletSpawnable
+        {
+            public Databases t;
+            public IFixedKeysDatabaseDescriptor fkdd;
+            public int p_id;
+            public int guest_gnode_level;
+            public int new_gnode_level;
+            public IFixedKeysDatabaseDescriptor? prev_id_fkdd;
+            public void * func()
+            {
+                debug("starting tasklet_fixed_keys_db_on_startup.\n");
+                t.tasklet_fixed_keys_db_on_startup
+                    (fkdd, p_id, guest_gnode_level, new_gnode_level, prev_id_fkdd);
+                debug("ending tasklet_fixed_keys_db_on_startup.\n");
+                return null;
+            }
+        }
+        private void tasklet_fixed_keys_db_on_startup
+        (IFixedKeysDatabaseDescriptor fkdd, int p_id,
+         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
+        {
+            fkdd.dh = new DatabaseHandler();
+            fkdd.dh.p_id = p_id;
+            fkdd.dh.not_completed_keys = new ArrayList<Object>(fkdd.key_equal_data);
+            fkdd.dh.retrieving_keys = new HashMap<Object, IChannel>(fkdd.key_hash_data, fkdd.key_equal_data);
+            Gee.List<Object> k_set = fkdd.get_full_key_domain();
+            fkdd.dh.not_completed_keys.add_all(k_set);
+            debug("database handler is ready.\n");
+            bool wait_before_network_activity = false;
+            foreach (Object k in k_set)
+            {
+                int l = fkdd.evaluate_hash_node(k).size;
+                if (guest_gnode_level >= l)
+                {
+                    assert(prev_id_fkdd != null);
+                    fkdd.set_record_for_key(k, prev_id_fkdd.get_record_for_key(k));
+                    fkdd.dh.not_completed_keys.remove(k);
+                }
+                else if (new_gnode_level >= l)
+                {
+                    fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
+                    fkdd.dh.not_completed_keys.remove(k);
+                }
+                else
+                {
+                    if (wait_before_network_activity) tasklet.ms_wait(200);
+                    fixed_keys_db_start_retrieve(fkdd, k);
+                    wait_before_network_activity = true;
+                }
+            }
+        }
+
+        public IPeersResponse
+        fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, int common_lvl)
+        throws PeersRefuseExecutionError, PeersRedoFromStartError
+        {
+            if (fkdd.dh == null)
+                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
+            if (fkdd.is_read_only_request(r))
+            {
+                Object k = fkdd.get_key_from_request(r);
+                if (! (k in fkdd.dh.not_completed_keys))
+                {
+                    assert(fkdd.my_records_contains(k));
+                    return fkdd.execute(r);
+                }
+                else
+                {
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                }
+            }
+            if (r is RequestWaitThenSendRecord)
+            {
+                Object k = ((RequestWaitThenSendRecord)r).k;
+                if (k in fkdd.dh.not_completed_keys)
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                assert(fkdd.my_records_contains(k));
+                int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
+                if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
+                    delta = RequestWaitThenSendRecord.timeout_exec - 1000;
+                tasklet.ms_wait(delta);
+                assert(fkdd.my_records_contains(k));
+                return new RequestWaitThenSendRecordResponse(fkdd.get_record_for_key(k));
+            }
+            if (fkdd.is_update_request(r))
+            {
+                Object k = fkdd.get_key_from_request(r);
+                if (! (k in fkdd.dh.not_completed_keys))
+                {
+                    assert(fkdd.my_records_contains(k));
+                    return fkdd.execute(r);
+                }
+                else
+                {
+                    while (! fkdd.dh.retrieving_keys.has_key(k)) tasklet.ms_wait(200);
+                    IChannel ch = fkdd.dh.retrieving_keys[k];
+                    try {
+                        ch.recv_with_timeout(fkdd.get_timeout_exec(r) - 1000);
+                    } catch (ChannelError e) {
+                    }
+                    throw new PeersRedoFromStartError.GENERIC("");
+                }
+            }
+            if (fkdd.is_replica_value_request(r))
+            {
+                return fkdd.execute(r);
+            }
+            // none of previous cases
+            return fkdd.execute(r);
+        }
+
+        internal void fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k)
+        {
+            IChannel ch = tasklet.get_channel();
+            fkdd.dh.retrieving_keys[k] = ch;
+            FixedKeysDbStartRetrieveTasklet ts = new FixedKeysDbStartRetrieveTasklet();
+            ts.t = this;
+            ts.fkdd = fkdd;
+            ts.k = k;
+            ts.ch = ch;
+            tasklet.spawn(ts);
+        }
+        private class FixedKeysDbStartRetrieveTasklet : Object, ITaskletSpawnable
+        {
+            public Databases t;
+            public IFixedKeysDatabaseDescriptor fkdd;
+            public Object k;
+            public IChannel ch;
+            public void * func()
+            {
+                t.tasklet_fixed_keys_db_start_retrieve(fkdd, k, ch); 
+                return null;
+            }
+        }
+        private void tasklet_fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k, IChannel ch)
+        {
+            bool optional = is_service_optional(fkdd.dh.p_id);
+            if (optional) wait_participation_maps(fkdd.evaluate_hash_node(k).size);
+            Object? record = null;
+            IPeersRequest r = new RequestWaitThenSendRecord(k);
+            int timeout_exec = RequestWaitThenSendRecord.timeout_exec;
+            while (true)
+            {
+                try {
+                    PeerTupleNode respondant;
+                    PeerTupleNode h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
+                    debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
+                    IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, timeout_exec, true, out respondant);
+                    if (res is RequestWaitThenSendRecordResponse)
+                        record = ((RequestWaitThenSendRecordResponse)res).record;
+                    break;
+                } catch (PeersNoParticipantsInNetworkError e) {
+                    break;
+                } catch (PeersDatabaseError e) {
+                    tasklet.ms_wait(200);
+                }
+            }
+            if (record != null && fkdd.is_valid_record(k, record))
+            {
+                fkdd.set_record_for_key(k, record);
+            }
+            else
+            {
+                fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
+            }
+            IChannel temp_ch = fkdd.dh.retrieving_keys[k];
+            fkdd.dh.retrieving_keys.unset(k);
+            while (temp_ch.get_balance() < 0) temp_ch.send_async(0);
+            fkdd.dh.not_completed_keys.remove(k);
         }
     }
 }
