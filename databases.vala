@@ -104,6 +104,18 @@ namespace Netsukuku.PeerServices.Databases
           PeerTupleGNodeContainer? exclude_tuple_list=null)
          throws PeersNoParticipantsInNetworkError, PeersDatabaseError;
 
+    /* AssertServiceRegistered: Assert that a service p_id is registered.
+     */
+    internal delegate void AssertServiceRegistered(int p_id);
+
+    /* IsServiceOptional: Gets service's optionality.
+     */
+    internal delegate bool IsServiceOptional(int p_id);
+
+    /* WaitParticipationMaps: Wait until the participation maps are retrieved up to a given level.
+     */
+    internal delegate void WaitParticipationMaps(int level);
+
     internal class Timer : Object
     {
         private TimeVal start;
@@ -141,11 +153,17 @@ namespace Netsukuku.PeerServices.Databases
         private ArrayList<int> pos;
         private ArrayList<int> gsizes;
         private ContactPeer contact_peer;
+        private AssertServiceRegistered assert_service_registered;
+        private IsServiceOptional is_service_optional;
+        private WaitParticipationMaps wait_participation_maps;
 
         public Databases
         (Gee.List<int> pos,
          Gee.List<int> gsizes,
-         owned ContactPeer contact_peer
+         owned ContactPeer contact_peer,
+         owned AssertServiceRegistered assert_service_registered,
+         owned IsServiceOptional is_service_optional,
+         owned WaitParticipationMaps wait_participation_maps
          )
         {
             this.pos = new ArrayList<int>();
@@ -155,6 +173,9 @@ namespace Netsukuku.PeerServices.Databases
             assert(gsizes.size == pos.size);
             this.levels = pos.size;
             this.contact_peer = (owned) contact_peer;
+            this.assert_service_registered = (owned) assert_service_registered;
+            this.is_service_optional = (owned) is_service_optional;
+            this.wait_participation_maps = (owned) wait_participation_maps;
         }
 
         /* Algorithms to maintain a robust distributed database */
