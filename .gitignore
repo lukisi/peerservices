@@ -28,6 +28,9 @@ testsuites/message_routing/test_message_routing.c
 testsuites/message_routing/utils.c
 testsuites/message_routing/data_structs.c
 testsuites/databases/databases.c
+testsuites/databases/test_replicas.c
+testsuites/databases/test_entering.c
+testsuites/databases/test_search_inside.c
 testsuites/databases/message_routing.c
 testsuites/databases/serializables.c
 testsuites/databases/test_databases.c

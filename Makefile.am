@@ -258,6 +258,9 @@ test_message_routing_LDADD = \
 #  are symbolic links to avoid name clashes with vala-generated C files.
 test_databases_SOURCES = \
 	testsuites/databases/test_databases.vala \
+	testsuites/databases/test_replicas.vala \
+	testsuites/databases/test_entering.vala \
+	testsuites/databases/test_search_inside.vala \
 	testsuites/databases/databases.vala \
 	testsuites/databases/message_routing.vala \
 	testsuites/databases/serializables.vala \
