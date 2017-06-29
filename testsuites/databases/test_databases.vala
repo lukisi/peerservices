@@ -87,7 +87,7 @@ int main(string[] args)
     });
     GLib.Test.add_func ("/Databases/Entering", () => {
         var x = new Entering();
-        //x.test_entering();
+        x.test_entering();
     });
     GLib.Test.add_func ("/Databases/SearchInside", () => {
         var x = new SearchInside();
