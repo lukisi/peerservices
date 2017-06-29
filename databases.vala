@@ -22,7 +22,7 @@ using Netsukuku.PeerServices;
 
 namespace Netsukuku.PeerServices
 {
-    public interface IPeersContinuation : Object
+    public interface IReplicaContinuation : Object
     {
     }
 
@@ -202,7 +202,7 @@ namespace Netsukuku.PeerServices.Databases
 
         /* Algorithms to maintain a robust distributed database */
 
-        private class ReplicaContinuation : Object, IPeersContinuation
+        private class ReplicaContinuation : Object, IReplicaContinuation
         {
             public int q;
             public int p_id;
@@ -220,7 +220,7 @@ namespace Netsukuku.PeerServices.Databases
                  IPeersRequest r,
                  int timeout_exec,
                  out IPeersResponse? resp,
-                 out IPeersContinuation cont)
+                 out IReplicaContinuation cont)
         {
             ReplicaContinuation _cont = new ReplicaContinuation();
             _cont.q = q;
@@ -234,7 +234,7 @@ namespace Netsukuku.PeerServices.Databases
             return next_replica(cont, out resp);
         }
 
-        public bool next_replica(IPeersContinuation cont, out IPeersResponse? resp)
+        public bool next_replica(IReplicaContinuation cont, out IPeersResponse? resp)
         {
             ReplicaContinuation _cont = (ReplicaContinuation)cont;
             resp = null;

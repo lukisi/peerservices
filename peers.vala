@@ -556,13 +556,13 @@ namespace Netsukuku.PeerServices
                  IPeersRequest r,
                  int timeout_exec,
                  out IPeersResponse? resp,
-                 out IPeersContinuation cont)
+                 out IReplicaContinuation cont)
         {
             return databases.begin_replica
                 (q, p_id, perfect_tuple, r, timeout_exec, out resp, out cont);
         }
 
-        public bool next_replica(IPeersContinuation cont, out IPeersResponse? resp)
+        public bool next_replica(IReplicaContinuation cont, out IPeersResponse? resp)
         {
             return databases.next_replica
                 (cont, out resp);
@@ -625,11 +625,7 @@ namespace Netsukuku.PeerServices
             if (! check_valid_message(mf)) tasklet.exit_tasklet();
             if (_rpc_caller == null) tasklet.exit_tasklet();
             // prepare
-            bool optional = false;
-            if (services.has_key(mf.p_id))
-                optional = services[mf.p_id].p_is_optional;
-            else
-                optional = true;
+            bool optional = is_service_optional(mf.p_id);
             // call message_routing
             message_routing.forward_msg(mf, optional, maps_retrieved_below_level, _rpc_caller);
             // if optional, check non_participant_tuple_list
