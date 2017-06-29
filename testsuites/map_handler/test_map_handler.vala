@@ -280,7 +280,7 @@ class PeersTester : Object
             // Check (since the request is from network) that the service is optional.
             // In this testsuite we assume: yes.
 
-            assert(tuple.check_valid(levels, gsizes.to_array()));
+            assert(tuple.check_valid(levels, gsizes));
             print(@"$(name): RPC: set_participant.\n");
             handler.set_participant(p_id, tuple);
         }

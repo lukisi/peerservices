@@ -46,18 +46,18 @@ class PeersTester : Object
         assert(n0.tuple.size == 4);
         assert(n0.tuple[2] == 3);
         // check_valid
-        assert(n0.check_valid(4, {5,5,5,5}));
-        assert(!n0.check_valid(3, {5,5,5}));
-        assert(n0.check_valid(4, {2,3,4,5}));
-        assert(!n0.check_valid(4, {2,3,3,5}));
+        assert(n0.check_valid(4, new ArrayList<int>.wrap({5,5,5,5})));
+        assert(!n0.check_valid(3, new ArrayList<int>.wrap({5,5,5})));
+        assert(n0.check_valid(4, new ArrayList<int>.wrap({2,3,4,5})));
+        assert(!n0.check_valid(4, new ArrayList<int>.wrap({2,3,3,5})));
         PeerTupleNode n1 = new PeerTupleNode(new ArrayList<int>.wrap({-1, 2, 3, 4}));
-        assert(!n1.check_valid(4, {2,3,4,5}));
+        assert(!n1.check_valid(4, new ArrayList<int>.wrap({2,3,4,5})));
         PeerTupleNode n2 = new PeerTupleNode(new ArrayList<int>.wrap({1}));
-        assert(n2.check_valid(4, {2,3,4,5}));
+        assert(n2.check_valid(4, new ArrayList<int>.wrap({2,3,4,5})));
         PeerTupleNode n22 = new PeerTupleNode(new ArrayList<int>.wrap({3}));
-        assert(!n22.check_valid(4, {2,3,4,5}));
+        assert(!n22.check_valid(4, new ArrayList<int>.wrap({2,3,4,5})));
         PeerTupleNode n3 = new PeerTupleNode(new ArrayList<int>.wrap({}));
-        assert(!n3.check_valid(4, {2,3,4,5}));
+        assert(!n3.check_valid(4, new ArrayList<int>.wrap({2,3,4,5})));
     }
 
     public void test_gnode()
@@ -77,16 +77,16 @@ class PeersTester : Object
         assert(gn0.tuple[2] == 3);
         assert(gn0.top == 5);
         // check_valid
-        assert(gn0.check_valid(5, {5,2,3,4,5}));
-        assert(!gn0.check_valid(3, {5,5,5}));
+        assert(gn0.check_valid(5, new ArrayList<int>.wrap({5,2,3,4,5})));
+        assert(!gn0.check_valid(3, new ArrayList<int>.wrap({5,5,5})));
         PeerTupleGNode n1 = new PeerTupleGNode(new ArrayList<int>.wrap({-1, 2, 3, 4}), 5);
-        assert(!n1.check_valid(5, {5,2,3,4,5}));
+        assert(!n1.check_valid(5, new ArrayList<int>.wrap({5,2,3,4,5})));
         PeerTupleGNode n2 = new PeerTupleGNode(new ArrayList<int>.wrap({1}), 5);
-        assert(n2.check_valid(5, {5,2,3,4,5}));
+        assert(n2.check_valid(5, new ArrayList<int>.wrap({5,2,3,4,5})));
         PeerTupleGNode n22 = new PeerTupleGNode(new ArrayList<int>.wrap({3}), 5);
-        assert(n22.check_valid(5, {5,2,3,4,5}));
+        assert(n22.check_valid(5, new ArrayList<int>.wrap({5,2,3,4,5})));
         PeerTupleGNode n3 = new PeerTupleGNode(new ArrayList<int>.wrap({}), 5);
-        assert(!n3.check_valid(5, {5,2,3,4,5}));
+        assert(!n3.check_valid(5, new ArrayList<int>.wrap({5,2,3,4,5})));
     }
 
     public void test_message()
@@ -188,7 +188,7 @@ class PeersTester : Object
         }
         assert(found);
         // check_valid
-        assert(mf0.check_valid(5, {5,5,5,6,7}));
+        assert(mf0.check_valid(5, new ArrayList<int>.wrap({5,5,5,6,7})));
     }
 
     public void test_participant()
@@ -230,7 +230,7 @@ class PeersTester : Object
         assert(m.participant_list.size == 1);
         assert(m.participant_list.contains(new HCoord(3, 5)));
         // check_valid
-        assert(s0.check_valid(5, {5,5,5,6,7}));
+        assert(s0.check_valid(5, new ArrayList<int>.wrap({5,5,5,6,7})));
     }
 
     private class TestKey : Object

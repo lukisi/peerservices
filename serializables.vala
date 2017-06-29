@@ -75,7 +75,7 @@ namespace Netsukuku.PeerServices
             }
         }
 
-        public bool check_valid(int levels, int[] gsizes)
+        public bool check_valid(int levels, Gee.List<int> gsizes)
         {
             if (this.tuple.size == 0) return false;
             if (this.tuple.size > levels) return false;
@@ -148,7 +148,7 @@ namespace Netsukuku.PeerServices
             }
         }
 
-        public bool check_valid(int levels, int[] gsizes)
+        public bool check_valid(int levels, Gee.List<int> gsizes)
         {
             if (this.tuple.size == 0) return false;
             if (this.top > levels) return false;
@@ -277,7 +277,7 @@ namespace Netsukuku.PeerServices
             }
         }
 
-        public bool check_valid(int levels, int[] gsizes)
+        public bool check_valid(int levels, Gee.List<int> gsizes)
         {
             if (! this.n.check_valid(levels, gsizes)) return false;
             if (this.lvl < 0) return false;
@@ -367,7 +367,7 @@ namespace Netsukuku.PeerServices
             }
         }
 
-        public bool check_valid(int levels, int[] gsizes)
+        public bool check_valid(int levels, Gee.List<int> gsizes)
         {
             foreach (HCoord h in this.participant_list)
             {
@@ -457,7 +457,7 @@ namespace Netsukuku.PeerServices
             }
         }
 
-        public bool check_valid(int levels, int[] gsizes)
+        public bool check_valid(int levels, Gee.List<int> gsizes)
         {
             if (this.retrieved_below_level < 0) return false;
             if (this.retrieved_below_level > levels) return false;

@@ -127,8 +127,8 @@ namespace Netsukuku.PeerServices
 
         private IPeersMapPaths map_paths;
         private int levels;
-        private int[] gsizes;
-        private int[] pos;
+        private ArrayList<int> gsizes;
+        private ArrayList<int> pos;
         private IPeersBackStubFactory back_stub_factory;
         private IPeersNeighborsFactory neighbors_factory;
         private HashMap<int, PeerService> services;
@@ -157,12 +157,12 @@ namespace Netsukuku.PeerServices
         {
             this.map_paths = map_paths;
             levels = map_paths.i_peers_get_levels();
-            gsizes = new int[levels];
-            pos = new int[levels];
+            gsizes = new ArrayList<int>();
+            pos = new ArrayList<int>();
             for (int i = 0; i < levels; i++)
             {
-                gsizes[i] = map_paths.i_peers_get_gsize(i);
-                pos[i] = map_paths.i_peers_get_my_pos(i);
+                gsizes.add(map_paths.i_peers_get_gsize(i));
+                pos.add(map_paths.i_peers_get_my_pos(i));
             }
             this.back_stub_factory = back_stub_factory;
             this.neighbors_factory = neighbors_factory;
@@ -172,10 +172,10 @@ namespace Netsukuku.PeerServices
             this.guest_gnode_level = guest_gnode_level;
             this.host_gnode_level = host_gnode_level;
 
-            map = new PeerParticipantSet(new ArrayList<int>.wrap(pos));
+            map = new PeerParticipantSet(pos);
             my_services = new ArrayList<int>();
             map_handler = new MapHandler.MapHandler
-                (new ArrayList<int>.wrap(pos),
+                (pos,
                  /*ClearMapsAtLevel*/ (lvl) => {
                      clear_maps_at_level(lvl);
                  },
@@ -207,7 +207,7 @@ namespace Netsukuku.PeerServices
             }
 
             message_routing = new MessageRouting.MessageRouting
-                (new ArrayList<int>.wrap(pos), new ArrayList<int>.wrap(gsizes),
+                (pos, gsizes,
                  /* gnode_exists                  = */  (/*int*/ lvl, /*int*/ pos) => {
                      return map_paths.i_peers_exists(lvl, pos);
                  },
@@ -244,7 +244,7 @@ namespace Netsukuku.PeerServices
             });
 
             databases = new Databases.Databases
-                (new ArrayList<int>.wrap(pos), new ArrayList<int>.wrap(gsizes),
+                (pos, gsizes,
                  /* contact_peer     = */  (/*int*/ p_id,
                                             /*PeerTupleNode*/ x_macron,
                                             /*IPeersRequest*/ request,
@@ -326,7 +326,7 @@ namespace Netsukuku.PeerServices
         }
         private PeerParticipantSet produce_maps_copy()
         {
-            var ret = new PeerParticipantSet(new ArrayList<int>.wrap(pos));
+            var ret = new PeerParticipantSet(pos);
             foreach (int p_id in map.participant_set.keys)
             {
                 ret.participant_set[p_id] = new PeerParticipantMap();
@@ -495,17 +495,17 @@ namespace Netsukuku.PeerServices
 
         private void convert_tuple_gnode(PeerTupleGNode t, out int @case, out HCoord ret)
         {
-            Utils.convert_tuple_gnode(new ArrayList<int>.wrap(pos), t, out @case, out ret);
+            Utils.convert_tuple_gnode(pos, t, out @case, out ret);
         }
 
         private PeerTupleGNode make_tuple_gnode(HCoord h, int top)
         {
-            return Utils.make_tuple_gnode(new ArrayList<int>.wrap(pos), h, top);
+            return Utils.make_tuple_gnode(pos, h, top);
         }
 
         private PeerTupleNode make_tuple_node(HCoord h, int top)
         {
-            return Utils.make_tuple_node(new ArrayList<int>.wrap(pos), h, top);
+            return Utils.make_tuple_node(pos, h, top);
         }
 
         private PeerTupleGNode tuple_node_to_tuple_gnode(PeerTupleNode t)
@@ -515,17 +515,17 @@ namespace Netsukuku.PeerServices
 
         private PeerTupleGNode rebase_tuple_gnode(PeerTupleGNode t, int new_top)
         {
-            return Utils.rebase_tuple_gnode(new ArrayList<int>.wrap(pos), t, new_top);
+            return Utils.rebase_tuple_gnode(pos, t, new_top);
         }
 
         private PeerTupleNode rebase_tuple_node(PeerTupleNode t, int new_top)
         {
-            return Utils.rebase_tuple_node(new ArrayList<int>.wrap(pos), t, new_top);
+            return Utils.rebase_tuple_node(pos, t, new_top);
         }
 
         private bool visible_by_someone_inside_my_gnode(PeerTupleGNode t, int lvl)
         {
-            return Utils.visible_by_someone_inside_my_gnode(new ArrayList<int>.wrap(pos), t, lvl);
+            return Utils.visible_by_someone_inside_my_gnode(pos, t, lvl);
         }
 
         /* Routing algorithm */
