@@ -478,7 +478,6 @@ class Replicas : Object
         public void fake_servant_store_and_replica(string name, string number, PeerTupleNode x_macron, int quantity)
         {
             int p_id = 1;
-            bool optional = is_service_optional(p_id);
 
             print(@"SimNode $(this.name): store for '$(name)' => '$(number)'.\n");
             db_part[name] = number;
@@ -729,13 +728,28 @@ class Replicas : Object
         tasklet.ms_wait(10);
 
         // Now suppose a service request has been done to save a record
-        //  and the servant is node_e = 1:0:1:1.
-        string name = Srv01Names.Mark;
+        //  and the servant is node_e = 1:0:1:1 because the hash_node is 1:0:1:1.
+        string name = "Mark";
         PeerTupleNode x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
         string number = "555 1234";
         int quantity = 9;
         node_e.fake_servant_store_and_replica(name, number, x_macron, quantity);
+        tasklet.ms_wait(10);
 
+        // Now suppose a service request has been done to save a record
+        //  and the servant is node_a = 1:1:0:1 because the hash_node is 1:1:0:1.
+        name = "John";
+        x_macron = new PeerTupleNode(new ArrayList<int>.wrap({1,0,1,1}));
+        number = "555 3741";
+        node_a.fake_servant_store_and_replica(name, number, x_macron, quantity);
+        tasklet.ms_wait(10);
+
+        // Now suppose a service request has been done to save a record
+        //  and the servant is node_c = 1:1:1:1 because the hash_node is 1:1:1:0.
+        name = "Ralph";
+        x_macron = new PeerTupleNode(new ArrayList<int>.wrap({0,1,1,1}));
+        number = "555 8800";
+        node_c.fake_servant_store_and_replica(name, number, x_macron, quantity);
         tasklet.ms_wait(10);
     }
 }

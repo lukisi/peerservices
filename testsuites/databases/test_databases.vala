@@ -63,16 +63,6 @@ HCoord find_hcoord(Gee.List<int> me, Gee.List<int> other)
     return ret;
 }
 
-namespace Srv01Names {
-    const string Mark = "Mark";
-    const string John = "John";
-    const string Luke = "Luke";
-    const string Stef = "Stef";
-    const string Sue = "Sue";
-    const string Bob = "Bob";
-    const string Clark = "Clark";
-}
-
 int main(string[] args)
 {
     GLib.Test.init(ref args);
