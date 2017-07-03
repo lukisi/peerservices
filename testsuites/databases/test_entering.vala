@@ -83,18 +83,19 @@ class Entering : Object
         public int level {public get; public set;}
         public string segment {public get; public set;}
     }
+    private static const int Service00AddSegmentRequestTimeoutExec = 2000;
 
     class Service00AddSegmentResponse : Object, IPeersResponse
     {
         public string data {public get; public set;}
     }
 
-    class RequestReplica : Object, IPeersRequest
+    class Service00ReplicaRequest : Object, IPeersRequest
     {
         public int level {public get; public set;}
         public string data {public get; public set;}
     }
-    class ResponseReplicaOk : Object, IPeersResponse
+    class Service00ReplicaOkResponse : Object, IPeersResponse
     {
     }
 
@@ -108,6 +109,23 @@ class Entering : Object
         }
         public int levels {public get; private set;}
         public HashMap<int,string> database;
+
+        public string get_default_for_key(int level)
+        {
+            return "";
+        }
+
+        public string add_segment(int level, string data)
+        {
+            if (! database.has_key(level)) database[level] = get_default_for_key(level);
+            database[level] = database[level] + data;
+            return database[level];
+        }
+
+        public void replica_value(int level, string data)
+        {
+            database[level] = data;
+        }
 
         public IFixedKeysDatabaseDescriptor descriptor {public get; private set;}
         private class Descriptor : Object, IDatabaseDescriptor, IFixedKeysDatabaseDescriptor
@@ -212,12 +230,28 @@ class Entering : Object
                     ret.level = _r.level;
                     return ret;
                 }
+                else if (r is Service00ReplicaRequest)
+                {
+                    Service00ReplicaRequest _r = (Service00ReplicaRequest)r;
+                    Service00Key ret = new Service00Key();
+                    ret.level = _r.level;
+                    return ret;
+                }
                 else assert_not_reached();
             }
 
             public int get_timeout_exec(IPeersRequest r)
             {
-                error("not implemented yet");
+                if (r is Service00AddSegmentRequest)
+                {
+                    return Service00AddSegmentRequestTimeoutExec;
+                }
+                else if (r is Service00ReplicaRequest)
+                {
+                    // not insert or update => should not request
+                    assert_not_reached();
+                }
+                else assert_not_reached();
             }
 
             public bool is_insert_request(IPeersRequest r)
@@ -246,7 +280,14 @@ class Entering : Object
 
             public bool is_replica_value_request(IPeersRequest r)
             {
-                error("not implemented yet");
+                if (r is Service00ReplicaRequest)
+                {
+                    Service00ReplicaRequest _r = (Service00ReplicaRequest)r;
+                    if (_r.level < 0) return false;
+                    if (_r.level > t.levels) return false;
+                    return true;
+                }
+                return false;
             }
 
             public bool is_replica_delete_request(IPeersRequest r)
@@ -257,17 +298,32 @@ class Entering : Object
 
             public IPeersResponse prepare_response_not_found(IPeersRequest r)
             {
-                error("not implemented yet");
+                // no requests of this type in this service
+                assert_not_reached();
             }
 
             public IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec)
             {
-                error("not implemented yet");
+                // no requests of this type in this service
+                assert_not_reached();
             }
 
             public IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError
             {
-                error("not implemented yet");
+                if (r is Service00AddSegmentRequest)
+                {
+                    Service00AddSegmentRequest _r = (Service00AddSegmentRequest)r;
+                    Service00AddSegmentResponse ret = new Service00AddSegmentResponse();
+                    ret.data = t.add_segment(_r.level, _r.segment);
+                    return ret;
+                }
+                else if (r is Service00ReplicaRequest)
+                {
+                    Service00ReplicaRequest _r = (Service00ReplicaRequest)r;
+                    t.replica_value(_r.level, _r.data);
+                    return new Service00ReplicaOkResponse();
+                }
+                else assert_not_reached();
             }
 
 
@@ -301,7 +357,7 @@ class Entering : Object
                 int kl = _k.level;
                 var ret = new Service00Record();
                 ret.level = kl;
-                ret.data = "";
+                ret.data = t.get_default_for_key(kl);
                 return ret;
             }
         }
