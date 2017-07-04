@@ -453,6 +453,7 @@ class Entering : Object
     private SimNode node_g;
     private SimNode node_h;
     private Network net1;
+    private Network net2;
 
     public void prepare_network_1()
     {
@@ -473,6 +474,75 @@ class Entering : Object
         node_a.add_gateway_to_gnode(node_b, h00);
         assert(node_b.exists_gnode(h01));
         node_b.add_gateway_to_gnode(node_a, h01);
+    }
+
+    public void prepare_network_2()
+    {
+        net2 = new Network();
+        var h00 = new HCoord(0,0);
+        var h01 = new HCoord(0,1);
+        var h10 = new HCoord(1,0);
+        var h11 = new HCoord(1,1);
+        var h20 = new HCoord(2,0);
+        var h21 = new HCoord(2,1);
+        var h30 = new HCoord(3,0);
+        var h31 = new HCoord(3,1);
+        // g-node 1:1:1, also 1:1
+        node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}), net2);
+        // g-node 1:0:1
+        node_e = new SimNode(this, "e", new ArrayList<int>.wrap({1,1,0,1}), net2);
+        node_h = new SimNode(this, "h", new ArrayList<int>.wrap({0,1,0,1}), net2);
+        assert(node_e.exists_gnode(h00));
+        node_e.add_gateway_to_gnode(node_h, h00);
+        assert(node_h.exists_gnode(h01));
+        node_h.add_gateway_to_gnode(node_e, h01);
+        // g-node 1:0:0
+        node_f = new SimNode(this, "f", new ArrayList<int>.wrap({1,0,0,1}), net2);
+        node_g = new SimNode(this, "g", new ArrayList<int>.wrap({0,0,0,1}), net2);
+        assert(node_f.exists_gnode(h00));
+        node_f.add_gateway_to_gnode(node_g, h00);
+        assert(node_g.exists_gnode(h01));
+        node_g.add_gateway_to_gnode(node_f, h01);
+        // g-node 1:0
+        assert(node_h.exists_gnode(h10));
+        node_h.add_gateway_to_gnode(node_e, h10);
+        assert(node_e.exists_gnode(h10));
+        node_e.add_gateway_to_gnode(node_f, h10);
+        assert(node_f.exists_gnode(h11));
+        node_f.add_gateway_to_gnode(node_e, h11);
+        assert(node_g.exists_gnode(h11));
+        node_g.add_gateway_to_gnode(node_f, h11);
+        // g-node 1
+        assert(node_c.exists_gnode(h20));
+        node_c.add_gateway_to_gnode(node_e, h20);
+        assert(node_e.exists_gnode(h21));
+        node_e.add_gateway_to_gnode(node_c, h21);
+        assert(node_h.exists_gnode(h21));
+        node_h.add_gateway_to_gnode(node_e, h21);
+        assert(node_f.exists_gnode(h21));
+        node_f.add_gateway_to_gnode(node_e, h21);
+        assert(node_g.exists_gnode(h21));
+        node_g.add_gateway_to_gnode(node_f, h21);
+        // g-node 0
+        node_d = new SimNode(this, "d", new ArrayList<int>.wrap({0,1,1,0}), net2);
+        // whole net
+        assert(node_c.exists_gnode(h30));
+        node_c.add_gateway_to_gnode(node_d, h30);
+        node_c.add_gateway_to_gnode(node_e, h30);
+        assert(node_e.exists_gnode(h30));
+        node_e.add_gateway_to_gnode(node_c, h30);
+        node_e.add_gateway_to_gnode(node_f, h30);
+        assert(node_h.exists_gnode(h30));
+        node_h.add_gateway_to_gnode(node_e, h30);
+        assert(node_f.exists_gnode(h30));
+        node_f.add_gateway_to_gnode(node_g, h30);
+        node_f.add_gateway_to_gnode(node_e, h30);
+        assert(node_g.exists_gnode(h30));
+        node_g.add_gateway_to_gnode(node_d, h30);
+        node_g.add_gateway_to_gnode(node_f, h30);
+        assert(node_d.exists_gnode(h31));
+        node_d.add_gateway_to_gnode(node_c, h31);
+        node_d.add_gateway_to_gnode(node_g, h31);
     }
 
     class Network : Object
@@ -619,6 +689,12 @@ class Entering : Object
                      if (p_id == 0)
                      {
                          int common_lvl = client_tuple.size;
+                         string classname = req.get_type().name();
+                         string client = address(client_tuple);
+                         string me = address(pos);
+                         debug(@"$(me): executing request $(classname) from client {$(client)}");
+                         if (req is Service00AddSegmentRequest)
+                             debug(@"when executing add_segment client was {$(address(client_tuple))}");
                          ret = s00_database.on_request(req, common_lvl);
                      }
                      else if (p_id == 1)
@@ -711,6 +787,7 @@ class Entering : Object
                  timeout_exec,
                  false,
                  out respondant);
+            debug(@"respondant of add_segment was $(address(respondant.tuple))");
             assert(iresp is Service00AddSegmentResponse);
             Service00AddSegmentResponse resp = (Service00AddSegmentResponse)iresp;
             return resp.data;
@@ -997,18 +1074,48 @@ class Entering : Object
 
     public void test_entering()
     {
+        string data;
         print("\nPrepare network net1...\n");
         prepare_network_1();
         print("Network net1 ready.\n");
         tasklet.ms_wait(10);
 
         // node_a makes a request
-        string data = node_a.srv00_add_segment(1, "abcd");
+        data = node_a.srv00_add_segment(1, "abcd");
         print(@"node_a: srv00 key 1: '$(data)'.\n");
         tasklet.ms_wait(10);
         // then node_b makes a request
         data = node_b.srv00_add_segment(1, "efg");
         print(@"node_b: srv00 key 1: '$(data)'.\n");
         tasklet.ms_wait(10);
+        // node_a makes a request at level 4
+        data = node_a.srv00_add_segment(4, "pippo");
+        print(@"node_a: srv00 key 4: '$(data)'.\n");
+        tasklet.ms_wait(10);
+        // then node_b verifies
+        data = node_b.srv00_add_segment(4, "");
+        print(@"node_b: srv00 key 4: '$(data)'.\n");
+        tasklet.ms_wait(10);
+
+        print("Prepare network net2...\n");
+        prepare_network_2();
+        print("Network net2 ready.\n");
+        tasklet.ms_wait(10);
+
+        // node_c makes a request at level 2
+        data = node_c.srv00_add_segment(2, "qqqq");
+        print(@"node_c: srv00 key 2: '$(data)'.\n");
+        tasklet.ms_wait(10);
+        // node_e makes a request at level 2
+        data = node_e.srv00_add_segment(2, "wwww");
+        print(@"node_e: srv00 key 2: '$(data)'.\n");
+        tasklet.ms_wait(10);
+        // node_e makes a request at level 4
+        data = node_e.srv00_add_segment(4, "zzzz");
+        print(@"node_e: srv00 key 4: '$(data)'.\n");
+        tasklet.ms_wait(10);
+
+        print("Merge networks: net1 enters net2...\n");
+        var node_a_old = node_a;
     }
 }
