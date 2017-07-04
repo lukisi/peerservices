@@ -24,423 +24,436 @@ using EnteringTestcase;
 
 namespace EnteringTestcase
 {
-    class Service01Names : Object
+    namespace Service01
     {
-        public static const string Mark = "Mark";
-        public static const string John = "John";
-        public static const string Luke = "Luke";
-        public static const string Stef = "Stef";
-        public static const string Sue = "Sue";
-        public static const string Bob = "Bob";
-        public static const string Clark = "Clark";
-        public static PeerTupleNode evaluate_hash_node(string n)
+        class Names : Object
         {
-            if (n == Mark)
-                return new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
-            if (n == John)
-                return new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
-            if (n == Luke)
-                return new PeerTupleNode(new ArrayList<int>.wrap({1,0,0,0}));
-            if (n == Stef)
-                return new PeerTupleNode(new ArrayList<int>.wrap({0,0,1,1}));
-            if (n == Sue)
-                return new PeerTupleNode(new ArrayList<int>.wrap({1,0,1,0}));
-
-            return new PeerTupleNode(new ArrayList<int>.wrap({0,0,0,1}));
-        }
-    }
-
-    /* Service 00
-      * keys = 1, ... levels
-      *
-      * hash_nodes =
-      *    k=1       {0} a node in my g-node of level 1
-      *    k=2       {0,0}
-      *    ....
-      *    k=levels  {0,0,0,0}
-      *
-      * values = state of the g-node (a string which starts with "" and gets appends)
-      *
-      * Requests: add_segment, replica_value
-      *
-      * string add_segment(string)
-      *   the client pass a segment that is to add to the current string and obtains the whole string.
-     */
-
-    class Service00Key : Object
-    {
-        public int key {public get; public set;}
-    }
-
-    class Service00Record : Object
-    {
-        public int key {public get; public set;}
-        public string data {public get; public set;}
-    }
-
-    class Service00AddSegmentRequest : Object, IPeersRequest
-    {
-        public int key {public get; public set;}
-        public string segment {public get; public set;}
-    }
-
-    class Service00AddSegmentResponse : Object, IPeersResponse
-    {
-        public string data {public get; public set;}
-    }
-
-    class Service00ReplicaRequest : Object, IPeersRequest
-    {
-        public int key {public get; public set;}
-        public string data {public get; public set;}
-    }
-    class Service00ReplicaOkResponse : Object, IPeersResponse
-    {
-    }
-
-    class Service00Database : Object
-    {
-        public int levels {public get; private set;}
-        private int guest_gnode_level;
-        private int new_gnode_level;
-        private Service00Database? prev_id;
-        public Databases.Databases databases;
-        public HashMap<int,string> database;
-
-        public Service00Database
-        (Databases.Databases databases, int levels,
-         int guest_gnode_level=-1, int new_gnode_level=-1, Service00Database? prev_id=null)
-        {
-            if (new_gnode_level == -1) new_gnode_level = levels;
-            this.databases = databases;
-            this.levels = levels;
-            this.guest_gnode_level = guest_gnode_level;
-            this.new_gnode_level = new_gnode_level;
-            this.prev_id = prev_id;
-            descriptor = new Descriptor(this);
-            database = new HashMap<int,string>();
-            on_startup();
-        }
-
-        public static Gee.List<int> tuple_hash(int kl)
-        {
-            var ret = new ArrayList<int>();
-            for (int i = 0; i < kl; i++) ret.add(0);
-            return ret;
-        }
-
-        public static string get_default_for_key(int key)
-        {
-            return "";
-        }
-
-        public static const int add_segment_timeout_exec = 2000;
-        public string add_segment(int key, string data)
-        {
-            if (! database.has_key(key))
-                database[key] = Service00Database.get_default_for_key(key);
-            database[key] = database[key] + data;
-            return database[key];
-        }
-
-        private void replica_value(int key, string data)
-        {
-            database[key] = data;
-        }
-
-        private void on_startup()
-        {
-            IFixedKeysDatabaseDescriptor? prev_id_fkdd = null;
-            if (prev_id != null) prev_id_fkdd = prev_id.descriptor;
-            databases.fixed_keys_db_on_startup
-                (/*fkdd               = */ descriptor,
-                 /*p_id               = */ 0,
-                 /*guest_gnode_level  = */ guest_gnode_level,
-                 /*new_gnode_level    = */ new_gnode_level,
-                 /*prev_id_fkdd       = */ prev_id_fkdd);
-        }
-
-        public IPeersResponse on_request(IPeersRequest r, int common_lvl)
-        throws PeersRefuseExecutionError, PeersRedoFromStartError
-        {
-            return databases.fixed_keys_db_on_request
-                (/*fkdd               = */ descriptor,
-                 r, common_lvl);
-        }
-
-        private void make_replicas(int key, string data)
-        {
-            Service00ReplicaRequest request = new Service00ReplicaRequest();
-            request.key = key;
-            request.data = data;
-
-            IPeersResponse? resp;
-            IReplicaContinuation cont;
-            bool ret = databases.begin_replica(9, 0, Service00Database.tuple_hash(key),
-                                               request, 1000, out resp, out cont);
-            while (ret)
+            public static const string Mark = "Mark";
+            public static const string John = "John";
+            public static const string Luke = "Luke";
+            public static const string Stef = "Stef";
+            public static const string Sue = "Sue";
+            public static const string Bob = "Bob";
+            public static const string Clark = "Clark";
+            public static PeerTupleNode evaluate_hash_node(string n)
             {
-                ret = databases.next_replica(cont, out resp);
+                if (n == Mark)
+                    return new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
+                if (n == John)
+                    return new PeerTupleNode(new ArrayList<int>.wrap({1,1,0,1}));
+                if (n == Luke)
+                    return new PeerTupleNode(new ArrayList<int>.wrap({1,0,0,0}));
+                if (n == Stef)
+                    return new PeerTupleNode(new ArrayList<int>.wrap({0,0,1,1}));
+                if (n == Sue)
+                    return new PeerTupleNode(new ArrayList<int>.wrap({1,0,1,0}));
+
+                return new PeerTupleNode(new ArrayList<int>.wrap({0,0,0,1}));
             }
         }
+    }
 
-        private IFixedKeysDatabaseDescriptor descriptor {public get; private set;}
-        private class Descriptor : Object, IDatabaseDescriptor, IFixedKeysDatabaseDescriptor
+    namespace Service00
+    {
+        /* Service 00
+          * keys = 1, ... levels
+          *
+          * hash_nodes =
+          *    k=1       {0} a node in my g-node of level 1
+          *    k=2       {0,0}
+          *    ....
+          *    k=levels  {0,0,0,0}
+          *
+          * values = state of the g-node (a string which starts with "" and gets appends)
+          *
+          * Requests: add_segment, replica_value
+          *
+          * string add_segment(string)
+          *   the client pass a segment that is to add to the current string and obtains the whole string.
+         */
+
+        class Key : Object
         {
-            public Descriptor(Service00Database t)
-            {
-                this.t = t;
-            }
-            private Service00Database t;
+            public int key {public get; public set;}
+        }
 
-            public bool is_valid_key(Object k)
+        class Record : Object
+        {
+            public int key {public get; public set;}
+            public string data {public get; public set;}
+        }
+
+        class AddSegmentRequest : Object, IPeersRequest
+        {
+            public int key {public get; public set;}
+            public string segment {public get; public set;}
+        }
+        class AddSegmentResponse : Object, IPeersResponse
+        {
+            public string data {public get; public set;}
+        }
+
+        class ReplicaRequest : Object, IPeersRequest
+        {
+            public int key {public get; public set;}
+            public string data {public get; public set;}
+        }
+        class ReplicaOkResponse : Object, IPeersResponse
+        {
+        }
+
+        class Service : Object
+        {
+        }
+
+        class Client : Object
+        {
+        }
+
+        class Database : Object
+        {
+            public int levels {public get; private set;}
+            private int guest_gnode_level;
+            private int new_gnode_level;
+            private Database? prev_id;
+            public Databases.Databases databases;
+            public HashMap<int,string> database;
+
+            public Database
+            (Databases.Databases databases, int levels,
+             int guest_gnode_level=-1, int new_gnode_level=-1, Database? prev_id=null)
             {
-                if (k is Service00Key)
+                if (new_gnode_level == -1) new_gnode_level = levels;
+                this.databases = databases;
+                this.levels = levels;
+                this.guest_gnode_level = guest_gnode_level;
+                this.new_gnode_level = new_gnode_level;
+                this.prev_id = prev_id;
+                descriptor = new Descriptor(this);
+                database = new HashMap<int,string>();
+                on_startup();
+            }
+
+            public static Gee.List<int> tuple_hash(int kl)
+            {
+                var ret = new ArrayList<int>();
+                for (int i = 0; i < kl; i++) ret.add(0);
+                return ret;
+            }
+
+            public static string get_default_for_key(int key)
+            {
+                return "";
+            }
+
+            public static const int add_segment_timeout_exec = 2000;
+            public string add_segment(int key, string data)
+            {
+                if (! database.has_key(key))
+                    database[key] = Database.get_default_for_key(key);
+                database[key] = database[key] + data;
+                return database[key];
+            }
+
+            private void replica_value(int key, string data)
+            {
+                database[key] = data;
+            }
+
+            private void on_startup()
+            {
+                IFixedKeysDatabaseDescriptor? prev_id_fkdd = null;
+                if (prev_id != null) prev_id_fkdd = prev_id.descriptor;
+                databases.fixed_keys_db_on_startup
+                    (/*fkdd               = */ descriptor,
+                     /*p_id               = */ 0,
+                     /*guest_gnode_level  = */ guest_gnode_level,
+                     /*new_gnode_level    = */ new_gnode_level,
+                     /*prev_id_fkdd       = */ prev_id_fkdd);
+            }
+
+            public IPeersResponse on_request(IPeersRequest r, int common_lvl)
+            throws PeersRefuseExecutionError, PeersRedoFromStartError
+            {
+                return databases.fixed_keys_db_on_request
+                    (/*fkdd               = */ descriptor,
+                     r, common_lvl);
+            }
+
+            private void make_replicas(int key, string data)
+            {
+                ReplicaRequest request = new ReplicaRequest();
+                request.key = key;
+                request.data = data;
+
+                IPeersResponse? resp;
+                IReplicaContinuation cont;
+                bool ret = databases.begin_replica(9, 0, Database.tuple_hash(key),
+                                                   request, 1000, out resp, out cont);
+                while (ret)
                 {
-                    Service00Key _k = (Service00Key)k;
-                    if (_k.key <= 0) return false;
-                    if (_k.key > t.levels) return false;
-                    return true;
+                    ret = databases.next_replica(cont, out resp);
                 }
-                return false;
             }
 
-            public Gee.List<int> evaluate_hash_node(Object k)
+            private IFixedKeysDatabaseDescriptor descriptor {public get; private set;}
+            private class Descriptor : Object, IDatabaseDescriptor, IFixedKeysDatabaseDescriptor
             {
-                assert(is_valid_key(k));
-                Service00Key _k = (Service00Key)k;
-                return Service00Database.tuple_hash(_k.key);
-            }
-
-            public bool key_equal_data(Object k1, Object k2)
-            {
-                assert(is_valid_key(k1));
-                Service00Key _k1 = (Service00Key)k1;
-                int k1l = _k1.key;
-                assert(is_valid_key(k2));
-                Service00Key _k2 = (Service00Key)k2;
-                int k2l = _k2.key;
-                return k1l == k2l;
-            }
-
-            public uint key_hash_data(Object k)
-            {
-                assert(is_valid_key(k));
-                Service00Key _k = (Service00Key)k;
-                int kl = _k.key;
-                return (uint)kl;
-            }
-
-            public bool is_valid_record(Object k, Object rec)
-            {
-                if (k is Service00Key)
+                public Descriptor(Database t)
                 {
-                    if (rec is Service00Record)
+                    this.t = t;
+                }
+                private Database t;
+
+                public bool is_valid_key(Object k)
+                {
+                    if (k is Key)
                     {
-                        Service00Key _k = (Service00Key)k;
-                        Service00Record _rec = (Service00Record)rec;
-                        return _k.key == _rec.key;
+                        Key _k = (Key)k;
+                        if (_k.key <= 0) return false;
+                        if (_k.key > t.levels) return false;
+                        return true;
                     }
                     return false;
                 }
-                return false;
-            }
 
-            public bool my_records_contains(Object k)
-            {
-                assert(is_valid_key(k));
-                // is a fkdd: always contains
-                Service00Key _k = (Service00Key)k;
-                int kl = _k.key;
-                if (! t.database.has_key(kl))
-                    t.database[kl] = Service00Database.get_default_for_key(kl);
-                return true;
-            }
-
-            public Object get_record_for_key(Object k)
-            {
-                assert(is_valid_key(k));
-                assert(my_records_contains(k));
-                Service00Key _k = (Service00Key)k;
-                int kl = _k.key;
-                var ret = new Service00Record();
-                ret.key = kl;
-                ret.data = t.database[kl];
-                return ret;
-            }
-
-            public void set_record_for_key(Object k, Object rec)
-            {
-                assert(is_valid_key(k));
-                Service00Key _k = (Service00Key)k;
-                int kl = _k.key;
-                assert(is_valid_record(k, rec));
-                Service00Record _rec = (Service00Record)rec;
-                t.database[kl] = _rec.data;
-            }
-
-
-            public Object get_key_from_request(IPeersRequest r)
-            {
-                if (r is Service00AddSegmentRequest)
+                public Gee.List<int> evaluate_hash_node(Object k)
                 {
-                    Service00AddSegmentRequest _r = (Service00AddSegmentRequest)r;
-                    Service00Key ret = new Service00Key();
-                    ret.key = _r.key;
+                    assert(is_valid_key(k));
+                    Key _k = (Key)k;
+                    return Database.tuple_hash(_k.key);
+                }
+
+                public bool key_equal_data(Object k1, Object k2)
+                {
+                    assert(is_valid_key(k1));
+                    Key _k1 = (Key)k1;
+                    int k1l = _k1.key;
+                    assert(is_valid_key(k2));
+                    Key _k2 = (Key)k2;
+                    int k2l = _k2.key;
+                    return k1l == k2l;
+                }
+
+                public uint key_hash_data(Object k)
+                {
+                    assert(is_valid_key(k));
+                    Key _k = (Key)k;
+                    int kl = _k.key;
+                    return (uint)kl;
+                }
+
+                public bool is_valid_record(Object k, Object rec)
+                {
+                    if (k is Key)
+                    {
+                        if (rec is Record)
+                        {
+                            Key _k = (Key)k;
+                            Record _rec = (Record)rec;
+                            return _k.key == _rec.key;
+                        }
+                        return false;
+                    }
+                    return false;
+                }
+
+                public bool my_records_contains(Object k)
+                {
+                    assert(is_valid_key(k));
+                    // is a fkdd: always contains
+                    Key _k = (Key)k;
+                    int kl = _k.key;
+                    if (! t.database.has_key(kl))
+                        t.database[kl] = Database.get_default_for_key(kl);
+                    return true;
+                }
+
+                public Object get_record_for_key(Object k)
+                {
+                    assert(is_valid_key(k));
+                    assert(my_records_contains(k));
+                    Key _k = (Key)k;
+                    int kl = _k.key;
+                    var ret = new Record();
+                    ret.key = kl;
+                    ret.data = t.database[kl];
                     return ret;
                 }
-                else if (r is Service00ReplicaRequest)
-                {
-                    Service00ReplicaRequest _r = (Service00ReplicaRequest)r;
-                    Service00Key ret = new Service00Key();
-                    ret.key = _r.key;
-                    return ret;
-                }
-                else assert_not_reached();
-            }
 
-            public int get_timeout_exec(IPeersRequest r)
-            {
-                if (r is Service00AddSegmentRequest)
+                public void set_record_for_key(Object k, Object rec)
                 {
-                    return add_segment_timeout_exec;
+                    assert(is_valid_key(k));
+                    Key _k = (Key)k;
+                    int kl = _k.key;
+                    assert(is_valid_record(k, rec));
+                    Record _rec = (Record)rec;
+                    t.database[kl] = _rec.data;
                 }
-                else if (r is Service00ReplicaRequest)
+
+
+                public Object get_key_from_request(IPeersRequest r)
                 {
-                    // not insert or update => should not request
+                    if (r is AddSegmentRequest)
+                    {
+                        AddSegmentRequest _r = (AddSegmentRequest)r;
+                        Key ret = new Key();
+                        ret.key = _r.key;
+                        return ret;
+                    }
+                    else if (r is ReplicaRequest)
+                    {
+                        ReplicaRequest _r = (ReplicaRequest)r;
+                        Key ret = new Key();
+                        ret.key = _r.key;
+                        return ret;
+                    }
+                    else assert_not_reached();
+                }
+
+                public int get_timeout_exec(IPeersRequest r)
+                {
+                    if (r is AddSegmentRequest)
+                    {
+                        return add_segment_timeout_exec;
+                    }
+                    else if (r is ReplicaRequest)
+                    {
+                        // not insert or update => should not request
+                        assert_not_reached();
+                    }
+                    else assert_not_reached();
+                }
+
+                public bool is_insert_request(IPeersRequest r)
+                {
+                    // no requests of this type in this service
+                    return false;
+                }
+
+                public bool is_read_only_request(IPeersRequest r)
+                {
+                    // no requests of this type in this service
+                    return false;
+                }
+
+                public bool is_update_request(IPeersRequest r)
+                {
+                    if (r is AddSegmentRequest)
+                    {
+                        AddSegmentRequest _r = (AddSegmentRequest)r;
+                        if (_r.key <= 0) return false;
+                        if (_r.key > t.levels) return false;
+                        return true;
+                    }
+                    return false;
+                }
+
+                public bool is_replica_value_request(IPeersRequest r)
+                {
+                    if (r is ReplicaRequest)
+                    {
+                        ReplicaRequest _r = (ReplicaRequest)r;
+                        if (_r.key <= 0) return false;
+                        if (_r.key > t.levels) return false;
+                        return true;
+                    }
+                    return false;
+                }
+
+                public bool is_replica_delete_request(IPeersRequest r)
+                {
+                    // no requests of this type in this service
+                    return false;
+                }
+
+                public IPeersResponse prepare_response_not_found(IPeersRequest r)
+                {
+                    // no requests of this type in this service
                     assert_not_reached();
                 }
-                else assert_not_reached();
-            }
 
-            public bool is_insert_request(IPeersRequest r)
-            {
-                // no requests of this type in this service
-                return false;
-            }
-
-            public bool is_read_only_request(IPeersRequest r)
-            {
-                // no requests of this type in this service
-                return false;
-            }
-
-            public bool is_update_request(IPeersRequest r)
-            {
-                if (r is Service00AddSegmentRequest)
+                public IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec)
                 {
-                    Service00AddSegmentRequest _r = (Service00AddSegmentRequest)r;
-                    if (_r.key <= 0) return false;
-                    if (_r.key > t.levels) return false;
-                    return true;
+                    // no requests of this type in this service
+                    assert_not_reached();
                 }
-                return false;
-            }
 
-            public bool is_replica_value_request(IPeersRequest r)
-            {
-                if (r is Service00ReplicaRequest)
+                public IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError
                 {
-                    Service00ReplicaRequest _r = (Service00ReplicaRequest)r;
-                    if (_r.key <= 0) return false;
-                    if (_r.key > t.levels) return false;
-                    return true;
-                }
-                return false;
-            }
-
-            public bool is_replica_delete_request(IPeersRequest r)
-            {
-                // no requests of this type in this service
-                return false;
-            }
-
-            public IPeersResponse prepare_response_not_found(IPeersRequest r)
-            {
-                // no requests of this type in this service
-                assert_not_reached();
-            }
-
-            public IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec)
-            {
-                // no requests of this type in this service
-                assert_not_reached();
-            }
-
-            public IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError
-            {
-                if (r is Service00AddSegmentRequest)
-                {
-                    Service00AddSegmentRequest _r = (Service00AddSegmentRequest)r;
-                    Service00AddSegmentResponse ret = new Service00AddSegmentResponse();
-                    ret.data = t.add_segment(_r.key, _r.segment);
+                    if (r is AddSegmentRequest)
                     {
-                        // launch a tasklet to make replicas
-                        MakeReplicasTasklet ts = new MakeReplicasTasklet();
-                        ts.t = this;
-                        ts.key = _r.key;
-                        ts.data = t.database[_r.key];
-                        tasklet.spawn(ts);
+                        AddSegmentRequest _r = (AddSegmentRequest)r;
+                        AddSegmentResponse ret = new AddSegmentResponse();
+                        ret.data = t.add_segment(_r.key, _r.segment);
+                        {
+                            // launch a tasklet to make replicas
+                            MakeReplicasTasklet ts = new MakeReplicasTasklet();
+                            ts.t = this;
+                            ts.key = _r.key;
+                            ts.data = t.database[_r.key];
+                            tasklet.spawn(ts);
+                        }
+                        return ret;
+                    }
+                    else if (r is ReplicaRequest)
+                    {
+                        ReplicaRequest _r = (ReplicaRequest)r;
+                        t.replica_value(_r.key, _r.data);
+                        return new ReplicaOkResponse();
+                    }
+                    else assert_not_reached();
+                }
+                private class MakeReplicasTasklet : Object, ITaskletSpawnable
+                {
+                    public Descriptor t;
+                    public int key;
+                    public string data;
+                    public void * func()
+                    {
+                        t.make_replicas_tasklet(key, data);
+                        return null;
+                    }
+                }
+                private void make_replicas_tasklet(int key, string data)
+                {
+                    t.make_replicas(key, data);
+                }
+
+
+                private DatabaseHandler dh;
+                public unowned DatabaseHandler dh_getter()
+                {
+                    return dh;
+                }
+                public void dh_setter(DatabaseHandler x)
+                {
+                    dh = x;
+                }
+
+
+                public Gee.List<Object> get_full_key_domain()
+                {
+                    var ret = new ArrayList<Object>();
+                    for (int i = 1; i <= t.levels; i++)
+                    {
+                        var k = new Key();
+                        k.key = i;
+                        ret.add(k);
                     }
                     return ret;
                 }
-                else if (r is Service00ReplicaRequest)
+
+                public Object get_default_record_for_key(Object k)
                 {
-                    Service00ReplicaRequest _r = (Service00ReplicaRequest)r;
-                    t.replica_value(_r.key, _r.data);
-                    return new Service00ReplicaOkResponse();
+                    assert(is_valid_key(k));
+                    Key _k = (Key)k;
+                    int kl = _k.key;
+                    var ret = new Record();
+                    ret.key = kl;
+                    ret.data = Database.get_default_for_key(kl);
+                    return ret;
                 }
-                else assert_not_reached();
-            }
-            private class MakeReplicasTasklet : Object, ITaskletSpawnable
-            {
-                public Descriptor t;
-                public int key;
-                public string data;
-                public void * func()
-                {
-                    t.make_replicas_tasklet(key, data);
-                    return null;
-                }
-            }
-            private void make_replicas_tasklet(int key, string data)
-            {
-                t.make_replicas(key, data);
-            }
-
-
-            private DatabaseHandler dh;
-            public unowned DatabaseHandler dh_getter()
-            {
-                return dh;
-            }
-            public void dh_setter(DatabaseHandler x)
-            {
-                dh = x;
-            }
-
-
-            public Gee.List<Object> get_full_key_domain()
-            {
-                var ret = new ArrayList<Object>();
-                for (int i = 1; i <= t.levels; i++)
-                {
-                    var k = new Service00Key();
-                    k.key = i;
-                    ret.add(k);
-                }
-                return ret;
-            }
-
-            public Object get_default_record_for_key(Object k)
-            {
-                assert(is_valid_key(k));
-                Service00Key _k = (Service00Key)k;
-                int kl = _k.key;
-                var ret = new Service00Record();
-                ret.key = kl;
-                ret.data = Service00Database.get_default_for_key(kl);
-                return ret;
             }
         }
     }
@@ -579,7 +592,7 @@ namespace EnteringTestcase
         public HashMap<string,TupleStub> stub_by_tuple;
         private MessageRouting.MessageRouting message_routing;
         private Databases.Databases databases;
-        private Service00Database s00_database;
+        private Service00.Database s00_database;
         private int guest_gnode_level;
         private int new_gnode_level;
         private SimNode? prev_id;
@@ -689,7 +702,7 @@ namespace EnteringTestcase
                          string client = address(client_tuple);
                          string me = address(pos);
                          debug(@"$(me): executing request $(classname) from client {$(client)}");
-                         if (req is Service00AddSegmentRequest)
+                         if (req is Service00.AddSegmentRequest)
                              debug(@"when executing add_segment client was {$(address(client_tuple))}");
                          ret = s00_database.on_request(req, common_lvl);
                      }
@@ -743,10 +756,10 @@ namespace EnteringTestcase
                  });
 
             if (prev_id == null)
-                s00_database = new Service00Database
+                s00_database = new Service00.Database
                     (databases, levels);
             else
-                s00_database = new Service00Database
+                s00_database = new Service00.Database
                     (databases, levels,
                      guest_gnode_level, new_gnode_level, prev_id.s00_database);
         }
@@ -767,13 +780,13 @@ namespace EnteringTestcase
             int p_id = 0;
             PeerTupleNode x_macron =
                 new PeerTupleNode(
-                Service00Database.tuple_hash(key));
+                Service00.Database.tuple_hash(key));
             bool optional = is_service_optional(p_id);
             if (optional) wait_participation_maps(x_macron.tuple.size);
-            var request = new Service00AddSegmentRequest();
+            var request = new Service00.AddSegmentRequest();
             request.key = key;
             request.segment = segment;
-            int timeout_exec = Service00Database.add_segment_timeout_exec;
+            int timeout_exec = Service00.Database.add_segment_timeout_exec;
             PeerTupleNode? respondant;
             var iresp = message_routing.contact_peer
                 (p_id,
@@ -784,8 +797,8 @@ namespace EnteringTestcase
                  false,
                  out respondant);
             debug(@"respondant of add_segment was $(address(respondant.tuple))");
-            assert(iresp is Service00AddSegmentResponse);
-            Service00AddSegmentResponse resp = (Service00AddSegmentResponse)iresp;
+            assert(iresp is Service00.AddSegmentResponse);
+            Service00.AddSegmentResponse resp = (Service00.AddSegmentResponse)iresp;
             return resp.data;
         }
 
