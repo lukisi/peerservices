@@ -228,6 +228,9 @@ namespace Netsukuku.PeerServices.MessageRouting
             return ret;
         }
 
+        /* Before calling this method the user MUST wait (if the service is optional)
+         * that the participation maps are ready at the needed level.
+         */
         public IPeersResponse contact_peer
         (int p_id,
          bool optional,
@@ -588,6 +591,9 @@ namespace Netsukuku.PeerServices.MessageRouting
             }
         }
 
+        /* After calling this method the user SHOULD use `mf.non_participant_tuple_list`
+         * (if the service is optional) and update it's maps.
+         */
         public void forward_msg
         (PeerMessageForwarder mf, bool optional, int maps_retrieved_below_level, CallerInfo caller)
         {

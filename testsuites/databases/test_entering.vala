@@ -483,6 +483,9 @@ namespace EnteringTestcase
 
                 IPeersResponse? resp;
                 IReplicaContinuation cont;
+                // If 'optional' will 'wait_participation_maps' through the class 'databases'.
+                // But probably if I am serving a request at any given level I should have my
+                // participation maps ready at that level. The replicas are in fact for servants.
                 bool ret = databases.begin_replica(9, 0, tuple_hash(key),
                                                    request, 1000, out resp, out cont);
                 while (ret)

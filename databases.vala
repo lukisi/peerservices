@@ -92,7 +92,9 @@ namespace Netsukuku.PeerServices
 
 namespace Netsukuku.PeerServices.Databases
 {
-    /* ContactPeer: Start message to servant.
+    /* ContactPeer: Start message to servant. This will wait, if needed,
+     * for participation maps. See difference with the method `contact_peer`
+     * of class MessageRouting.
      */
     internal delegate IPeersResponse ContactPeer
          (int p_id,
