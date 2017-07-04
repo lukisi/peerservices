@@ -125,6 +125,13 @@ namespace EnteringTestcase
                 this.prev_id = prev_id;
                 descriptor = new Descriptor(this);
                 database = new HashMap<int,string>();
+            }
+
+            /* This method is used to signal that the SimNode has been completely
+             * prepared (knows the routes and the neighbors) and the simulation may begin.
+             */
+            public void startup()
+            {
                 on_startup();
             }
 
@@ -517,10 +524,14 @@ namespace EnteringTestcase
     Gee.List<int> gsizes;
     int levels;
 
-    public void prepare_network_1()
+    void init_topology()
     {
         gsizes = new ArrayList<int>.wrap({2,2,2,2});
         levels = gsizes.size;
+    }
+
+    void prepare_network_1()
+    {
         net1 = new Network();
         var h00 = new HCoord(0,0);
         var h01 = new HCoord(0,1);
@@ -530,16 +541,19 @@ namespace EnteringTestcase
         var h21 = new HCoord(2,1);
         var h30 = new HCoord(3,0);
         var h31 = new HCoord(3,1);
-        // g-node 1:1:0
-        node_a = new SimNode("a", new ArrayList<int>.wrap({1,0,1,1}), net1);
-        node_b = new SimNode("b", new ArrayList<int>.wrap({0,0,1,1}), net1);
+        // g-node 0:0:0
+        node_a = new SimNode("a", new ArrayList<int>.wrap({1,0,0,0}), net1);
+        node_b = new SimNode("b", new ArrayList<int>.wrap({0,0,0,0}), net1);
         assert(node_a.exists_gnode(h00));
         node_a.add_gateway_to_gnode(node_b, h00);
         assert(node_b.exists_gnode(h01));
         node_b.add_gateway_to_gnode(node_a, h01);
+        // prepared
+        node_a.startup();
+        node_b.startup();
     }
 
-    public void prepare_network_2()
+    void prepare_network_2()
     {
         net2 = new Network();
         var h00 = new HCoord(0,0);
@@ -606,6 +620,86 @@ namespace EnteringTestcase
         assert(node_d.exists_gnode(h31));
         node_d.add_gateway_to_gnode(node_c, h31);
         node_d.add_gateway_to_gnode(node_g, h31);
+        // prepared
+        node_c.startup();
+        node_d.startup();
+        node_e.startup();
+        node_f.startup();
+        node_g.startup();
+        node_h.startup();
+    }
+
+    void merge_net1_in_net2()
+    {
+        // g-node 0:0:0 in net1 becomes g-node 1:1:0 in net2.
+        var node_a_old = node_a;
+        var node_b_old = node_b;
+
+        var h00 = new HCoord(0,0);
+        var h01 = new HCoord(0,1);
+        var h10 = new HCoord(1,0);
+        var h11 = new HCoord(1,1);
+        var h20 = new HCoord(2,0);
+        var h21 = new HCoord(2,1);
+        var h30 = new HCoord(3,0);
+        var h31 = new HCoord(3,1);
+        // g-node 1:1:0
+        node_a = new SimNode("a", new ArrayList<int>.wrap({1,0,1,1}), net2, 1, 1, node_a_old);
+        node_b = new SimNode("b", new ArrayList<int>.wrap({0,0,1,1}), net2, 1, 1, node_b_old);
+        assert(node_a.exists_gnode(h00));
+        node_a.add_gateway_to_gnode(node_b, h00);
+        assert(node_b.exists_gnode(h01));
+        node_b.add_gateway_to_gnode(node_a, h01);
+        // g-node 1:1
+        assert(node_a.exists_gnode(h11));
+        node_a.add_gateway_to_gnode(node_b, h11);
+        assert(node_b.exists_gnode(h11));
+        node_b.add_gateway_to_gnode(node_c, h11);
+        assert(node_c.exists_gnode(h10));
+        node_c.add_gateway_to_gnode(node_b, h10);
+        // g-node 1
+        assert(node_a.exists_gnode(h20));
+        node_a.add_gateway_to_gnode(node_e, h20);
+        node_a.add_gateway_to_gnode(node_h, h20);
+        node_a.add_gateway_to_gnode(node_b, h20);
+        assert(node_b.exists_gnode(h20));
+        node_b.add_gateway_to_gnode(node_e, h20);
+        node_b.add_gateway_to_gnode(node_a, h20);
+        node_b.add_gateway_to_gnode(node_c, h20);
+        assert(node_c.exists_gnode(h20));
+        node_c.add_gateway_to_gnode(node_b, h20);
+        assert(node_e.exists_gnode(h21));
+        node_e.add_gateway_to_gnode(node_a, h21);
+        node_e.add_gateway_to_gnode(node_b, h21);
+        node_e.add_gateway_to_gnode(node_h, h21);
+        assert(node_h.exists_gnode(h21));
+        node_h.add_gateway_to_gnode(node_a, h21);
+        assert(node_f.exists_gnode(h21));
+        assert(node_g.exists_gnode(h21));
+        // g-node 0 : only node_d
+        // whole net
+        assert(node_a.exists_gnode(h30));
+        node_a.add_gateway_to_gnode(node_b, h30);
+        node_a.add_gateway_to_gnode(node_e, h30);
+        node_a.add_gateway_to_gnode(node_h, h30);
+        assert(node_b.exists_gnode(h30));
+        node_b.add_gateway_to_gnode(node_c, h30);
+        node_b.add_gateway_to_gnode(node_e, h30);
+        node_b.add_gateway_to_gnode(node_a, h30);
+        assert(node_c.exists_gnode(h30));
+        node_c.add_gateway_to_gnode(node_b, h30);
+        assert(node_e.exists_gnode(h30));
+        node_e.add_gateway_to_gnode(node_b, h30);
+        node_e.add_gateway_to_gnode(node_a, h30);
+        node_e.add_gateway_to_gnode(node_h, h30);
+        assert(node_h.exists_gnode(h30));
+        node_h.add_gateway_to_gnode(node_a, h30);
+        assert(node_f.exists_gnode(h30));
+        assert(node_g.exists_gnode(h30));
+        assert(node_d.exists_gnode(h31));
+        // prepared
+        node_a.startup();
+        node_b.startup();
     }
 
     class Network : Object
@@ -816,6 +910,14 @@ namespace EnteringTestcase
                      guest_gnode_level, new_gnode_level, prev_id.s00_servant);
         }
 
+        /* This method is used to signal that the SimNode has been completely
+         * prepared (knows the routes and the neighbors) and the simulation may begin.
+         */
+        public void startup()
+        {
+            s00_servant.startup();
+        }
+
         private bool is_service_optional(int p_id)
         {
             assert(p_id == 1 || p_id == 0); // The only services simulated in this testcase
@@ -907,6 +1009,34 @@ namespace EnteringTestcase
             }
         }
 
+        public void rpc_set_next_destination
+        (int msg_id, IPeerTupleGNode tuple)
+        {
+            // check that interfaces are ok
+            if (!(tuple is PeerTupleGNode))
+            {
+                warning("bad request rpc: set_next_destination, invalid tuple.");
+                tasklet.exit_tasklet();
+            }
+            // Call method of message_routing.
+            message_routing.set_next_destination(msg_id, (PeerTupleGNode)tuple);
+            // Done.
+        }
+
+        public void rpc_set_failure
+        (int msg_id, IPeerTupleGNode tuple)
+        {
+            // check that interfaces are ok
+            if (!(tuple is PeerTupleGNode))
+            {
+                warning("bad request rpc: set_failure, invalid tuple.");
+                tasklet.exit_tasklet();
+            }
+            // Call method of message_routing.
+            message_routing.set_failure(msg_id, (PeerTupleGNode)tuple);
+            // Done.
+        }
+
         public IPeersRequest rpc_get_request
         (int msg_id, IPeerTupleNode respondant)
         throws PeersUnknownMessageError, PeersInvalidRequest
@@ -938,31 +1068,17 @@ namespace EnteringTestcase
             // Done.
         }
 
-        public void rpc_set_failure
-        (int msg_id, IPeerTupleGNode tuple)
+        public void rpc_set_refuse_message
+        (int msg_id, string refuse_message, IPeerTupleNode respondant)
         {
             // check that interfaces are ok
-            if (!(tuple is PeerTupleGNode))
+            if (!(respondant is PeerTupleNode))
             {
-                warning("bad request rpc: set_failure, invalid tuple.");
+                warning("bad request rpc: set_refuse_message, invalid respondant.");
                 tasklet.exit_tasklet();
             }
             // Call method of message_routing.
-            message_routing.set_failure(msg_id, (PeerTupleGNode)tuple);
-            // Done.
-        }
-
-        public void rpc_set_next_destination
-        (int msg_id, IPeerTupleGNode tuple)
-        {
-            // check that interfaces are ok
-            if (!(tuple is PeerTupleGNode))
-            {
-                warning("bad request rpc: set_next_destination, invalid tuple.");
-                tasklet.exit_tasklet();
-            }
-            // Call method of message_routing.
-            message_routing.set_next_destination(msg_id, (PeerTupleGNode)tuple);
+            message_routing.set_refuse_message(msg_id, refuse_message, (PeerTupleNode)respondant);
             // Done.
         }
     }
@@ -1094,7 +1210,15 @@ namespace EnteringTestcase
 
         public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
-            error("not implemented yet");
+            assert(by_gateway == null);
+            assert(internally != null);
+            // This is a stub that connects via TCP and waits for answer.
+
+            // Here we could simulate StubError
+            tasklet.ms_wait(2); // simulates network latency
+            if (! internally.inside_min_common_gnode) warning("Tuple in message_forwarder is wider than expected");
+            SimNode srv_client = internally.node;
+            srv_client.rpc_set_refuse_message(msg_id, refuse_message, respondant);
         }
 
         public void set_response (int msg_id, IPeersResponse response, IPeerTupleNode respondant) throws StubError, DeserializeError
@@ -1116,6 +1240,8 @@ class Entering : Object
 {
     public void test_entering()
     {
+        init_topology();
+
         string data;
         print("\nPrepare network net1...\n");
         prepare_network_1();
@@ -1158,6 +1284,14 @@ class Entering : Object
         tasklet.ms_wait(10);
 
         print("Merge networks: net1 enters net2...\n");
-        var node_a_old = node_a;
+        merge_net1_in_net2();
+        print("Networks merged.\n");
+        tasklet.ms_wait(2000); // requests for db_start_retrieve are quite interleaved
+        // then node_b verifies
+        data = node_b.srv00_add_segment(1, "");
+        print(@"node_b: srv00 key 1: '$(data)'.\n");
+        data = node_b.srv00_add_segment(4, "");
+        print(@"node_b: srv00 key 4: '$(data)'.\n");
+        tasklet.ms_wait(10);
     }
 }
