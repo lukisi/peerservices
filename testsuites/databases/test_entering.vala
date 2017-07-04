@@ -109,14 +109,16 @@ namespace EnteringTestcase
             private int new_gnode_level;
             private Servant? prev_id;
             public Databases.Databases databases;
+            public Client client;
             public HashMap<int,string> database;
 
             public Servant
-            (Databases.Databases databases, int levels,
+            (Client client, Databases.Databases databases, int levels,
              int guest_gnode_level=-1, int new_gnode_level=-1, Servant? prev_id=null)
             {
                 if (new_gnode_level == -1) new_gnode_level = levels;
                 this.databases = databases;
+                this.client = client;
                 this.levels = levels;
                 this.guest_gnode_level = guest_gnode_level;
                 this.new_gnode_level = new_gnode_level;
@@ -124,13 +126,6 @@ namespace EnteringTestcase
                 descriptor = new Descriptor(this);
                 database = new HashMap<int,string>();
                 on_startup();
-            }
-
-            public static Gee.List<int> tuple_hash(int kl)
-            {
-                var ret = new ArrayList<int>();
-                for (int i = 0; i < kl; i++) ret.add(0);
-                return ret;
             }
 
             public static string get_default_for_key(int key)
@@ -172,22 +167,6 @@ namespace EnteringTestcase
                      r, common_lvl);
             }
 
-            private void make_replicas(int key, string data)
-            {
-                ReplicaRequest request = new ReplicaRequest();
-                request.key = key;
-                request.data = data;
-
-                IPeersResponse? resp;
-                IReplicaContinuation cont;
-                bool ret = databases.begin_replica(9, 0, Servant.tuple_hash(key),
-                                                   request, 1000, out resp, out cont);
-                while (ret)
-                {
-                    ret = databases.next_replica(cont, out resp);
-                }
-            }
-
             private IFixedKeysDatabaseDescriptor descriptor {public get; private set;}
             private class Descriptor : Object, IDatabaseDescriptor, IFixedKeysDatabaseDescriptor
             {
@@ -213,7 +192,7 @@ namespace EnteringTestcase
                 {
                     assert(is_valid_key(k));
                     Key _k = (Key)k;
-                    return Servant.tuple_hash(_k.key);
+                    return Client.tuple_hash(_k.key);
                 }
 
                 public bool key_equal_data(Object k1, Object k2)
@@ -409,7 +388,7 @@ namespace EnteringTestcase
                 }
                 private void make_replicas_tasklet(int key, string data)
                 {
-                    t.make_replicas(key, data);
+                    t.client.make_replicas(key, data);
                 }
 
 
@@ -451,6 +430,36 @@ namespace EnteringTestcase
 
         class Client : Object
         {
+            public Databases.Databases databases;
+
+            public Client
+            (Databases.Databases databases)
+            {
+                this.databases = databases;
+            }
+
+            public void make_replicas(int key, string data)
+            {
+                ReplicaRequest request = new ReplicaRequest();
+                request.key = key;
+                request.data = data;
+
+                IPeersResponse? resp;
+                IReplicaContinuation cont;
+                bool ret = databases.begin_replica(9, 0, tuple_hash(key),
+                                                   request, 1000, out resp, out cont);
+                while (ret)
+                {
+                    ret = databases.next_replica(cont, out resp);
+                }
+            }
+
+            public static Gee.List<int> tuple_hash(int kl)
+            {
+                var ret = new ArrayList<int>();
+                for (int i = 0; i < kl; i++) ret.add(0);
+                return ret;
+            }
         }
     }
 
@@ -588,7 +597,8 @@ namespace EnteringTestcase
         public HashMap<string,TupleStub> stub_by_tuple;
         private MessageRouting.MessageRouting message_routing;
         private Databases.Databases databases;
-        private Service00.Servant s00_database;
+        private Service00.Client s00_client;
+        private Service00.Servant s00_servant;
         private int guest_gnode_level;
         private int new_gnode_level;
         private SimNode? prev_id;
@@ -700,7 +710,7 @@ namespace EnteringTestcase
                          debug(@"$(me): executing request $(classname) from client {$(client)}");
                          if (req is Service00.AddSegmentRequest)
                              debug(@"when executing add_segment client was {$(address(client_tuple))}");
-                         ret = s00_database.on_request(req, common_lvl);
+                         ret = s00_servant.on_request(req, common_lvl);
                      }
                      else if (p_id == 1)
                      {
@@ -751,13 +761,14 @@ namespace EnteringTestcase
                      return nodes_inside_my_gnode(lvl);
                  });
 
+            s00_client = new Service00.Client(databases);
             if (prev_id == null)
-                s00_database = new Service00.Servant
-                    (databases, levels);
+                s00_servant = new Service00.Servant
+                    (s00_client, databases, levels);
             else
-                s00_database = new Service00.Servant
-                    (databases, levels,
-                     guest_gnode_level, new_gnode_level, prev_id.s00_database);
+                s00_servant = new Service00.Servant
+                    (s00_client, databases, levels,
+                     guest_gnode_level, new_gnode_level, prev_id.s00_servant);
         }
 
         private bool is_service_optional(int p_id)
@@ -776,7 +787,7 @@ namespace EnteringTestcase
             int p_id = 0;
             PeerTupleNode x_macron =
                 new PeerTupleNode(
-                Service00.Servant.tuple_hash(key));
+                Service00.Client.tuple_hash(key));
             bool optional = is_service_optional(p_id);
             if (optional) wait_participation_maps(x_macron.tuple.size);
             var request = new Service00.AddSegmentRequest();
