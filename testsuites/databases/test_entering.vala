@@ -20,10 +20,11 @@ using Gee;
 using Netsukuku;
 using Netsukuku.PeerServices;
 using TaskletSystem;
+using EnteringTestcase;
 
-class Entering : Object
+namespace EnteringTestcase
 {
-    private class Service01Names : Object
+    class Service01Names : Object
     {
         public static const string Mark = "Mark";
         public static const string John = "John";
@@ -444,20 +445,24 @@ class Entering : Object
         }
     }
 
-    private SimNode node_a;
-    private SimNode node_b;
-    private SimNode node_c;
-    private SimNode node_d;
-    private SimNode node_e;
-    private SimNode node_f;
-    private SimNode node_g;
-    private SimNode node_h;
-    private Network net1;
-    private Network net2;
+    SimNode node_a;
+    SimNode node_b;
+    SimNode node_c;
+    SimNode node_d;
+    SimNode node_e;
+    SimNode node_f;
+    SimNode node_g;
+    SimNode node_h;
+    Network net1;
+    Network net2;
+
+    Gee.List<int> gsizes;
+    int levels;
 
     public void prepare_network_1()
     {
         gsizes = new ArrayList<int>.wrap({2,2,2,2});
+        levels = gsizes.size;
         net1 = new Network();
         var h00 = new HCoord(0,0);
         var h01 = new HCoord(0,1);
@@ -468,8 +473,8 @@ class Entering : Object
         var h30 = new HCoord(3,0);
         var h31 = new HCoord(3,1);
         // g-node 1:1:0
-        node_a = new SimNode(this, "a", new ArrayList<int>.wrap({1,0,1,1}), net1);
-        node_b = new SimNode(this, "b", new ArrayList<int>.wrap({0,0,1,1}), net1);
+        node_a = new SimNode("a", new ArrayList<int>.wrap({1,0,1,1}), net1);
+        node_b = new SimNode("b", new ArrayList<int>.wrap({0,0,1,1}), net1);
         assert(node_a.exists_gnode(h00));
         node_a.add_gateway_to_gnode(node_b, h00);
         assert(node_b.exists_gnode(h01));
@@ -488,17 +493,17 @@ class Entering : Object
         var h30 = new HCoord(3,0);
         var h31 = new HCoord(3,1);
         // g-node 1:1:1, also 1:1
-        node_c = new SimNode(this, "c", new ArrayList<int>.wrap({1,1,1,1}), net2);
+        node_c = new SimNode("c", new ArrayList<int>.wrap({1,1,1,1}), net2);
         // g-node 1:0:1
-        node_e = new SimNode(this, "e", new ArrayList<int>.wrap({1,1,0,1}), net2);
-        node_h = new SimNode(this, "h", new ArrayList<int>.wrap({0,1,0,1}), net2);
+        node_e = new SimNode("e", new ArrayList<int>.wrap({1,1,0,1}), net2);
+        node_h = new SimNode("h", new ArrayList<int>.wrap({0,1,0,1}), net2);
         assert(node_e.exists_gnode(h00));
         node_e.add_gateway_to_gnode(node_h, h00);
         assert(node_h.exists_gnode(h01));
         node_h.add_gateway_to_gnode(node_e, h01);
         // g-node 1:0:0
-        node_f = new SimNode(this, "f", new ArrayList<int>.wrap({1,0,0,1}), net2);
-        node_g = new SimNode(this, "g", new ArrayList<int>.wrap({0,0,0,1}), net2);
+        node_f = new SimNode("f", new ArrayList<int>.wrap({1,0,0,1}), net2);
+        node_g = new SimNode("g", new ArrayList<int>.wrap({0,0,0,1}), net2);
         assert(node_f.exists_gnode(h00));
         node_f.add_gateway_to_gnode(node_g, h00);
         assert(node_g.exists_gnode(h01));
@@ -524,7 +529,7 @@ class Entering : Object
         assert(node_g.exists_gnode(h21));
         node_g.add_gateway_to_gnode(node_f, h21);
         // g-node 0
-        node_d = new SimNode(this, "d", new ArrayList<int>.wrap({0,1,1,0}), net2);
+        node_d = new SimNode("d", new ArrayList<int>.wrap({0,1,1,0}), net2);
         // whole net
         assert(node_c.exists_gnode(h30));
         node_c.add_gateway_to_gnode(node_d, h30);
@@ -555,13 +560,6 @@ class Entering : Object
         public HashMap<string,SimNode> nodes;
     }
 
-    Gee.List<int> gsizes;
-    int levels {
-        get {
-            return gsizes.size;
-        }
-    }
-
     class TupleStub : Object
     {
         public TupleStub(SimNode node, bool inside_min_common_gnode=true)
@@ -575,7 +573,6 @@ class Entering : Object
 
     class SimNode : Object
     {
-        private Entering environ;
         public string name;
         public Gee.List<int> pos;
         public HashMap<HCoord, Gee.List<SimNode>> network_by_hcoord;
@@ -588,19 +585,18 @@ class Entering : Object
         private SimNode? prev_id;
 
         public SimNode
-        (Entering environ, string name,
+        (string name,
          Gee.List<int> pos, Network net,
          int guest_gnode_level=-1, int new_gnode_level=-1, SimNode? prev_id=null)
         {
-            if (new_gnode_level == -1) new_gnode_level = environ.levels;
-            assert(pos.size == environ.levels);
-            for (int i = 0; i < environ.levels; i++)
+            if (new_gnode_level == -1) new_gnode_level = levels;
+            assert(pos.size == levels);
+            for (int i = 0; i < levels; i++)
             {
                 assert(pos[i] >= 0);
-                assert(pos[i] < environ.gsizes[i]);
+                assert(pos[i] < gsizes[i]);
             }
 
-            this.environ = environ;
             this.name = name;
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
@@ -622,7 +618,7 @@ class Entering : Object
             net.nodes[name] = this;
 
             message_routing = new MessageRouting.MessageRouting
-                (pos, environ.gsizes,
+                (pos, gsizes,
                  /* gnode_exists                  = */  (/*int*/ lvl, /*int*/ pos) => {
                      return exists_gnode(new HCoord(lvl,pos));
                  },
@@ -706,7 +702,7 @@ class Entering : Object
                  });
 
             databases = new Databases.Databases
-                (pos, environ.gsizes,
+                (pos, gsizes,
                  /* contact_peer     = */  (/*int*/ p_id,
                                             /*PeerTupleNode*/ x_macron,
                                             /*IPeersRequest*/ request,
@@ -748,10 +744,10 @@ class Entering : Object
 
             if (prev_id == null)
                 s00_database = new Service00Database
-                    (databases, environ.levels);
+                    (databases, levels);
             else
                 s00_database = new Service00Database
-                    (databases, environ.levels,
+                    (databases, levels,
                      guest_gnode_level, new_gnode_level, prev_id.s00_database);
         }
 
@@ -804,7 +800,7 @@ class Entering : Object
             string _address = address(internal_tuple);
             stub_by_tuple[_address] = new TupleStub(other);
             // wider
-            for (; i < environ.levels; i++)
+            for (; i < levels; i++)
             {
                 internal_tuple.add(other.pos[i]);
                 _address = address(internal_tuple);
@@ -851,7 +847,7 @@ class Entering : Object
             // check if mf.p_id is optional
             // In this testcase is always false.
             bool optional = is_service_optional(mf.p_id);
-            int maps_retrieved_below_level = environ.levels;
+            int maps_retrieved_below_level = levels;
             // prepare CallerInfo
             FakeCallerInfo caller_info = new FakeCallerInfo(caller);
             // Call method of message_routing.
@@ -1071,7 +1067,10 @@ class Entering : Object
             srv_client.rpc_set_response(msg_id, response, respondant);
         }
     }
+}
 
+class Entering : Object
+{
     public void test_entering()
     {
         string data;
