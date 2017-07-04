@@ -430,12 +430,49 @@ namespace EnteringTestcase
 
         class Client : Object
         {
+            /* WaitParticipationMaps: Wait until the participation maps are retrieved below target_levels.
+             */
+            internal delegate void WaitParticipationMaps(int target_levels);
+
             public Databases.Databases databases;
+            public MessageRouting.MessageRouting message_routing;
+            public WaitParticipationMaps wait_participation_maps;
+
+            private const int p_id = 0;
+            private const bool optional = false;
 
             public Client
-            (Databases.Databases databases)
+            (Databases.Databases databases, MessageRouting.MessageRouting message_routing,
+             WaitParticipationMaps wait_participation_maps)
             {
                 this.databases = databases;
+                this.message_routing = message_routing;
+                this.wait_participation_maps = wait_participation_maps;
+            }
+
+            public string add_segment(int key, string segment)
+            {
+                PeerTupleNode x_macron =
+                    new PeerTupleNode(
+                    Service00.Client.tuple_hash(key));
+                if (optional) wait_participation_maps(x_macron.tuple.size);
+                var request = new AddSegmentRequest();
+                request.key = key;
+                request.segment = segment;
+                int timeout_exec = Servant.add_segment_timeout_exec;
+                PeerTupleNode? respondant;
+                var iresp = message_routing.contact_peer
+                    (p_id,
+                     optional,
+                     x_macron,
+                     request,
+                     timeout_exec,
+                     false,
+                     out respondant);
+                debug(@"respondant of add_segment was $(address(respondant.tuple))");
+                assert(iresp is AddSegmentResponse);
+                AddSegmentResponse resp = (AddSegmentResponse)iresp;
+                return resp.data;
             }
 
             public void make_replicas(int key, string data)
@@ -761,7 +798,12 @@ namespace EnteringTestcase
                      return nodes_inside_my_gnode(lvl);
                  });
 
-            s00_client = new Service00.Client(databases);
+            s00_client = new Service00.Client
+                (databases,
+                 message_routing,
+                 /* wait_participation_maps   = */  (/*int*/ target_levels) => {
+                     wait_participation_maps(target_levels);
+                 });
             if (prev_id == null)
                 s00_servant = new Service00.Servant
                     (s00_client, databases, levels);
@@ -784,29 +826,7 @@ namespace EnteringTestcase
 
         public string srv00_add_segment(int key, string segment)
         {
-            int p_id = 0;
-            PeerTupleNode x_macron =
-                new PeerTupleNode(
-                Service00.Client.tuple_hash(key));
-            bool optional = is_service_optional(p_id);
-            if (optional) wait_participation_maps(x_macron.tuple.size);
-            var request = new Service00.AddSegmentRequest();
-            request.key = key;
-            request.segment = segment;
-            int timeout_exec = Service00.Servant.add_segment_timeout_exec;
-            PeerTupleNode? respondant;
-            var iresp = message_routing.contact_peer
-                (p_id,
-                 optional,
-                 x_macron,
-                 request,
-                 timeout_exec,
-                 false,
-                 out respondant);
-            debug(@"respondant of add_segment was $(address(respondant.tuple))");
-            assert(iresp is Service00.AddSegmentResponse);
-            Service00.AddSegmentResponse resp = (Service00.AddSegmentResponse)iresp;
-            return resp.data;
+            return s00_client.add_segment(key, segment);
         }
 
         private void add_knowledge_node(SimNode other)
