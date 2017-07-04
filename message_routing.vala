@@ -593,7 +593,19 @@ namespace Netsukuku.PeerServices.MessageRouting
         {
             if (pos[mf.lvl] == mf.pos)
             {
-                if (! my_gnode_participates(mf.p_id, mf.lvl))
+                if (optional && (mf.x_macron != null && maps_retrieved_below_level < mf.x_macron.tuple.size))
+                {
+                    IPeersManagerStub nstub
+                        = get_client_internally(mf.n);
+                    try {
+                        nstub.set_missing_optional_maps(mf.msg_id);
+                    } catch (StubError e) {
+                        // ignore
+                    } catch (DeserializeError e) {
+                        // ignore
+                    }
+                }
+                else if (optional && (! my_gnode_participates(mf.p_id, mf.lvl)))
                 {
                     IPeersManagerStub nstub
                         = get_client_internally(mf.n);
@@ -992,7 +1004,7 @@ namespace Netsukuku.PeerServices.MessageRouting
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
-                debug("PeersManager.set_non_participant: ignored because unknown msg_id");
+                debug("PeersManager.set_missing_optional_maps: ignored because unknown msg_id");
                 return;
             }
             WaitingAnswer wa = waiting_answer_map[msg_id];
