@@ -102,26 +102,18 @@ namespace EnteringTestcase
         {
         }
 
-        class Service : Object
-        {
-        }
-
-        class Client : Object
-        {
-        }
-
-        class Database : Object
+        class Servant : Object
         {
             public int levels {public get; private set;}
             private int guest_gnode_level;
             private int new_gnode_level;
-            private Database? prev_id;
+            private Servant? prev_id;
             public Databases.Databases databases;
             public HashMap<int,string> database;
 
-            public Database
+            public Servant
             (Databases.Databases databases, int levels,
-             int guest_gnode_level=-1, int new_gnode_level=-1, Database? prev_id=null)
+             int guest_gnode_level=-1, int new_gnode_level=-1, Servant? prev_id=null)
             {
                 if (new_gnode_level == -1) new_gnode_level = levels;
                 this.databases = databases;
@@ -150,7 +142,7 @@ namespace EnteringTestcase
             public string add_segment(int key, string data)
             {
                 if (! database.has_key(key))
-                    database[key] = Database.get_default_for_key(key);
+                    database[key] = Servant.get_default_for_key(key);
                 database[key] = database[key] + data;
                 return database[key];
             }
@@ -188,7 +180,7 @@ namespace EnteringTestcase
 
                 IPeersResponse? resp;
                 IReplicaContinuation cont;
-                bool ret = databases.begin_replica(9, 0, Database.tuple_hash(key),
+                bool ret = databases.begin_replica(9, 0, Servant.tuple_hash(key),
                                                    request, 1000, out resp, out cont);
                 while (ret)
                 {
@@ -199,11 +191,11 @@ namespace EnteringTestcase
             private IFixedKeysDatabaseDescriptor descriptor {public get; private set;}
             private class Descriptor : Object, IDatabaseDescriptor, IFixedKeysDatabaseDescriptor
             {
-                public Descriptor(Database t)
+                public Descriptor(Servant t)
                 {
                     this.t = t;
                 }
-                private Database t;
+                private Servant t;
 
                 public bool is_valid_key(Object k)
                 {
@@ -221,7 +213,7 @@ namespace EnteringTestcase
                 {
                     assert(is_valid_key(k));
                     Key _k = (Key)k;
-                    return Database.tuple_hash(_k.key);
+                    return Servant.tuple_hash(_k.key);
                 }
 
                 public bool key_equal_data(Object k1, Object k2)
@@ -265,7 +257,7 @@ namespace EnteringTestcase
                     Key _k = (Key)k;
                     int kl = _k.key;
                     if (! t.database.has_key(kl))
-                        t.database[kl] = Database.get_default_for_key(kl);
+                        t.database[kl] = Servant.get_default_for_key(kl);
                     return true;
                 }
 
@@ -451,10 +443,14 @@ namespace EnteringTestcase
                     int kl = _k.key;
                     var ret = new Record();
                     ret.key = kl;
-                    ret.data = Database.get_default_for_key(kl);
+                    ret.data = Servant.get_default_for_key(kl);
                     return ret;
                 }
             }
+        }
+
+        class Client : Object
+        {
         }
     }
 
@@ -592,7 +588,7 @@ namespace EnteringTestcase
         public HashMap<string,TupleStub> stub_by_tuple;
         private MessageRouting.MessageRouting message_routing;
         private Databases.Databases databases;
-        private Service00.Database s00_database;
+        private Service00.Servant s00_database;
         private int guest_gnode_level;
         private int new_gnode_level;
         private SimNode? prev_id;
@@ -756,10 +752,10 @@ namespace EnteringTestcase
                  });
 
             if (prev_id == null)
-                s00_database = new Service00.Database
+                s00_database = new Service00.Servant
                     (databases, levels);
             else
-                s00_database = new Service00.Database
+                s00_database = new Service00.Servant
                     (databases, levels,
                      guest_gnode_level, new_gnode_level, prev_id.s00_database);
         }
@@ -780,13 +776,13 @@ namespace EnteringTestcase
             int p_id = 0;
             PeerTupleNode x_macron =
                 new PeerTupleNode(
-                Service00.Database.tuple_hash(key));
+                Service00.Servant.tuple_hash(key));
             bool optional = is_service_optional(p_id);
             if (optional) wait_participation_maps(x_macron.tuple.size);
             var request = new Service00.AddSegmentRequest();
             request.key = key;
             request.segment = segment;
-            int timeout_exec = Service00.Database.add_segment_timeout_exec;
+            int timeout_exec = Service00.Servant.add_segment_timeout_exec;
             PeerTupleNode? respondant;
             var iresp = message_routing.contact_peer
                 (p_id,
