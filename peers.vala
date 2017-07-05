@@ -175,7 +175,7 @@ namespace Netsukuku.PeerServices
             map = new PeerParticipantSet(pos);
             my_services = new ArrayList<int>();
             map_handler = new MapHandler.MapHandler
-                (pos,
+                (pos, gsizes,
                  /*ClearMapsAtLevel*/ (lvl) => {
                      clear_maps_at_level(lvl);
                  },
@@ -290,12 +290,6 @@ namespace Netsukuku.PeerServices
             map_handler.participate(p_id);
         }
 
-        private void dont_participate(int p_id)
-        {
-            if (p_id in my_services) my_services.remove(p_id);
-            map_handler.dont_participate(p_id);
-        }
-
         private void clear_maps_at_level(int lvl)
         {
             foreach (int p_id in map.participant_set.keys)
@@ -396,24 +390,9 @@ namespace Netsukuku.PeerServices
             return mf.check_valid(levels, gsizes);
         }
 
-        private bool check_valid_tuple_node(PeerTupleNode n)
-        {
-            return n.check_valid(levels, gsizes);
-        }
-
         private bool check_valid_tuple_gnode(PeerTupleGNode gn)
         {
             return gn.check_valid(levels, gsizes);
-        }
-
-        private bool check_valid_participant_map(PeerParticipantMap m)
-        {
-            return m.check_valid(levels, gsizes);
-        }
-
-        private bool check_valid_participant_set(PeerParticipantSet p)
-        {
-            return p.check_valid(levels, gsizes);
         }
 
         private bool my_gnode_participates(int p_id, int lvl)
@@ -496,36 +475,6 @@ namespace Netsukuku.PeerServices
         private void convert_tuple_gnode(PeerTupleGNode t, out int @case, out HCoord ret)
         {
             Utils.convert_tuple_gnode(pos, t, out @case, out ret);
-        }
-
-        private PeerTupleGNode make_tuple_gnode(HCoord h, int top)
-        {
-            return Utils.make_tuple_gnode(pos, h, top);
-        }
-
-        private PeerTupleNode make_tuple_node(HCoord h, int top)
-        {
-            return Utils.make_tuple_node(pos, h, top);
-        }
-
-        private PeerTupleGNode tuple_node_to_tuple_gnode(PeerTupleNode t)
-        {
-            return Utils.tuple_node_to_tuple_gnode(t);
-        }
-
-        private PeerTupleGNode rebase_tuple_gnode(PeerTupleGNode t, int new_top)
-        {
-            return Utils.rebase_tuple_gnode(pos, t, new_top);
-        }
-
-        private PeerTupleNode rebase_tuple_node(PeerTupleNode t, int new_top)
-        {
-            return Utils.rebase_tuple_node(pos, t, new_top);
-        }
-
-        private bool visible_by_someone_inside_my_gnode(PeerTupleGNode t, int lvl)
-        {
-            return Utils.visible_by_someone_inside_my_gnode(pos, t, lvl);
         }
 
         /* Routing algorithm */

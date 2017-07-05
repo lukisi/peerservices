@@ -57,6 +57,7 @@ namespace Netsukuku.PeerServices.MapHandler
     {
         private int levels;
         private ArrayList<int> pos;
+        private ArrayList<int> gsizes;
         private int guest_gnode_level;
         private int host_gnode_level;
         private ClearMapsAtLevel clear_maps_at_level;
@@ -72,6 +73,7 @@ namespace Netsukuku.PeerServices.MapHandler
 
         public MapHandler
         (ArrayList<int> pos,
+         Gee.List<int> gsizes,
          owned ClearMapsAtLevel clear_maps_at_level,
          owned AddParticipant add_participant,
          owned RemoveParticipant remove_participant,
@@ -82,6 +84,9 @@ namespace Netsukuku.PeerServices.MapHandler
         {
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
+            this.gsizes = new ArrayList<int>();
+            this.gsizes.add_all(gsizes);
+            assert(gsizes.size == pos.size);
             this.levels = pos.size;
             this.clear_maps_at_level = (owned) clear_maps_at_level;
             this.add_participant = (owned) add_participant;
@@ -196,7 +201,17 @@ namespace Netsukuku.PeerServices.MapHandler
                 PeerParticipantSet ret_maps;
                 try {
                     IPeerParticipantSet resp = n_stub.ask_participant_maps();
+                    if (! (resp is PeerParticipantSet))
+                    {
+                        debug(@"retrieve_participant_set: Failed call to ask_participant_maps: garbage returned $(resp.get_type().name())");
+                        continue;
+                    }
                     ret_maps = (PeerParticipantSet)resp;
+                    if (! ret_maps.check_valid(levels, gsizes))
+                    {
+                        debug(@"retrieve_participant_set: Failed call to ask_participant_maps: invalid maps returned for this topoplogy");
+                        continue;
+                    }
                     // includes ret_maps.retrieved_below_level.
                 } catch (StubError e) {
                     debug(@"retrieve_participant_set: Failed call to ask_participant_maps: StubError $(e.message)");

@@ -767,26 +767,6 @@ namespace Netsukuku.PeerServices
         return ret;
     }
 
-    internal bool deserialize_bool(Json.Node property_node)
-    throws HelperDeserializeError
-    {
-        Json.Reader r = new Json.Reader(property_node.copy());
-        if (r.get_null_value())
-            throw new HelperDeserializeError.GENERIC("element is not nullable");
-        if (!r.is_value())
-            throw new HelperDeserializeError.GENERIC("element must be a boolean");
-        if (r.get_value().get_value_type() != typeof(bool))
-            throw new HelperDeserializeError.GENERIC("element must be a boolean");
-        return r.get_boolean_value();
-    }
-
-    internal Json.Node serialize_bool(bool b)
-    {
-        Json.Node ret = new Json.Node(Json.NodeType.VALUE);
-        ret.set_boolean(b);
-        return ret;
-    }
-
     internal PeerTupleNode deserialize_peer_tuple_node(Json.Node property_node)
     throws HelperDeserializeError
     {

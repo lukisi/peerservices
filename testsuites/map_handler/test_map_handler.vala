@@ -189,7 +189,7 @@ class PeersTester : Object
             my_services = new ArrayList<int>();
             neighbors = new HashMap<int, ArrayList<MapHolder>>();
             handler = new MapHandler.MapHandler
-                (pos,
+                (pos, gsizes,
                  /*ClearMapsAtLevel*/ (lvl) => {
                      print(@"$(name): Call to clear_maps_at_level($(lvl)).\n");
                      clear_maps_at_level(lvl);
