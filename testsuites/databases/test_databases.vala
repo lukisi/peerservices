@@ -79,10 +79,6 @@ int main(string[] args)
         var x = new Entering();
         x.test_entering();
     });
-    GLib.Test.add_func ("/Databases/SearchInside", () => {
-        var x = new SearchInside();
-        //x.test_search_inside();
-    });
 
     GLib.Test.run();
     return 0;

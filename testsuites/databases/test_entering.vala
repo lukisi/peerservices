@@ -1249,20 +1249,20 @@ class Entering : Object
         tasklet.ms_wait(10);
 
         // node_a makes a request
-        data = node_a.srv00_add_segment(1, "abcd");
-        print(@"node_a: srv00 key 1: '$(data)'.\n");
+        data = add_segment(node_a, 1, "abcd");
+        assert(data == "abcd");
         tasklet.ms_wait(10);
         // then node_b makes a request
-        data = node_b.srv00_add_segment(1, "efg");
-        print(@"node_b: srv00 key 1: '$(data)'.\n");
+        data = add_segment(node_b, 1, "efg");
+        assert(data == "abcdefg");
         tasklet.ms_wait(10);
         // node_a makes a request at level 4
-        data = node_a.srv00_add_segment(4, "pippo");
-        print(@"node_a: srv00 key 4: '$(data)'.\n");
+        data = add_segment(node_a, 4, "pippo");
+        assert(data == "pippo");
         tasklet.ms_wait(10);
         // then node_b verifies
-        data = node_b.srv00_add_segment(4, "");
-        print(@"node_b: srv00 key 4: '$(data)'.\n");
+        data = add_segment(node_b, 4, "");
+        assert(data == "pippo");
         tasklet.ms_wait(10);
 
         print("Prepare network net2...\n");
@@ -1271,27 +1271,32 @@ class Entering : Object
         tasklet.ms_wait(10);
 
         // node_c makes a request at level 2
-        data = node_c.srv00_add_segment(2, "qqqq");
-        print(@"node_c: srv00 key 2: '$(data)'.\n");
+        data = add_segment(node_c, 2, "qqqq");
+        assert(data == "qqqq");
         tasklet.ms_wait(10);
         // node_e makes a request at level 2
-        data = node_e.srv00_add_segment(2, "wwww");
-        print(@"node_e: srv00 key 2: '$(data)'.\n");
+        data = add_segment(node_e, 2, "wwww");
+        assert(data == "wwww");
         tasklet.ms_wait(10);
         // node_e makes a request at level 4
-        data = node_e.srv00_add_segment(4, "zzzz");
-        print(@"node_e: srv00 key 4: '$(data)'.\n");
+        data = add_segment(node_e, 4, "zzzz");
         tasklet.ms_wait(10);
 
         print("Merge networks: net1 enters net2...\n");
         merge_net1_in_net2();
         print("Networks merged.\n");
-        tasklet.ms_wait(2000); // requests for db_start_retrieve are quite interleaved
         // then node_b verifies
-        data = node_b.srv00_add_segment(1, "");
-        print(@"node_b: srv00 key 1: '$(data)'.\n");
-        data = node_b.srv00_add_segment(4, "");
-        print(@"node_b: srv00 key 4: '$(data)'.\n");
+        data = add_segment(node_b, 1, "");
+        assert(data == "abcdefg");
+        data = add_segment(node_b, 4, "");
+        assert(data == "zzzz");
         tasklet.ms_wait(10);
+    }
+
+    private string add_segment(SimNode node, int key, string segment)
+    {
+        string data = node.srv00_add_segment(key, segment);
+        print(@"node '$(node.name)': srv00 key $(key), add_segment '$(segment)': data is '$(data)'.\n");
+        return data;
     }
 }
