@@ -2,7 +2,7 @@ NULL =
 ACLOCAL_AMFLAGS = -I m4
 .PHONY: check
 
-noinst_LTLIBRARIES = \
+lib_LTLIBRARIES = \
 	libpeers.la \
 	$(NULL)
 
