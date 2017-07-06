@@ -1,2 +1,0 @@
-#!/bin/bash
-exec ./simulator test_1.script

@@ -32,6 +32,6 @@ PKG_CHECK_MODULES([PTHTASKLET], [pth-tasklet])
 PKG_CHECK_VAR([PTHTASKLET_VAPIDIR], [pth-tasklet], [vapidir])
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile peers.pc test_1.script test_2.script test_3.script test_4.script test_5.script test_6.script])
+AC_CONFIG_FILES([Makefile peers.pc])
 AC_OUTPUT
 

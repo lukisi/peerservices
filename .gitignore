@@ -68,4 +68,5 @@ compile
 debug
 finalbuild
 builds
+*~
 *.anjuta*
