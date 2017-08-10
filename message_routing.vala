@@ -150,7 +150,6 @@ namespace Netsukuku.PeerServices.MessageRouting
             return distance;
         }
 
-        // should be private, but for enabling access from the testsuite let's use internal
         internal HCoord? approximate(PeerTupleNode? x_macron,
                                      Gee.List<HCoord> _exclude_list)
         {

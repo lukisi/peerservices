@@ -383,6 +383,16 @@ namespace Netsukuku.PeerServices
             if (p.p_is_optional) participate(p.p_id);
         }
 
+        internal bool am_i_servant_for(int p_id, PeerTupleNode? x_macron)
+        {
+            if (!services.has_key(p_id)) return false;
+            HCoord? r = message_routing.approximate(x_macron, new ArrayList<HCoord>());
+            if (r == null) return false;
+            if (r.lvl != 0) return false;
+            if (r.pos != pos[0]) return false;
+            return true;
+        }
+
         /* Helpers */
 
         private bool check_valid_message(PeerMessageForwarder mf)
@@ -798,6 +808,14 @@ namespace Netsukuku.PeerServices
                  timeout_exec,
                  false,
                  out respondant);
+        }
+
+        public bool am_i_servant_for(Object k)
+        {
+            PeerTupleNode? x_macron = null;
+            Gee.List<int> tuple = perfect_tuple(k);
+            if (tuple.size > 0) x_macron = new PeerTupleNode(tuple);
+            return peers_manager.am_i_servant_for(p_id, x_macron);
         }
     }
 }
