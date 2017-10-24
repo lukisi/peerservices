@@ -1,8 +1,9 @@
 Part of Netsukuku.
 
-This is the module PeerServices.
+This package is the module PeerServices.
 It depends on: tasklet-system, ntkd-common, ntkdrpc.
 
-The ''ntkd'' daemon includes it.
+The ''ntkd'' daemon and some of its modules (the ones that implement
+a p2p service) depend on it.
 
 See documentation at https://github.com/lukisi/documentation
