@@ -364,12 +364,12 @@ class Replicas : Object
                  });
 
             databases = new Databases.Databases
-                (pos, environ.gsizes,
+                (pos, environ.gsizes, /*guest_gnode_level*/ 0, /*new_gnode_level*/ 0,
                  /* contact_peer     = */  (/*int*/ p_id,
                                             /*PeerTupleNode*/ x_macron,
                                             /*IPeersRequest*/ request,
                                             /*int*/ timeout_exec,
-                                            /*bool*/ exclude_myself,
+                                            /*int*/ exclude_my_gnode,
                                             out /*PeerTupleNode?*/ respondant,
                                             /*PeerTupleGNodeContainer?*/ exclude_tuple_list) => {
                      // Call method of message_routing.
@@ -381,7 +381,7 @@ class Replicas : Object
                           x_macron,
                           request,
                           timeout_exec,
-                          exclude_myself,
+                          exclude_my_gnode,
                           out respondant,
                           exclude_tuple_list);
                      // Done.
@@ -703,7 +703,7 @@ class Replicas : Object
             error("not implemented yet");
         }
 
-        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        public void set_refuse_message (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
             error("not implemented yet");
         }

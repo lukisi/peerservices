@@ -466,7 +466,7 @@ class PeersTester : Object
             error("not implemented yet");
         }
 
-        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        public void set_refuse_message (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
             error("not implemented yet");
         }
@@ -611,7 +611,7 @@ class PeersTester : Object
             error("not implemented yet");
         }
 
-        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        public void set_refuse_message (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
             error("not implemented yet");
         }

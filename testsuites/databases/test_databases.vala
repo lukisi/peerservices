@@ -75,10 +75,10 @@ int main(string[] args)
         var x = new Replicas();
         x.test_replicas();
     });
-    GLib.Test.add_func ("/Databases/Entering", () => {
-        var x = new Entering();
-        x.test_entering();
-    });
+    // GLib.Test.add_func ("/Databases/Entering", () => {
+    //     var x = new Entering();
+    //     x.test_entering();
+    // });
 
     GLib.Test.run();
     return 0;

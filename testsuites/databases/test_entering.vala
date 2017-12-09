@@ -161,8 +161,6 @@ namespace EnteringTestcase
                 databases.fixed_keys_db_on_startup
                     (/*fkdd               = */ descriptor,
                      /*p_id               = */ 0,
-                     /*guest_gnode_level  = */ guest_gnode_level,
-                     /*new_gnode_level    = */ new_gnode_level,
                      /*prev_id_fkdd       = */ prev_id_fkdd);
             }
 
@@ -474,7 +472,7 @@ namespace EnteringTestcase
                      x_macron,
                      request,
                      timeout_exec,
-                     false,
+                     -1,
                      out respondant);
                 debug(@"respondant of add_segment was $(address(respondant.tuple))");
                 assert(iresp is AddSegmentResponse);
@@ -855,7 +853,7 @@ namespace EnteringTestcase
                  });
 
             databases = new Databases.Databases
-                (pos, gsizes,
+                (pos, gsizes, /*guest_gnode_level*/ 0, /*new_gnode_level*/ 0,
                  /* contact_peer     = */  (/*int*/ p_id,
                                             /*PeerTupleNode*/ x_macron,
                                             /*IPeersRequest*/ request,
@@ -1069,7 +1067,7 @@ namespace EnteringTestcase
         }
 
         public void rpc_set_refuse_message
-        (int msg_id, string refuse_message, IPeerTupleNode respondant)
+        (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant)
         {
             // check that interfaces are ok
             if (!(respondant is PeerTupleNode))
@@ -1078,7 +1076,7 @@ namespace EnteringTestcase
                 tasklet.exit_tasklet();
             }
             // Call method of message_routing.
-            message_routing.set_refuse_message(msg_id, refuse_message, (PeerTupleNode)respondant);
+            message_routing.set_refuse_message(msg_id, refuse_message, e_lvl, (PeerTupleNode)respondant);
             // Done.
         }
     }
@@ -1208,7 +1206,7 @@ namespace EnteringTestcase
             error("not implemented yet");
         }
 
-        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        public void set_refuse_message (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
             assert(by_gateway == null);
             assert(internally != null);
@@ -1218,7 +1216,7 @@ namespace EnteringTestcase
             tasklet.ms_wait(2); // simulates network latency
             if (! internally.inside_min_common_gnode) warning("Tuple in message_forwarder is wider than expected");
             SimNode srv_client = internally.node;
-            srv_client.rpc_set_refuse_message(msg_id, refuse_message, respondant);
+            srv_client.rpc_set_refuse_message(msg_id, refuse_message, e_lvl, respondant);
         }
 
         public void set_response (int msg_id, IPeersResponse response, IPeerTupleNode respondant) throws StubError, DeserializeError

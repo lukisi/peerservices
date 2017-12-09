@@ -663,7 +663,7 @@ class PeersTester : Object
             request.name = name;
             request.number = number;
             int timeout_exec = 1000;
-            bool exclude_myself = false;
+            int exclude_my_gnode = -1;
             PeerTupleNode? respondant;
 
             print(@"From node '$(this.name)' call service 01 store '$(name)' => '$(number)'.\n");
@@ -677,7 +677,7 @@ class PeersTester : Object
                      x_macron,
                      request,
                      timeout_exec,
-                     exclude_myself,
+                     exclude_my_gnode,
                      out respondant);
                 // Done.
             } catch (PeersNoParticipantsInNetworkError e) {
@@ -707,7 +707,7 @@ class PeersTester : Object
             RequestRetr request = new RequestRetr();
             request.name = name;
             int timeout_exec = 1000;
-            bool exclude_myself = false;
+            int exclude_my_gnode = -1;
             PeerTupleNode? respondant;
 
             print(@"From node '$(this.name)' call service 01 retr '$(name)'.\n");
@@ -721,7 +721,7 @@ class PeersTester : Object
                      x_macron,
                      request,
                      timeout_exec,
-                     exclude_myself,
+                     exclude_my_gnode,
                      out respondant);
                 // Done.
             } catch (PeersNoParticipantsInNetworkError e) {
@@ -942,7 +942,7 @@ class PeersTester : Object
             error("not implemented yet");
         }
 
-        public void set_refuse_message (int msg_id, string refuse_message, IPeerTupleNode respondant) throws StubError, DeserializeError
+        public void set_refuse_message (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant) throws StubError, DeserializeError
         {
             error("not implemented yet");
         }
