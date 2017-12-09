@@ -76,8 +76,8 @@ namespace Netsukuku.PeerServices
         public abstract int ttl_db_my_records_size();
         public int ttl_db_max_keys {get {return ttl_db_max_keys_getter();}}
         public abstract int ttl_db_max_keys_getter();
-        public int ttl_db_msec_ttl {get {return ttl_db_msec_ttl_getter();}}
-        public abstract int ttl_db_msec_ttl_getter();
+        public long ttl_db_msec_ttl {get {return ttl_db_msec_ttl_getter();}}
+        public abstract long ttl_db_msec_ttl_getter();
         public abstract Gee.List<Object> ttl_db_get_all_keys();
         public int ttl_db_timeout_exec_send_keys {get {return ttl_db_timeout_exec_send_keys_getter();}}
         public abstract int ttl_db_timeout_exec_send_keys_getter();
@@ -101,7 +101,7 @@ namespace Netsukuku.PeerServices.Databases
           PeerTupleNode x_macron,
           IPeersRequest request,
           int timeout_exec,
-          bool exclude_myself,
+          int exclude_my_gnode,
           out PeerTupleNode? respondant,
           PeerTupleGNodeContainer? exclude_tuple_list=null)
          throws PeersNoParticipantsInNetworkError, PeersDatabaseError;
@@ -136,8 +136,14 @@ namespace Netsukuku.PeerServices.Databases
             start.get_current_time();
             this.msec_ttl = msec_ttl;
         }
+        public Timer.chrono()
+        {
+            start = TimeVal();
+            start.get_current_time();
+            this.msec_ttl = 0;
+        }
 
-        private long get_lap()
+        public long get_lap()
         {
             TimeVal lap = TimeVal();
             lap.get_current_time();
@@ -170,6 +176,10 @@ namespace Netsukuku.PeerServices.Databases
         private int levels;
         private ArrayList<int> pos;
         private ArrayList<int> gsizes;
+        private int guest_gnode_level;
+        private int new_gnode_level;
+        private bool first_identity;
+        private Timer timer_first_entry;
         private ContactPeer contact_peer;
         private AssertServiceRegistered assert_service_registered;
         private IsServiceOptional is_service_optional;
@@ -180,6 +190,8 @@ namespace Netsukuku.PeerServices.Databases
         public Databases
         (Gee.List<int> pos,
          Gee.List<int> gsizes,
+         int guest_gnode_level,
+         int new_gnode_level,
          owned ContactPeer contact_peer,
          owned AssertServiceRegistered assert_service_registered,
          owned IsServiceOptional is_service_optional,
@@ -193,7 +205,22 @@ namespace Netsukuku.PeerServices.Databases
             this.gsizes = new ArrayList<int>();
             this.gsizes.add_all(gsizes);
             assert(gsizes.size == pos.size);
-            this.levels = pos.size;
+            levels = pos.size;
+            this.guest_gnode_level = guest_gnode_level;
+            this.new_gnode_level = new_gnode_level;
+            if (guest_gnode_level == -1)
+            {
+                assert(new_gnode_level == levels);
+                first_identity = true;
+            }
+            else
+            {
+                assert(new_gnode_level < levels);
+                assert(guest_gnode_level <= new_gnode_level);
+                assert(0 <= guest_gnode_level);
+                first_identity = false;
+            }
+            timer_first_entry = new Timer.chrono();
             this.contact_peer = (owned) contact_peer;
             this.assert_service_registered = (owned) assert_service_registered;
             this.is_service_optional = (owned) is_service_optional;
@@ -245,7 +272,7 @@ namespace Netsukuku.PeerServices.Databases
             try {
                 resp = contact_peer
                     (_cont.p_id, _cont.x_macron, _cont.r,
-                     _cont.timeout_exec, true,
+                     _cont.timeout_exec, 0,
                      out respondant, _cont.exclude_tuple_list);
             } catch (PeersNoParticipantsInNetworkError e) {
                 return false;
@@ -334,15 +361,13 @@ namespace Netsukuku.PeerServices.Databases
 
         public void ttl_db_on_startup
         (ITemporalDatabaseDescriptor tdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
+         ITemporalDatabaseDescriptor? prev_id_tdd)
         {
             assert_service_registered(p_id);
             TtlDbOnStartupTasklet ts = new TtlDbOnStartupTasklet();
             ts.t = this;
             ts.tdd = tdd;
             ts.p_id = p_id;
-            ts.guest_gnode_level = guest_gnode_level;
-            ts.new_gnode_level = new_gnode_level;
             ts.prev_id_tdd = prev_id_tdd;
             tasklet.spawn(ts);
         }
@@ -351,21 +376,19 @@ namespace Netsukuku.PeerServices.Databases
             public Databases t;
             public ITemporalDatabaseDescriptor tdd;
             public int p_id;
-            public int guest_gnode_level;
-            public int new_gnode_level;
             public ITemporalDatabaseDescriptor? prev_id_tdd;
             public void * func()
             {
                 debug("starting tasklet_ttl_db_on_startup.\n");
                 t.tasklet_ttl_db_on_startup
-                    (tdd, p_id, guest_gnode_level, new_gnode_level, prev_id_tdd);
+                    (tdd, p_id, prev_id_tdd);
                 debug("ending tasklet_ttl_db_on_startup.\n");
                 return null;
             }
         }
         private void tasklet_ttl_db_on_startup
         (ITemporalDatabaseDescriptor tdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
+         ITemporalDatabaseDescriptor? prev_id_tdd)
         {
             tdd.dh = new DatabaseHandler();
             tdd.dh.p_id = p_id;
@@ -406,7 +429,7 @@ namespace Netsukuku.PeerServices.Databases
             {
                 tuple_n = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), levels);
                 debug("starting contact_peer for a request of send_keys.\n");
-                _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant);
+                _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, guest_gnode_level, out respondant);
                 debug("returned from contact_peer for a request of send_keys.\n");
             } catch (PeersNoParticipantsInNetworkError e) {
                 tdd.dh.timer_default_not_exhaustive = null;
@@ -477,7 +500,7 @@ namespace Netsukuku.PeerServices.Databases
                     }
                     respondant = null;
                     debug("starting contact_peer for another request of send_keys.\n");
-                    _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, true, out respondant, exclude_tuple_list);
+                    _ret = contact_peer(p_id, tuple_n, r, tdd.ttl_db_timeout_exec_send_keys, guest_gnode_level, out respondant, exclude_tuple_list);
                     if (_ret is RequestSendKeysResponse)
                     {
                         RequestSendKeysResponse ret = (RequestSendKeysResponse)_ret;
@@ -542,7 +565,9 @@ namespace Netsukuku.PeerServices.Databases
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
             if (tdd.dh == null)
-                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
+            {
+                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not even started. level=$(guest_gnode_level)");
+            }
             if (r is RequestSendKeys)
             {
                 RequestSendKeys _r = (RequestSendKeys)r;
@@ -598,10 +623,15 @@ namespace Netsukuku.PeerServices.Databases
                     else
                     {
                         if (! ttl_db_is_out_of_memory(tdd))
+                        {
                             ttl_db_start_retrieve(tdd, k);
+                            tasklet.ms_wait(100);
+                            throw new PeersRedoFromStartError.GENERIC("");
+                        }
                         ttl_db_remove_not_found(tdd, k);
                         ttl_db_add_not_exhaustive(tdd, k);
-                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                        int exclude_my_gnode = 0;
+                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
                     }
                 }
             }
@@ -621,7 +651,8 @@ namespace Netsukuku.PeerServices.Databases
                 }
                 else
                 {
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                    int exclude_my_gnode = first_identity || (timer_first_entry.get_lap() > tdd.ttl_db_msec_ttl) ? 0 : guest_gnode_level;
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
                 }
             }
             if (r is RequestWaitThenSendRecord)
@@ -629,7 +660,8 @@ namespace Netsukuku.PeerServices.Databases
                 Object k = ((RequestWaitThenSendRecord)r).k;
                 if ((! tdd.my_records_contains(k)) && (! ttl_db_is_exhaustive(tdd, k)))
                 {
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                    int exclude_my_gnode = first_identity || (timer_first_entry.get_lap() > tdd.ttl_db_msec_ttl) ? 0 : guest_gnode_level;
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
                 }
                 int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
                 if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
@@ -679,10 +711,15 @@ namespace Netsukuku.PeerServices.Databases
                     else
                     {
                         if (! ttl_db_is_out_of_memory(tdd))
+                        {
                             ttl_db_start_retrieve(tdd, k);
+                            tasklet.ms_wait(100);
+                            throw new PeersRedoFromStartError.GENERIC("");
+                        }
                         ttl_db_remove_not_found(tdd, k);
                         ttl_db_add_not_exhaustive(tdd, k);
-                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                        int exclude_my_gnode = 0;
+                        throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
                     }
                 }
             }
@@ -758,7 +795,7 @@ namespace Netsukuku.PeerServices.Databases
                 PeerTupleNode respondant;
                 PeerTupleNode h_p_k = new PeerTupleNode(tdd.evaluate_hash_node(k));
                 debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
-                IPeersResponse res = contact_peer(tdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, true, out respondant);
+                IPeersResponse res = contact_peer(tdd.dh.p_id, h_p_k, r, RequestWaitThenSendRecord.timeout_exec, 0, out respondant);
                 if (res is RequestWaitThenSendRecordResponse)
                 {
                     debug(@"the request of wait_then_send_record returned a record.\n");
@@ -791,15 +828,13 @@ namespace Netsukuku.PeerServices.Databases
 
         public void fixed_keys_db_on_startup
         (IFixedKeysDatabaseDescriptor fkdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
+         IFixedKeysDatabaseDescriptor? prev_id_fkdd)
         {
             assert_service_registered(p_id);
             FixedKeysDbOnStartupTasklet ts = new FixedKeysDbOnStartupTasklet();
             ts.t = this;
             ts.fkdd = fkdd;
             ts.p_id = p_id;
-            ts.guest_gnode_level = guest_gnode_level;
-            ts.new_gnode_level = new_gnode_level;
             ts.prev_id_fkdd = prev_id_fkdd;
             tasklet.spawn(ts);
         }
@@ -808,21 +843,19 @@ namespace Netsukuku.PeerServices.Databases
             public Databases t;
             public IFixedKeysDatabaseDescriptor fkdd;
             public int p_id;
-            public int guest_gnode_level;
-            public int new_gnode_level;
             public IFixedKeysDatabaseDescriptor? prev_id_fkdd;
             public void * func()
             {
                 debug("starting tasklet_fixed_keys_db_on_startup.\n");
                 t.tasklet_fixed_keys_db_on_startup
-                    (fkdd, p_id, guest_gnode_level, new_gnode_level, prev_id_fkdd);
+                    (fkdd, p_id, prev_id_fkdd);
                 debug("ending tasklet_fixed_keys_db_on_startup.\n");
                 return null;
             }
         }
         private void tasklet_fixed_keys_db_on_startup
         (IFixedKeysDatabaseDescriptor fkdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
+         IFixedKeysDatabaseDescriptor? prev_id_fkdd)
         {
             fkdd.dh = new DatabaseHandler();
             fkdd.dh.p_id = p_id;
@@ -860,7 +893,7 @@ namespace Netsukuku.PeerServices.Databases
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
             if (fkdd.dh == null)
-                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not even started");
+                throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not even started. level=$(guest_gnode_level)");
             if (fkdd.is_read_only_request(r))
             {
                 Object k = fkdd.get_key_from_request(r);
@@ -871,14 +904,14 @@ namespace Netsukuku.PeerServices.Databases
                 }
                 else
                 {
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(guest_gnode_level)");
                 }
             }
             if (r is RequestWaitThenSendRecord)
             {
                 Object k = ((RequestWaitThenSendRecord)r).k;
                 if (k in fkdd.dh.not_completed_keys)
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE("not exhaustive");
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(guest_gnode_level)");
                 assert(fkdd.my_records_contains(k));
                 int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
                 if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
@@ -950,7 +983,7 @@ namespace Netsukuku.PeerServices.Databases
                     PeerTupleNode respondant;
                     PeerTupleNode h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
                     debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
-                    IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, timeout_exec, true, out respondant);
+                    IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, timeout_exec, 0, out respondant);
                     if (res is RequestWaitThenSendRecordResponse)
                         record = ((RequestWaitThenSendRecordResponse)res).record;
                     break;

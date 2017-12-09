@@ -61,6 +61,19 @@ namespace Netsukuku.PeerServices.MessageRouting
          (int p_id, IPeersRequest req, Gee.List<int> client_tuple)
          throws PeersRefuseExecutionError, PeersRedoFromStartError;
 
+    internal int extract_level_from_refuse_execution_message(string message)
+    {
+        // message is @"blah blah. level=$(ret)" where ret is an 'int'
+        int i = message.index_of("level=");
+        if (i == -1) return 0;
+        int start = i + "level=".length;
+        if (start == message.length) return 0;
+        string nm = message.substring(start);
+        int64 ret;
+        if (int64.try_parse(nm, out ret)) return (int)ret;
+        else return 0;
+    }
+
     internal class WaitingAnswer : Object
     {
         public IChannel ch;
@@ -71,6 +84,7 @@ namespace Netsukuku.PeerServices.MessageRouting
         public PeerTupleNode? respondant_node;
         public IPeersResponse? response;
         public string? refuse_message;
+        public int? e_lvl;
         public bool redo_from_start;
         public bool missing_optional_maps;
         public WaitingAnswer(IPeersRequest? request, PeerTupleGNode min_target)
@@ -83,6 +97,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             respondant_node = null;
             response = null;
             refuse_message = null;
+            e_lvl = null;
             redo_from_start = false;
             missing_optional_maps = false;
         }
@@ -236,7 +251,7 @@ namespace Netsukuku.PeerServices.MessageRouting
          PeerTupleNode x_macron,
          IPeersRequest request,
          int timeout_exec,
-         bool exclude_myself,
+         int exclude_my_gnode,
          out PeerTupleNode? respondant,
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
@@ -251,8 +266,8 @@ namespace Netsukuku.PeerServices.MessageRouting
                 respondant = null;
                 var exclude_gnode_list = new ArrayList<HCoord>();
                 exclude_gnode_list.add_all(get_non_participant_gnodes(p_id, target_levels));
-                if (exclude_myself)
-                    exclude_gnode_list.add(new HCoord(0, pos[0]));
+                if (exclude_my_gnode >= 0)
+                    exclude_gnode_list.add_all(get_all_gnodes_up_to_lvl(exclude_my_gnode));
                 PeerTupleGNodeContainer exclude_tuple_list;
                 if (_exclude_tuple_list != null)
                     exclude_tuple_list = _exclude_tuple_list;
@@ -293,6 +308,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                             redofromstart = true;
                             break;
                         } catch (PeersRefuseExecutionError e) {
+                            int e_lvl = extract_level_from_refuse_execution_message(e.message);
                             refuse_messages.add(e.message);
                             if (refuse_messages.size > 10)
                             {
@@ -300,7 +316,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 refuse_messages.remove_at(0);
                                 refuse_messages.insert(0, "...");
                             }
-                            exclude_gnode_list.add(new HCoord(0, pos[0]));
+                            exclude_gnode_list.add_all(get_all_gnodes_up_to_lvl(e_lvl));
                             continue; // next iteration of cicle 1.
                         }
                         respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), target_levels);
@@ -328,8 +344,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         {
                             if (ret.equals(x))
                             {
-                                int eps = t.top - t.tuple.size;
-                                PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
+                                PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-t.level), x.lvl);
                                 mf.exclude_tuple_list.add(_t);
                             }
                         }
@@ -450,12 +465,21 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     Utils.rebase_tuple_gnode
                                     (pos, Utils.tuple_node_to_tuple_gnode(respondant), target_levels);
                                 // t represents the same node of respondant, but as GNode and with top=target_levels
+                                t = Utils.tuple_gnode_containing(pos, t, waiting_answer.e_lvl);
+                                // t represents the g-node of level waiting_answer.e_lvl containing
+                                // the node respondant, with top=target_levels
                                 int @case;
                                 HCoord ret;
                                 Utils.convert_tuple_gnode(pos, t, out @case, out ret);
                                 if (@case == 2)
                                 {
+                                    // t is visible in my map and I don't belong to it. Its h-coord is ret.
                                     exclude_gnode_list.add(ret);
+                                }
+                                else if (@case == 1)
+                                {
+                                    // t is one of my g-nodes.
+                                    exclude_gnode_list.add_all(get_all_gnodes_up_to_lvl(waiting_answer.e_lvl));
                                 }
                                 exclude_tuple_list.add(t);
                                 respondant = null;
@@ -675,6 +699,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                         // ignore
                                     }
                                 } catch (PeersRefuseExecutionError e) {
+                                    int e_lvl = extract_level_from_refuse_execution_message(e.message);
                                     try {
                                         string err_message = "";
                                         if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
@@ -684,7 +709,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                         if (e is PeersRefuseExecutionError.GENERIC)
                                                 err_message = "GENERIC: ";
                                         err_message += e.message;
-                                        nstub.set_refuse_message(mf.msg_id, err_message, tuple_respondant);
+                                        nstub.set_refuse_message(mf.msg_id, err_message, e_lvl, tuple_respondant);
                                     } catch (StubError e) {
                                         // ignore
                                     } catch (DeserializeError e) {
@@ -722,8 +747,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 {
                                     if (ret.equals(x))
                                     {
-                                        int eps = t.top - t.tuple.size;
-                                        PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-eps), x.lvl);
+                                        PeerTupleGNode _t = new PeerTupleGNode(t.tuple.slice(0, x.lvl-t.level), x.lvl);
                                         mf2.exclude_tuple_list.add(_t);
                                     }
                                 }
@@ -865,7 +889,7 @@ namespace Netsukuku.PeerServices.MessageRouting
         }
 
         public void set_refuse_message
-        (int msg_id, string refuse_message, PeerTupleNode respondant)
+        (int msg_id, string refuse_message, int e_lvl, PeerTupleNode respondant)
         {
             if (! waiting_answer_map.has_key(msg_id))
             {
@@ -893,6 +917,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                 return;
             }
             wa.refuse_message = refuse_message;
+            wa.e_lvl = e_lvl;
             debug(@"PeersManager.set_refuse_message: $(refuse_message)");
             wa.ch.send_async(0);
         }

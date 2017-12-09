@@ -244,7 +244,7 @@ namespace Netsukuku.PeerServices
             });
 
             databases = new Databases.Databases
-                (pos, gsizes,
+                (pos, gsizes, guest_gnode_level, host_gnode_level-1,
                  /* contact_peer     = */  (/*int*/ p_id,
                                             /*PeerTupleNode*/ x_macron,
                                             /*IPeersRequest*/ request,
@@ -494,7 +494,7 @@ namespace Netsukuku.PeerServices
          PeerTupleNode x_macron,
          IPeersRequest request,
          int timeout_exec,
-         bool exclude_myself,
+         int exclude_my_gnode,
          out PeerTupleNode? respondant,
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
@@ -503,7 +503,7 @@ namespace Netsukuku.PeerServices
             if (optional) wait_participation_maps(x_macron.tuple.size);
             return message_routing.contact_peer
                 (p_id, optional, x_macron, request, timeout_exec,
-                 exclude_myself, out respondant, _exclude_tuple_list);
+                 exclude_my_gnode, out respondant, _exclude_tuple_list);
         }
 
         /* Algorithms to maintain a robust distributed database */
@@ -529,10 +529,10 @@ namespace Netsukuku.PeerServices
 
         public void ttl_db_on_startup
         (ITemporalDatabaseDescriptor tdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, ITemporalDatabaseDescriptor? prev_id_tdd)
+         ITemporalDatabaseDescriptor? prev_id_tdd)
         {
             databases.ttl_db_on_startup
-                (tdd, p_id, guest_gnode_level, new_gnode_level, prev_id_tdd);
+                (tdd, p_id, prev_id_tdd);
         }
 
         public IPeersResponse
@@ -544,10 +544,10 @@ namespace Netsukuku.PeerServices
 
         public void fixed_keys_db_on_startup
         (IFixedKeysDatabaseDescriptor fkdd, int p_id,
-         int guest_gnode_level, int new_gnode_level, IFixedKeysDatabaseDescriptor? prev_id_fkdd)
+         IFixedKeysDatabaseDescriptor? prev_id_fkdd)
         {
             databases.fixed_keys_db_on_startup
-                (fkdd, p_id, guest_gnode_level, new_gnode_level, prev_id_fkdd);
+                (fkdd, p_id, prev_id_fkdd);
         }
 
         public IPeersResponse
@@ -659,7 +659,7 @@ namespace Netsukuku.PeerServices
         }
 
         public void set_refuse_message
-        (int msg_id, string refuse_message, IPeerTupleNode respondant, CallerInfo? _rpc_caller=null)
+        (int msg_id, string refuse_message, int e_lvl, IPeerTupleNode respondant, CallerInfo? _rpc_caller=null)
         {
             // check that interfaces are ok
             if (!(respondant is PeerTupleNode))
@@ -668,7 +668,7 @@ namespace Netsukuku.PeerServices
                 tasklet.exit_tasklet();
             }
             // Call method of message_routing.
-            message_routing.set_refuse_message(msg_id, refuse_message, (PeerTupleNode)respondant);
+            message_routing.set_refuse_message(msg_id, refuse_message, e_lvl, (PeerTupleNode)respondant);
             // Done.
         }
 
@@ -806,7 +806,7 @@ namespace Netsukuku.PeerServices
                  new PeerTupleNode(perfect_tuple(k)),
                  request,
                  timeout_exec,
-                 false,
+                 -1,
                  out respondant);
         }
 

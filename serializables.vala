@@ -24,6 +24,7 @@ namespace Netsukuku.PeerServices
     {
         public Gee.List<int> tuple {get; set;}
         public int top {get {return tuple.size;}}
+        public int level {get {return 0;}}
         public PeerTupleNode(Gee.List<int> tuple)
         {
             this.tuple = new ArrayList<int>();
@@ -39,6 +40,9 @@ namespace Netsukuku.PeerServices
             @value = 0;
             switch (property_name) {
             case "top":
+                // get-only dynamic property
+                return false;
+            case "level":
                 // get-only dynamic property
                 return false;
             case "tuple":
@@ -68,6 +72,8 @@ namespace Netsukuku.PeerServices
             switch (property_name) {
             case "top":
                 return serialize_int(0); // get-only dynamic property
+            case "level":
+                return serialize_int(0); // get-only dynamic property
             case "tuple":
                 return serialize_list_int((Gee.List<int>)@value);
             default:
@@ -92,6 +98,7 @@ namespace Netsukuku.PeerServices
     {
         public Gee.List<int> tuple {get; set;}
         public int top {get; set;}
+        public int level {get {return top - tuple.size;}}
         public PeerTupleGNode(Gee.List<int> tuple, int top)
         {
             this._tuple = new ArrayList<int>();
@@ -121,6 +128,9 @@ namespace Netsukuku.PeerServices
                     return false;
                 }
                 break;
+            case "level":
+                // get-only dynamic property
+                return false;
             default:
                 return false;
             }
@@ -143,6 +153,8 @@ namespace Netsukuku.PeerServices
                 return serialize_list_int((Gee.List<int>)@value);
             case "top":
                 return serialize_int((int)@value);
+            case "level":
+                return serialize_int(0); // get-only dynamic property
             default:
                 error(@"wrong param $(property_name)");
             }
@@ -155,9 +167,8 @@ namespace Netsukuku.PeerServices
             if (this.tuple.size > this.top) return false;
             for (int i = 0; i < this.tuple.size; i++)
             {
-                int eps = this.top - this.tuple.size;
                 if (this.tuple[i] < 0) return false;
-                if (this.tuple[i] >= gsizes[eps+i]) return false;
+                if (this.tuple[i] >= gsizes[level+i]) return false;
             }
             return true;
         }

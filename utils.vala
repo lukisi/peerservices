@@ -140,6 +140,17 @@ namespace Netsukuku.PeerServices.Utils
         return new PeerTupleGNode(tuple0, new_top);
     }
 
+    internal PeerTupleGNode tuple_gnode_containing(Gee.List<int> pos, PeerTupleGNode t, int new_level)
+    {
+        // Given t that represents a g-node inside my g-node at level t.top, returns
+        //  a PeerTupleGNode with same top that represents the g-node of level new_level that contains the g-node t.
+        // Assert that t.top-t.tuple.size <= new_level.
+        assert(t.top - t.tuple.size <= new_level);
+        int remove = new_level - (t.top - t.tuple.size);
+        Gee.List<int> tuple0 = t.tuple.slice(remove, t.tuple.size);
+        return new PeerTupleGNode(tuple0, t.top);
+    }
+
     internal PeerTupleNode rebase_tuple_node(Gee.List<int> pos, PeerTupleNode t, int new_top)
     {
         // Given t that represents a node inside my g-node at level t.top, returns
@@ -184,15 +195,14 @@ namespace Netsukuku.PeerServices.Utils
         //           could be tuple=0,3,2 top=5
         //           could be tuple=0,3,2,1 top=6
         //       for any lvl answer would be true
-        int eps = t.top - t.tuple.size;
-        int l = eps;
+        int l = t.level;
         if (l >= lvl-1)
             l = l + 1;
         else
             l = lvl;
         if (t.top <= l)
             return true;
-        PeerTupleGNode h = new PeerTupleGNode(t.tuple.slice(l-eps, t.tuple.size), t.top);
+        PeerTupleGNode h = new PeerTupleGNode(t.tuple.slice(l-t.level, t.tuple.size), t.top);
         int @case;
         HCoord ret;
         convert_tuple_gnode(pos, h, out @case, out ret);
