@@ -536,10 +536,10 @@ namespace Netsukuku.PeerServices
         }
 
         public IPeersResponse
-        ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, int common_lvl)
+        ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, Gee.List<int> client_tuple)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
-            return databases.ttl_db_on_request(tdd, r, common_lvl);
+            return databases.ttl_db_on_request(tdd, r, client_tuple);
         }
 
         public void fixed_keys_db_on_startup
@@ -551,10 +551,10 @@ namespace Netsukuku.PeerServices
         }
 
         public IPeersResponse
-        fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, int common_lvl)
+        fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, Gee.List<int> client_tuple)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
-            return databases.fixed_keys_db_on_request(fkdd, r, common_lvl);
+            return databases.fixed_keys_db_on_request(fkdd, r, client_tuple);
         }
 
         /* Remotable methods */

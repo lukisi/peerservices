@@ -164,12 +164,12 @@ namespace EnteringTestcase
                      /*prev_id_fkdd       = */ prev_id_fkdd);
             }
 
-            public IPeersResponse on_request(IPeersRequest r, int common_lvl)
+            public IPeersResponse on_request(IPeersRequest r, Gee.List<int> client_tuple)
             throws PeersRefuseExecutionError, PeersRedoFromStartError
             {
                 return databases.fixed_keys_db_on_request
                     (/*fkdd               = */ descriptor,
-                     r, common_lvl);
+                     r, client_tuple);
             }
 
             private IFixedKeysDatabaseDescriptor descriptor {public get; private set;}
@@ -355,7 +355,7 @@ namespace EnteringTestcase
                     assert_not_reached();
                 }
 
-                public IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError
+                public IPeersResponse execute(IPeersRequest r, Gee.List<int> client_tuple) throws PeersRefuseExecutionError, PeersRedoFromStartError
                 {
                     if (r is AddSegmentRequest)
                     {
@@ -835,14 +835,13 @@ namespace EnteringTestcase
                      // Could throw PeersRefuseExecutionError, PeersRedoFromStartError.
                      if (p_id == 0)
                      {
-                         int common_lvl = client_tuple.size;
                          string classname = req.get_type().name();
                          string client = address(client_tuple);
                          string me = address(pos);
                          debug(@"$(me): executing request $(classname) from client {$(client)}");
                          if (req is Service00.AddSegmentRequest)
                              debug(@"when executing add_segment client was {$(address(client_tuple))}");
-                         ret = s00_servant.on_request(req, common_lvl);
+                         ret = s00_servant.on_request(req, client_tuple);
                      }
                      else if (p_id == 1)
                      {

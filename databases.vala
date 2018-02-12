@@ -62,7 +62,7 @@ namespace Netsukuku.PeerServices
         public abstract bool is_replica_delete_request(IPeersRequest r);
         public abstract IPeersResponse prepare_response_not_found(IPeersRequest r);
         public abstract IPeersResponse prepare_response_not_free(IPeersRequest r, Object rec);
-        public abstract IPeersResponse execute(IPeersRequest r) throws PeersRefuseExecutionError, PeersRedoFromStartError;
+        public abstract IPeersResponse execute(IPeersRequest r, Gee.List<int> client_tuple) throws PeersRefuseExecutionError, PeersRedoFromStartError;
 
         public DatabaseHandler dh {get {return dh_getter();} set {dh_setter(value);}}
         public abstract unowned DatabaseHandler dh_getter();
@@ -561,7 +561,7 @@ namespace Netsukuku.PeerServices.Databases
         }
 
         public IPeersResponse
-        ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, int common_lvl)
+        ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, Gee.List<int> client_tuple)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
             if (tdd.dh == null)
@@ -602,7 +602,7 @@ namespace Netsukuku.PeerServices.Databases
                     {
                         ttl_db_remove_not_found(tdd, k);
                         ttl_db_remove_not_exhaustive(tdd, k);
-                        IPeersResponse res = tdd.execute(r);
+                        IPeersResponse res = tdd.execute(r, client_tuple);
                         if (! tdd.my_records_contains(k))
                             ttl_db_add_not_found(tdd, k);
                         return res;
@@ -642,7 +642,7 @@ namespace Netsukuku.PeerServices.Databases
                 {
                     assert(! tdd.dh.not_exhaustive_keys.has_key(k));
                     assert(! (k in tdd.dh.not_found_keys));
-                    return tdd.execute(r);
+                    return tdd.execute(r, client_tuple);
                 }
                 if (ttl_db_is_exhaustive(tdd, k))
                 {
@@ -663,6 +663,7 @@ namespace Netsukuku.PeerServices.Databases
                     int exclude_my_gnode = first_identity || (timer_first_entry.get_lap() > tdd.ttl_db_msec_ttl) ? 0 : guest_gnode_level;
                     throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
                 }
+                int common_lvl = client_tuple.size;
                 int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
                 if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
                     delta = RequestWaitThenSendRecord.timeout_exec - 1000;
@@ -690,7 +691,7 @@ namespace Netsukuku.PeerServices.Databases
                 {
                     assert(! tdd.dh.not_exhaustive_keys.has_key(k));
                     assert(! (k in tdd.dh.not_found_keys));
-                    return tdd.execute(r);
+                    return tdd.execute(r, client_tuple);
                 }
                 if (ttl_db_is_exhaustive(tdd, k))
                 {
@@ -730,7 +731,7 @@ namespace Netsukuku.PeerServices.Databases
                 {
                     assert(! tdd.dh.not_exhaustive_keys.has_key(k));
                     assert(! (k in tdd.dh.not_found_keys));
-                    var res = tdd.execute(r);
+                    var res = tdd.execute(r, client_tuple);
                     assert(tdd.my_records_contains(k));
                     return res;
                 }
@@ -738,7 +739,7 @@ namespace Netsukuku.PeerServices.Databases
                 {
                     ttl_db_remove_not_found(tdd, k);
                     ttl_db_remove_not_exhaustive(tdd, k);
-                    var res = tdd.execute(r);
+                    var res = tdd.execute(r, client_tuple);
                     assert(tdd.my_records_contains(k));
                     return res;
                 }
@@ -752,14 +753,14 @@ namespace Netsukuku.PeerServices.Databases
             if (tdd.is_replica_delete_request(r))
             {
                 Object k = tdd.get_key_from_request(r);
-                var res = tdd.execute(r);
+                var res = tdd.execute(r, client_tuple);
                 assert(! tdd.my_records_contains(k));
                 ttl_db_remove_not_exhaustive(tdd, k);
                 ttl_db_add_not_found(tdd, k);
                 return res;
             }
             // none of previous cases
-            return tdd.execute(r);
+            return tdd.execute(r, client_tuple);
         }
 
         internal void ttl_db_start_retrieve(ITemporalDatabaseDescriptor tdd, Object k)
@@ -889,7 +890,7 @@ namespace Netsukuku.PeerServices.Databases
         }
 
         public IPeersResponse
-        fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, int common_lvl)
+        fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, Gee.List<int> client_tuple)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
             if (fkdd.dh == null)
@@ -900,7 +901,7 @@ namespace Netsukuku.PeerServices.Databases
                 if (! (k in fkdd.dh.not_completed_keys))
                 {
                     assert(fkdd.my_records_contains(k));
-                    return fkdd.execute(r);
+                    return fkdd.execute(r, client_tuple);
                 }
                 else
                 {
@@ -913,6 +914,7 @@ namespace Netsukuku.PeerServices.Databases
                 if (k in fkdd.dh.not_completed_keys)
                     throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(guest_gnode_level)");
                 assert(fkdd.my_records_contains(k));
+                int common_lvl = client_tuple.size;
                 int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
                 if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
                     delta = RequestWaitThenSendRecord.timeout_exec - 1000;
@@ -926,7 +928,7 @@ namespace Netsukuku.PeerServices.Databases
                 if (! (k in fkdd.dh.not_completed_keys))
                 {
                     assert(fkdd.my_records_contains(k));
-                    return fkdd.execute(r);
+                    return fkdd.execute(r, client_tuple);
                 }
                 else
                 {
@@ -941,10 +943,10 @@ namespace Netsukuku.PeerServices.Databases
             }
             if (fkdd.is_replica_value_request(r))
             {
-                return fkdd.execute(r);
+                return fkdd.execute(r, client_tuple);
             }
             // none of previous cases
-            return fkdd.execute(r);
+            return fkdd.execute(r, client_tuple);
         }
 
         internal void fixed_keys_db_start_retrieve(IFixedKeysDatabaseDescriptor fkdd, Object k)
