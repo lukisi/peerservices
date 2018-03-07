@@ -169,6 +169,11 @@ namespace Netsukuku.PeerServices
             services = new HashMap<int, PeerService>();
             participant_maps = new HashMap<int, PeerParticipantMap>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
+            if (old_identity == null)
+            {
+                guest_gnode_level = -1;
+                host_gnode_level = levels+1;
+            }
             this.guest_gnode_level = guest_gnode_level;
             this.host_gnode_level = host_gnode_level;
 
