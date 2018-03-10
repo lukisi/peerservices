@@ -232,6 +232,13 @@ namespace Netsukuku.PeerServices.MessageRouting
             return true;
         }
 
+        private bool i_am_real_down_to(int lvl)
+        {
+            for (int i = levels-1; i >= lvl; i--)
+                if (pos[i] >= gsizes[i]) return false;
+            return true;
+        }
+
         private int find_timeout_routing(int nodes)
         {
             // number of msec to wait for a routing between a group of $(nodes) nodes.
@@ -620,6 +627,11 @@ namespace Netsukuku.PeerServices.MessageRouting
         public void forward_msg
         (PeerMessageForwarder mf, bool optional, int maps_retrieved_below_level, CallerInfo caller)
         {
+            if (! i_am_real_down_to(mf.n.top))
+            {
+                // No need to forward the message, because the client is virtual too.
+                tasklet.exit_tasklet();
+            }
             if (pos[mf.lvl] == mf.pos)
             {
                 if (optional && (mf.x_macron != null && maps_retrieved_below_level < mf.x_macron.tuple.size))
