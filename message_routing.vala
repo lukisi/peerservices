@@ -636,28 +636,48 @@ namespace Netsukuku.PeerServices.MessageRouting
             {
                 if (optional && (mf.x_macron != null && maps_retrieved_below_level < mf.x_macron.tuple.size))
                 {
+                    bool once_more = true; int times_again = 0;
+                    while (once_more)
+                    {
+                    once_more = false;
                     IPeersManagerStub nstub
                         = get_client_internally(mf.n);
                     try {
                         nstub.set_missing_optional_maps(mf.msg_id);
                     } catch (StubError e) {
-                        // ignore
+                        // This could be due to the routing rule not been added yet. So
+                        //  let's wait a bit and try again a few times.
+                        if (times_again++ < 3) {
+                            print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                            tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                        }
                     } catch (DeserializeError e) {
                         // ignore
                     }
+                    } // while (once_more)
                 }
                 else if (optional && (! my_gnode_participates(mf.p_id, mf.lvl)))
                 {
+                    bool once_more = true; int times_again = 0;
+                    while (once_more)
+                    {
+                    once_more = false;
                     IPeersManagerStub nstub
                         = get_client_internally(mf.n);
                     PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                     try {
                         nstub.set_non_participant(mf.msg_id, gn);
                     } catch (StubError e) {
-                        // ignore
+                        // This could be due to the routing rule not been added yet. So
+                        //  let's wait a bit and try again a few times.
+                        if (times_again++ < 3) {
+                            print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                            tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                        }
                     } catch (DeserializeError e) {
                         // ignore
                     }
+                    } // while (once_more)
                 }
                 else
                 {
@@ -679,20 +699,34 @@ namespace Netsukuku.PeerServices.MessageRouting
                         HCoord? x = approximate(mf.x_macron, exclude_gnode_list);
                         if (x == null)
                         {
+                            bool once_more = true; int times_again = 0;
+                            while (once_more)
+                            {
+                            once_more = false;
                             IPeersManagerStub nstub
                                 = get_client_internally(mf.n);
                             PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
                             try {
                                 nstub.set_failure(mf.msg_id, gn);
                             } catch (StubError e) {
-                                // ignore
+                                // This could be due to the routing rule not been added yet. So
+                                //  let's wait a bit and try again a few times.
+                                if (times_again++ < 3) {
+                                    print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                    tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                }
                             } catch (DeserializeError e) {
                                 // ignore
                             }
+                            } // while (once_more)
                             break;
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
+                            bool once_more = true; int times_again = 0;
+                            while (once_more)
+                            {
+                            once_more = false;
                             IPeersManagerStub nstub
                                 = get_client_internally(mf.n);
                             PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
@@ -733,10 +767,16 @@ namespace Netsukuku.PeerServices.MessageRouting
                             } catch (PeersInvalidRequest e) {
                                 // ignore
                             } catch (StubError e) {
-                                // ignore
+                                // This could be due to the routing rule not been added yet. So
+                                //  let's wait a bit and try again a few times.
+                                if (times_again++ < 3) {
+                                    print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                    tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                }
                             } catch (DeserializeError e) {
                                 // ignore
                             }
+                            } // while (once_more)
                             break;
                         }
                         else
@@ -787,16 +827,26 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     assert_not_reached();
                                 }
                                 delivered = true;
+                                bool once_more = true; int times_again = 0;
+                                while (once_more)
+                                {
+                                once_more = false;
                                 IPeersManagerStub nstub
                                     = get_client_internally(mf.n);
                                 PeerTupleGNode gn = Utils.make_tuple_gnode(pos, x, mf.n.tuple.size);
                                 try {
                                     nstub.set_next_destination(mf.msg_id, gn);
                                 } catch (StubError e) {
-                                    // ignore
+                                    // This could be due to the routing rule not been added yet. So
+                                    //  let's wait a bit and try again a few times.
+                                    if (times_again++ < 3) {
+                                        print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                        tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                    }
                                 } catch (DeserializeError e) {
                                     // ignore
                                 }
+                                } // while (once_more)
                                 break;
                             }
                         }
