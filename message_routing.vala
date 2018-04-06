@@ -639,21 +639,21 @@ namespace Netsukuku.PeerServices.MessageRouting
                     bool once_more = true; int times_again = 0;
                     while (once_more)
                     {
-                    once_more = false;
-                    IPeersManagerStub nstub
-                        = get_client_internally(mf.n);
-                    try {
-                        nstub.set_missing_optional_maps(mf.msg_id);
-                    } catch (StubError e) {
-                        // This could be due to the routing rule not been added yet. So
-                        //  let's wait a bit and try again a few times.
-                        if (times_again++ < 3) {
-                            print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                            tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                        once_more = false;
+                        IPeersManagerStub nstub
+                            = get_client_internally(mf.n);
+                        try {
+                            nstub.set_missing_optional_maps(mf.msg_id);
+                        } catch (StubError e) {
+                            // This could be due to the routing rule not been added yet. So
+                            //  let's wait a bit and try again a few times.
+                            if (times_again++ < 3) {
+                                print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                            }
+                        } catch (DeserializeError e) {
+                            // ignore
                         }
-                    } catch (DeserializeError e) {
-                        // ignore
-                    }
                     } // while (once_more)
                 }
                 else if (optional && (! my_gnode_participates(mf.p_id, mf.lvl)))
@@ -661,22 +661,22 @@ namespace Netsukuku.PeerServices.MessageRouting
                     bool once_more = true; int times_again = 0;
                     while (once_more)
                     {
-                    once_more = false;
-                    IPeersManagerStub nstub
-                        = get_client_internally(mf.n);
-                    PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
-                    try {
-                        nstub.set_non_participant(mf.msg_id, gn);
-                    } catch (StubError e) {
-                        // This could be due to the routing rule not been added yet. So
-                        //  let's wait a bit and try again a few times.
-                        if (times_again++ < 3) {
-                            print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                            tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                        once_more = false;
+                        IPeersManagerStub nstub
+                            = get_client_internally(mf.n);
+                        PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
+                        try {
+                            nstub.set_non_participant(mf.msg_id, gn);
+                        } catch (StubError e) {
+                            // This could be due to the routing rule not been added yet. So
+                            //  let's wait a bit and try again a few times.
+                            if (times_again++ < 3) {
+                                print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                            }
+                        } catch (DeserializeError e) {
+                            // ignore
                         }
-                    } catch (DeserializeError e) {
-                        // ignore
-                    }
                     } // while (once_more)
                 }
                 else
@@ -702,22 +702,22 @@ namespace Netsukuku.PeerServices.MessageRouting
                             bool once_more = true; int times_again = 0;
                             while (once_more)
                             {
-                            once_more = false;
-                            IPeersManagerStub nstub
-                                = get_client_internally(mf.n);
-                            PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
-                            try {
-                                nstub.set_failure(mf.msg_id, gn);
-                            } catch (StubError e) {
-                                // This could be due to the routing rule not been added yet. So
-                                //  let's wait a bit and try again a few times.
-                                if (times_again++ < 3) {
-                                    print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                    tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                once_more = false;
+                                IPeersManagerStub nstub
+                                    = get_client_internally(mf.n);
+                                PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
+                                try {
+                                    nstub.set_failure(mf.msg_id, gn);
+                                } catch (StubError e) {
+                                    // This could be due to the routing rule not been added yet. So
+                                    //  let's wait a bit and try again a few times.
+                                    if (times_again++ < 3) {
+                                        print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                        tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                    }
+                                } catch (DeserializeError e) {
+                                    // ignore
                                 }
-                            } catch (DeserializeError e) {
-                                // ignore
-                            }
                             } // while (once_more)
                             break;
                         }
@@ -726,56 +726,56 @@ namespace Netsukuku.PeerServices.MessageRouting
                             bool once_more = true; int times_again = 0;
                             while (once_more)
                             {
-                            once_more = false;
-                            IPeersManagerStub nstub
-                                = get_client_internally(mf.n);
-                            PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
-                            try {
-                                IPeersRequest request
-                                    = nstub.get_request(mf.msg_id, tuple_respondant);
+                                once_more = false;
+                                IPeersManagerStub nstub
+                                    = get_client_internally(mf.n);
+                                PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
                                 try {
-                                    IPeersResponse resp = exec_service(mf.p_id, request, mf.n.tuple);
-                                    nstub.set_response(mf.msg_id, resp, tuple_respondant);
-                                } catch (PeersRedoFromStartError e) {
+                                    IPeersRequest request
+                                        = nstub.get_request(mf.msg_id, tuple_respondant);
                                     try {
-                                        nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
-                                    } catch (StubError e) {
-                                        // ignore
-                                    } catch (DeserializeError e) {
-                                        // ignore
+                                        IPeersResponse resp = exec_service(mf.p_id, request, mf.n.tuple);
+                                        nstub.set_response(mf.msg_id, resp, tuple_respondant);
+                                    } catch (PeersRedoFromStartError e) {
+                                        try {
+                                            nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
+                                        } catch (StubError e) {
+                                            // ignore
+                                        } catch (DeserializeError e) {
+                                            // ignore
+                                        }
+                                    } catch (PeersRefuseExecutionError e) {
+                                        int e_lvl = extract_level_from_refuse_execution_message(e.message);
+                                        try {
+                                            string err_message = "";
+                                            if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
+                                                    err_message = "WRITE_OUT_OF_MEMORY: ";
+                                            if (e is PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE)
+                                                    err_message = "READ_NOT_FOUND_NOT_EXHAUSTIVE: ";
+                                            if (e is PeersRefuseExecutionError.GENERIC)
+                                                    err_message = "GENERIC: ";
+                                            err_message += e.message;
+                                            nstub.set_refuse_message(mf.msg_id, err_message, e_lvl, tuple_respondant);
+                                        } catch (StubError e) {
+                                            // ignore
+                                        } catch (DeserializeError e) {
+                                            // ignore
+                                        }
                                     }
-                                } catch (PeersRefuseExecutionError e) {
-                                    int e_lvl = extract_level_from_refuse_execution_message(e.message);
-                                    try {
-                                        string err_message = "";
-                                        if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
-                                                err_message = "WRITE_OUT_OF_MEMORY: ";
-                                        if (e is PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE)
-                                                err_message = "READ_NOT_FOUND_NOT_EXHAUSTIVE: ";
-                                        if (e is PeersRefuseExecutionError.GENERIC)
-                                                err_message = "GENERIC: ";
-                                        err_message += e.message;
-                                        nstub.set_refuse_message(mf.msg_id, err_message, e_lvl, tuple_respondant);
-                                    } catch (StubError e) {
-                                        // ignore
-                                    } catch (DeserializeError e) {
-                                        // ignore
+                                } catch (PeersUnknownMessageError e) {
+                                    // ignore
+                                } catch (PeersInvalidRequest e) {
+                                    // ignore
+                                } catch (StubError e) {
+                                    // This could be due to the routing rule not been added yet. So
+                                    //  let's wait a bit and try again a few times.
+                                    if (times_again++ < 3) {
+                                        print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                        tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
                                     }
+                                } catch (DeserializeError e) {
+                                    // ignore
                                 }
-                            } catch (PeersUnknownMessageError e) {
-                                // ignore
-                            } catch (PeersInvalidRequest e) {
-                                // ignore
-                            } catch (StubError e) {
-                                // This could be due to the routing rule not been added yet. So
-                                //  let's wait a bit and try again a few times.
-                                if (times_again++ < 3) {
-                                    print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                    tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
-                                }
-                            } catch (DeserializeError e) {
-                                // ignore
-                            }
                             } // while (once_more)
                             break;
                         }
@@ -830,22 +830,22 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 bool once_more = true; int times_again = 0;
                                 while (once_more)
                                 {
-                                once_more = false;
-                                IPeersManagerStub nstub
-                                    = get_client_internally(mf.n);
-                                PeerTupleGNode gn = Utils.make_tuple_gnode(pos, x, mf.n.tuple.size);
-                                try {
-                                    nstub.set_next_destination(mf.msg_id, gn);
-                                } catch (StubError e) {
-                                    // This could be due to the routing rule not been added yet. So
-                                    //  let's wait a bit and try again a few times.
-                                    if (times_again++ < 3) {
-                                        print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                        tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                    once_more = false;
+                                    IPeersManagerStub nstub
+                                        = get_client_internally(mf.n);
+                                    PeerTupleGNode gn = Utils.make_tuple_gnode(pos, x, mf.n.tuple.size);
+                                    try {
+                                        nstub.set_next_destination(mf.msg_id, gn);
+                                    } catch (StubError e) {
+                                        // This could be due to the routing rule not been added yet. So
+                                        //  let's wait a bit and try again a few times.
+                                        if (times_again++ < 3) {
+                                            print("PeerServices: failed getting back to originator. Will try again soon.\n");
+                                            tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                        }
+                                    } catch (DeserializeError e) {
+                                        // ignore
                                     }
-                                } catch (DeserializeError e) {
-                                    // ignore
-                                }
                                 } // while (once_more)
                                 break;
                             }
