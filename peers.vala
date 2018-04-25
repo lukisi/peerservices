@@ -122,6 +122,11 @@ namespace Netsukuku.PeerServices
             typeof(PeerMessageForwarder).class_peek();
             typeof(PeerParticipantMap).class_peek();
             typeof(PeerParticipantSet).class_peek();
+            typeof(RequestWaitThenSendRecord).class_peek();
+            typeof(RequestWaitThenSendRecordResponse).class_peek();
+            typeof(RequestWaitThenSendRecordNotFound).class_peek();
+            typeof(RequestSendKeys).class_peek();
+            typeof(RequestSendKeysResponse).class_peek();
             tasklet = _tasklet;
         }
 
