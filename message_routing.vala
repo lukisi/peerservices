@@ -239,6 +239,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             return true;
         }
 
+        private const int min_timeout = 5000;
         private int find_timeout_routing(int nodes)
         {
             // number of msec to wait for a routing between a group of $(nodes) nodes.
@@ -246,7 +247,10 @@ namespace Netsukuku.PeerServices.MessageRouting
             if (nodes > 100) ret = 20000;
             if (nodes > 1000) ret = 200000;
             // TODO explore values
-            return ret;
+            // Consider a minimum threshold for the same reasons for which a reply
+            //  (see remotable method forward_msg) could result in a StubError a few times: that
+            //  is, due to some routing rule not been added yet, here or elsewhere in the path.
+            return ret + min_timeout;
         }
 
         /* Before calling this method the user MUST wait (if the service is optional)
@@ -393,6 +397,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         tasklet.ms_wait(20);
                         continue;
                     }
+                    print(@"PeerServices: sent msg $(mf.msg_id): request: '$(json_string_object(request))'\n");
                     int timeout = timeout_routing;
                     while (true)
                     {
@@ -523,6 +528,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         }
                     }
                     if (redofromstart) break;
+                    if (response != null) print(@"PeerServices: got response for msg $(mf.msg_id) from $(json_string_object(respondant)): '$(json_string_object(response))'\n");
                     if (response != null)
                         break;
                 }
@@ -636,7 +642,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             {
                 if (optional && (mf.x_macron != null && maps_retrieved_below_level < mf.x_macron.tuple.size))
                 {
-                    bool once_more = true; int times_again = 0;
+                    bool once_more = true; int wait_next = 5;
                     while (once_more)
                     {
                         once_more = false;
@@ -647,9 +653,12 @@ namespace Netsukuku.PeerServices.MessageRouting
                         } catch (StubError e) {
                             // This could be due to the routing rule not been added yet. So
                             //  let's wait a bit and try again a few times.
-                            if (times_again++ < 3) {
-                                print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                            if (wait_next < min_timeout) {
+                                wait_next = wait_next * 10;
+                                print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                tasklet.ms_wait(wait_next); once_more = true;
+                            } else {
+                                print(@"PeerServices: failed sending set_missing_optional_maps to msg_id $(mf.msg_id).\n");
                             }
                         } catch (DeserializeError e) {
                             // ignore
@@ -658,7 +667,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                 }
                 else if (optional && (! my_gnode_participates(mf.p_id, mf.lvl)))
                 {
-                    bool once_more = true; int times_again = 0;
+                    bool once_more = true; int wait_next = 5;
                     while (once_more)
                     {
                         once_more = false;
@@ -670,9 +679,12 @@ namespace Netsukuku.PeerServices.MessageRouting
                         } catch (StubError e) {
                             // This could be due to the routing rule not been added yet. So
                             //  let's wait a bit and try again a few times.
-                            if (times_again++ < 3) {
-                                print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                            if (wait_next < min_timeout) {
+                                wait_next = wait_next * 10;
+                                print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                tasklet.ms_wait(wait_next); once_more = true;
+                            } else {
+                                print(@"PeerServices: failed sending set_non_participant to msg_id $(mf.msg_id).\n");
                             }
                         } catch (DeserializeError e) {
                             // ignore
@@ -699,7 +711,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         HCoord? x = approximate(mf.x_macron, exclude_gnode_list);
                         if (x == null)
                         {
-                            bool once_more = true; int times_again = 0;
+                            bool once_more = true; int wait_next = 5;
                             while (once_more)
                             {
                                 once_more = false;
@@ -711,9 +723,12 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 } catch (StubError e) {
                                     // This could be due to the routing rule not been added yet. So
                                     //  let's wait a bit and try again a few times.
-                                    if (times_again++ < 3) {
-                                        print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                        tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                    if (wait_next < min_timeout) {
+                                        wait_next = wait_next * 10;
+                                        print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                        tasklet.ms_wait(wait_next); once_more = true;
+                                    } else {
+                                        print(@"PeerServices: failed sending set_failure to msg_id $(mf.msg_id).\n");
                                     }
                                 } catch (DeserializeError e) {
                                     // ignore
@@ -723,7 +738,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
-                            bool once_more = true; int times_again = 0;
+                            bool once_more = true; int wait_next = 5;
                             while (once_more)
                             {
                                 once_more = false;
@@ -769,9 +784,12 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 } catch (StubError e) {
                                     // This could be due to the routing rule not been added yet. So
                                     //  let's wait a bit and try again a few times.
-                                    if (times_again++ < 3) {
-                                        print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                        tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                    if (wait_next < min_timeout) {
+                                        wait_next = wait_next * 10;
+                                        print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                        tasklet.ms_wait(wait_next); once_more = true;
+                                    } else {
+                                        print(@"PeerServices: failed sending get_request to msg_id $(mf.msg_id).\n");
                                     }
                                 } catch (DeserializeError e) {
                                     // ignore
@@ -827,7 +845,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     assert_not_reached();
                                 }
                                 delivered = true;
-                                bool once_more = true; int times_again = 0;
+                                bool once_more = true; int wait_next = 5;
                                 while (once_more)
                                 {
                                     once_more = false;
@@ -839,9 +857,12 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     } catch (StubError e) {
                                         // This could be due to the routing rule not been added yet. So
                                         //  let's wait a bit and try again a few times.
-                                        if (times_again++ < 3) {
-                                            print("PeerServices: failed getting back to originator. Will try again soon.\n");
-                                            tasklet.ms_wait(5 * (int)Math.pow(10, times_again)); once_more = true;
+                                        if (wait_next < min_timeout) {
+                                            wait_next = wait_next * 10;
+                                            print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                            tasklet.ms_wait(wait_next); once_more = true;
+                                        } else {
+                                            print(@"PeerServices: failed sending set_next_destination to msg_id $(mf.msg_id).\n");
                                         }
                                     } catch (DeserializeError e) {
                                         // ignore

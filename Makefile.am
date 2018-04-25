@@ -58,7 +58,6 @@ libpeers_la_CPPFLAGS = \
 	$(NULL)
 
 libpeers_la_LIBADD = \
-	-lm \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
@@ -96,7 +95,6 @@ test_serialization_CPPFLAGS = \
 	$(NULL)
 
 test_serialization_LDADD = \
-	-lm \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
@@ -135,7 +133,6 @@ test_data_structs_CPPFLAGS = \
 	$(NULL)
 
 test_data_structs_LDADD = \
-	-lm \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
@@ -180,7 +177,6 @@ test_map_handler_CPPFLAGS = \
 	$(NULL)
 
 test_map_handler_LDADD = \
-	-lm \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
@@ -228,7 +224,6 @@ test_message_routing_CPPFLAGS = \
 	$(NULL)
 
 test_message_routing_LDADD = \
-	-lm \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
@@ -279,7 +274,6 @@ test_databases_CPPFLAGS = \
 	$(NULL)
 
 test_databases_LDADD = \
-	-lm \
 	$(GOBJECT_LIBS) \
 	$(GEE_LIBS) \
 	$(JSONGLIB_LIBS) \
