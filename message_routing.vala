@@ -397,7 +397,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         tasklet.ms_wait(20);
                         continue;
                     }
-                    print(@"PeerServices: sent msg $(mf.msg_id): request: '$(json_string_object(request))'\n");
+                    print(@"PeerServices: sent msg $(mf.msg_id): request: $(request.get_type().name()): '$(json_string_object(request))'\n");
                     int timeout = timeout_routing;
                     while (true)
                     {
@@ -528,7 +528,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         }
                     }
                     if (redofromstart) break;
-                    if (response != null) print(@"PeerServices: got response for msg $(mf.msg_id) from $(json_string_object(respondant)): '$(json_string_object(response))'\n");
+                    if (response != null) print(@"PeerServices: got response for msg $(mf.msg_id) from $(json_string_object(respondant)): $(response.get_type().name()): '$(json_string_object(response))'\n");
                     if (response != null)
                         break;
                 }
