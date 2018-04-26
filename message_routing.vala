@@ -531,6 +531,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                     if (response != null) print(@"PeerServices: got response for msg $(mf.msg_id) from $(json_string_object(respondant)): $(response.get_type().name()): '$(json_string_object(response))'\n");
                     if (response != null)
                         break;
+                    else print(@"PeerServices: could not get response for msg $(mf.msg_id).\n");
                 }
                 if (redofromstart) continue;
                 return response;
