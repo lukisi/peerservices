@@ -579,6 +579,35 @@ namespace Netsukuku.PeerServices.Databases
                 }
                 return ret;
             }
+            if (r is RequestWaitThenSendRecord)
+            {
+                Object k = ((RequestWaitThenSendRecord)r).k;
+                if ((! tdd.my_records_contains(k)) && (! ttl_db_is_exhaustive(tdd, k)))
+                {
+                    int exclude_my_gnode = first_identity || (timer_first_entry.get_lap() > tdd.ttl_db_msec_ttl) ? 0 : guest_gnode_level;
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
+                }
+                int common_lvl = client_tuple.size;
+                int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
+                if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
+                    delta = RequestWaitThenSendRecord.timeout_exec - 1000;
+                tasklet.ms_wait(delta);
+                if (tdd.my_records_contains(k))
+                {
+                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
+                    assert(! (k in tdd.dh.not_found_keys));
+                    return new RequestWaitThenSendRecordResponse(tdd.get_record_for_key(k));
+                }
+                if (ttl_db_is_exhaustive(tdd, k))
+                {
+                    ttl_db_add_not_found(tdd, k);
+                    return new RequestWaitThenSendRecordNotFound();
+                }
+                else
+                {
+                    throw new PeersRedoFromStartError.GENERIC("");
+                }
+            }
             if (tdd.is_insert_request(r))
             {
                 debug("ttl_db_on_request: insert request.\n");
@@ -653,35 +682,6 @@ namespace Netsukuku.PeerServices.Databases
                 {
                     int exclude_my_gnode = first_identity || (timer_first_entry.get_lap() > tdd.ttl_db_msec_ttl) ? 0 : guest_gnode_level;
                     throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
-                }
-            }
-            if (r is RequestWaitThenSendRecord)
-            {
-                Object k = ((RequestWaitThenSendRecord)r).k;
-                if ((! tdd.my_records_contains(k)) && (! ttl_db_is_exhaustive(tdd, k)))
-                {
-                    int exclude_my_gnode = first_identity || (timer_first_entry.get_lap() > tdd.ttl_db_msec_ttl) ? 0 : guest_gnode_level;
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(exclude_my_gnode)");
-                }
-                int common_lvl = client_tuple.size;
-                int delta = eval_coherence_delta(get_nodes_in_my_group(common_lvl));
-                if (delta > RequestWaitThenSendRecord.timeout_exec - 1000)
-                    delta = RequestWaitThenSendRecord.timeout_exec - 1000;
-                tasklet.ms_wait(delta);
-                if (tdd.my_records_contains(k))
-                {
-                    assert(! tdd.dh.not_exhaustive_keys.has_key(k));
-                    assert(! (k in tdd.dh.not_found_keys));
-                    return new RequestWaitThenSendRecordResponse(tdd.get_record_for_key(k));
-                }
-                if (ttl_db_is_exhaustive(tdd, k))
-                {
-                    ttl_db_add_not_found(tdd, k);
-                    return new RequestWaitThenSendRecordNotFound();
-                }
-                else
-                {
-                    throw new PeersRedoFromStartError.GENERIC("");
                 }
             }
             if (tdd.is_update_request(r))
@@ -895,19 +895,6 @@ namespace Netsukuku.PeerServices.Databases
         {
             if (fkdd.dh == null)
                 throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not even started. level=$(guest_gnode_level)");
-            if (fkdd.is_read_only_request(r))
-            {
-                Object k = fkdd.get_key_from_request(r);
-                if (! (k in fkdd.dh.not_completed_keys))
-                {
-                    assert(fkdd.my_records_contains(k));
-                    return fkdd.execute(r, client_tuple);
-                }
-                else
-                {
-                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(guest_gnode_level)");
-                }
-            }
             if (r is RequestWaitThenSendRecord)
             {
                 Object k = ((RequestWaitThenSendRecord)r).k;
@@ -921,6 +908,19 @@ namespace Netsukuku.PeerServices.Databases
                 tasklet.ms_wait(delta);
                 assert(fkdd.my_records_contains(k));
                 return new RequestWaitThenSendRecordResponse(fkdd.get_record_for_key(k));
+            }
+            if (fkdd.is_read_only_request(r))
+            {
+                Object k = fkdd.get_key_from_request(r);
+                if (! (k in fkdd.dh.not_completed_keys))
+                {
+                    assert(fkdd.my_records_contains(k));
+                    return fkdd.execute(r, client_tuple);
+                }
+                else
+                {
+                    throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not exhaustive. level=$(guest_gnode_level)");
+                }
             }
             if (fkdd.is_update_request(r))
             {
