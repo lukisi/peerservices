@@ -19,6 +19,7 @@
 using Gee;
 using TaskletSystem;
 using Netsukuku.PeerServices;
+using Netsukuku.PeerServices.Utils;
 
 namespace Netsukuku.PeerServices
 {

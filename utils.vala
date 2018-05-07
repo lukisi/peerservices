@@ -21,6 +21,13 @@ using TaskletSystem;
 
 namespace Netsukuku.PeerServices.Utils
 {
+    internal string string_pos(Gee.List<int> pos)
+    {
+        string ret = @"$(pos[0])";
+        for (int i = 1; i < pos.size; i++) ret += @",$(pos[i])";
+        return @"[$(ret)]";
+    }
+
     internal PeerTupleNode make_tuple_node(Gee.List<int> pos, HCoord h, int top)
     {
         // Returns a PeerTupleNode that represents h inside our g-node of level top. Actually h could be a g-node
