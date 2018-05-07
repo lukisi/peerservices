@@ -42,6 +42,13 @@ namespace Netsukuku.PeerServices
         return ret;
     }
 
+    internal string string_pos(Gee.List<int> pos)
+    {
+        string ret = @"$(pos[0])";
+        for (int i = 1; i < pos.size; i++) ret += @",$(pos[i])";
+        return @"[$(ret)]";
+    }
+
     public errordomain PeersNonexistentDestinationError {
         GENERIC
     }

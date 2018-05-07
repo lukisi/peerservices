@@ -397,6 +397,9 @@ namespace Netsukuku.PeerServices.Databases
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
             debug("database handler is ready.\n");
+            print(@"PeerServices($(p_id)) $(string_pos(pos)): my database handler is ready.\n");
+            tasklet.ms_wait(2000);
+            print(@"PeerServices($(p_id)) $(string_pos(pos)): begin searching for records.\n");
             if (prev_id_tdd == null)
             {
                 tdd.dh.timer_default_not_exhaustive = null;
@@ -564,6 +567,7 @@ namespace Netsukuku.PeerServices.Databases
         ttl_db_on_request(ITemporalDatabaseDescriptor tdd, IPeersRequest r, Gee.List<int> client_tuple)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
+            while (tdd.dh == null) tasklet.ms_wait(10);
             if (tdd.dh == null)
             {
                 throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not even started. level=$(guest_gnode_level)");
@@ -865,6 +869,9 @@ namespace Netsukuku.PeerServices.Databases
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
             fkdd.dh.not_completed_keys.add_all(k_set);
             debug("database handler is ready.\n");
+            print(@"PeerServices($(p_id)) $(string_pos(pos)): my database handler is ready.\n");
+            tasklet.ms_wait(2000);
+            print(@"PeerServices($(p_id)) $(string_pos(pos)): begin searching for records.\n");
             bool wait_before_network_activity = false;
             foreach (Object k in k_set)
             {
@@ -893,6 +900,7 @@ namespace Netsukuku.PeerServices.Databases
         fixed_keys_db_on_request(IFixedKeysDatabaseDescriptor fkdd, IPeersRequest r, Gee.List<int> client_tuple)
         throws PeersRefuseExecutionError, PeersRedoFromStartError
         {
+            while (fkdd.dh == null) tasklet.ms_wait(10);
             if (fkdd.dh == null)
                 throw new PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE(@"not even started. level=$(guest_gnode_level)");
             if (r is RequestWaitThenSendRecord)

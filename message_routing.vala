@@ -267,6 +267,8 @@ namespace Netsukuku.PeerServices.MessageRouting
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
+            print(@"PeerServices($(p_id)) $(string_pos(pos)): contact_peer: x_macron $(x_macron.get_type().name()): '$(json_string_object(x_macron))'\n");
+            print(@"PeerServices($(p_id)) $(string_pos(pos)): contact_peer: request $(request.get_type().name()): '$(json_string_object(request))'\n");
             int target_levels = x_macron.tuple.size;
             if (! i_am_real_up_to(target_levels-1)) error("A virtual node cannot be a client of p2p.");
             bool redofromstart = true;
@@ -310,6 +312,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                     }
                     if (x.lvl == 0 && x.pos == pos[0])
                     {
+                        print(@"PeerServices($(p_id)) $(string_pos(pos)): respondant is myself.\n");
                         try {
                             IPeersRequest copied_request = (IPeersRequest)dup_object(request);
                             IPeersResponse response_to_be_copied
@@ -333,6 +336,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), target_levels);
                         return response;
                     }
+                    print(@"PeerServices($(p_id)) $(string_pos(pos)): destination is HCoord($(x.lvl),$(x.pos)).\n");
                     PeerMessageForwarder mf = new PeerMessageForwarder();
                     mf.inside_level = target_levels;
                     mf.n = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), x.lvl+1);
@@ -397,7 +401,9 @@ namespace Netsukuku.PeerServices.MessageRouting
                         tasklet.ms_wait(20);
                         continue;
                     }
-                    print(@"PeerServices: sent msg $(mf.msg_id): request: $(request.get_type().name()): '$(json_string_object(request))'\n");
+                    print(@"PeerServices($(p_id)) $(string_pos(pos)): sent msg $(mf.msg_id): request $(request.get_type().name()): '$(json_string_object(request))'\n");
+                    print(@"PeerServices($(p_id)) $(string_pos(pos)): sent msg $(mf.msg_id): request $(request.get_type().name()): '$(json_string_object(request))'\n");
+                    print(@"PeerServices($(p_id)) $(string_pos(pos)): timeout_routing = $(timeout_routing).\n");
                     int timeout = timeout_routing;
                     while (true)
                     {
@@ -408,6 +414,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 tasklet.ms_wait(20);
                                 redofromstart = true;
                                 respondant = null;
+                                print(@"PeerServices($(p_id)) $(string_pos(pos)): missing_optional_maps.\n");
                                 break;
                             }
                             if (waiting_answer.exclude_gnode != null)
@@ -425,6 +432,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 }
                                 exclude_tuple_list.add(t);
                                 waiting_answer_map.unset(mf.msg_id);
+                                print(@"PeerServices($(p_id)) $(string_pos(pos)): exclude_gnode. Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
                                 break;
                             }
                             else if (waiting_answer.non_participant_gnode != null)
@@ -448,6 +456,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 exclude_tuple_list.add(t);
                                 non_participant_tuple_list.add(t);
                                 waiting_answer_map.unset(mf.msg_id);
+                                print(@"PeerServices($(p_id)) $(string_pos(pos)): non_participant_gnode. Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
                                 break;
                             }
                             else if (respondant == null && waiting_answer.respondant_node != null)
@@ -496,12 +505,14 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 exclude_tuple_list.add(t);
                                 respondant = null;
                                 waiting_answer_map.unset(mf.msg_id);
+                                print(@"PeerServices($(p_id)) $(string_pos(pos)): refuse_message '$(waiting_answer.refuse_message)'. Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
                                 break;
                             }
                             else if (respondant != null && waiting_answer.redo_from_start)
                             {
                                 redofromstart = true;
                                 respondant = null;
+                                print(@"PeerServices($(p_id)) $(string_pos(pos)): redo_from_start.\n");
                                 break;
                             }
                             else
@@ -524,14 +535,15 @@ namespace Netsukuku.PeerServices.MessageRouting
                             exclude_tuple_list.add(t);
                             respondant = null;
                             waiting_answer_map.unset(mf.msg_id);
+                            print(@"PeerServices($(p_id)) $(string_pos(pos)): ChannelError.$(e.code)('$(e.message)') for msg $(mf.msg_id). Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
                             break;
                         }
                     }
                     if (redofromstart) break;
-                    if (response != null) print(@"PeerServices: got response for msg $(mf.msg_id) from $(json_string_object(respondant)): $(response.get_type().name()): '$(json_string_object(response))'\n");
+                    if (response != null) print(@"PeerServices($(p_id)) $(string_pos(pos)): got response for msg $(mf.msg_id) from $(respondant.get_type().name()) $(json_string_object(respondant)): $(response.get_type().name()): '$(json_string_object(response))'\n");
                     if (response != null)
                         break;
-                    else print(@"PeerServices: could not get response for msg $(mf.msg_id).\n");
+                    else print(@"PeerServices($(p_id)) $(string_pos(pos)): could not get response for msg $(mf.msg_id).\n");
                 }
                 if (redofromstart) continue;
                 return response;
@@ -656,10 +668,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                             //  let's wait a bit and try again a few times.
                             if (wait_next < min_timeout) {
                                 wait_next = wait_next * 10;
-                                print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
                                 tasklet.ms_wait(wait_next); once_more = true;
                             } else {
-                                print(@"PeerServices: failed sending set_missing_optional_maps to msg_id $(mf.msg_id).\n");
+                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_missing_optional_maps to msg_id $(mf.msg_id).\n");
                             }
                         } catch (DeserializeError e) {
                             // ignore
@@ -682,10 +694,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                             //  let's wait a bit and try again a few times.
                             if (wait_next < min_timeout) {
                                 wait_next = wait_next * 10;
-                                print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
                                 tasklet.ms_wait(wait_next); once_more = true;
                             } else {
-                                print(@"PeerServices: failed sending set_non_participant to msg_id $(mf.msg_id).\n");
+                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_non_participant to msg_id $(mf.msg_id).\n");
                             }
                         } catch (DeserializeError e) {
                             // ignore
@@ -726,10 +738,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     //  let's wait a bit and try again a few times.
                                     if (wait_next < min_timeout) {
                                         wait_next = wait_next * 10;
-                                        print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
                                         tasklet.ms_wait(wait_next); once_more = true;
                                     } else {
-                                        print(@"PeerServices: failed sending set_failure to msg_id $(mf.msg_id).\n");
+                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_failure to msg_id $(mf.msg_id).\n");
                                     }
                                 } catch (DeserializeError e) {
                                     // ignore
@@ -787,10 +799,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     //  let's wait a bit and try again a few times.
                                     if (wait_next < min_timeout) {
                                         wait_next = wait_next * 10;
-                                        print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
                                         tasklet.ms_wait(wait_next); once_more = true;
                                     } else {
-                                        print(@"PeerServices: failed sending get_request to msg_id $(mf.msg_id).\n");
+                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending get_request to msg_id $(mf.msg_id).\n");
                                     }
                                 } catch (DeserializeError e) {
                                     // ignore
@@ -860,10 +872,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                                         //  let's wait a bit and try again a few times.
                                         if (wait_next < min_timeout) {
                                             wait_next = wait_next * 10;
-                                            print(@"PeerServices: failed getting back to originator. Will try again in $(wait_next) msec.\n");
+                                            print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
                                             tasklet.ms_wait(wait_next); once_more = true;
                                         } else {
-                                            print(@"PeerServices: failed sending set_next_destination to msg_id $(mf.msg_id).\n");
+                                            print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_next_destination to msg_id $(mf.msg_id).\n");
                                         }
                                     } catch (DeserializeError e) {
                                         // ignore
