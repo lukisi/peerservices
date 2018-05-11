@@ -405,7 +405,6 @@ namespace Netsukuku.PeerServices.MessageRouting
                         continue;
                     }
                     print(@"PeerServices($(p_id)) $(string_pos(pos)): sent msg $(mf.msg_id): request $(request.get_type().name()): '$(json_string_object(request))'\n");
-                    print(@"PeerServices($(p_id)) $(string_pos(pos)): sent msg $(mf.msg_id): request $(request.get_type().name()): '$(json_string_object(request))'\n");
                     print(@"PeerServices($(p_id)) $(string_pos(pos)): timeout_routing = $(timeout_routing).\n");
                     int timeout = timeout_routing;
                     while (true)
