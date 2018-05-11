@@ -307,8 +307,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                         {
                             string err_msg = "";
                             foreach (string msg in refuse_messages) err_msg += @"$(msg) - ";
+                            print(@"PeerServices($(p_id)) $(string_pos(pos)): Database error: $(err_msg).\n");
                             throw new PeersDatabaseError.GENERIC(err_msg);
                         }
+                        print(@"PeerServices($(p_id)) $(string_pos(pos)): no [more] participants.\n");
                         throw new PeersNoParticipantsInNetworkError.GENERIC("");
                     }
                     if (x.lvl == 0 && x.pos == pos[0])
