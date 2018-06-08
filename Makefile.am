@@ -36,7 +36,7 @@ libpeers_la_VALAFLAGS = \
 	-H peers.h \
 	--library peers \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
-	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.36/vapi \
 	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
 	--vapidir $(NTKDRPC_VAPIDIR) \
@@ -76,7 +76,7 @@ test_serialization_SOURCES = \
 
 test_serialization_VALAFLAGS = \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
-	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.36/vapi \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
 	--vapidir $(NTKDRPC_VAPIDIR) \
 	--pkg gee-0.8 \
@@ -114,7 +114,7 @@ test_data_structs_SOURCES = \
 
 test_data_structs_VALAFLAGS = \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
-	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.36/vapi \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
 	--vapidir $(NTKDRPC_VAPIDIR) \
 	--pkg gee-0.8 \
@@ -152,7 +152,7 @@ test_map_handler_SOURCES = \
 
 test_map_handler_VALAFLAGS = \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
-	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.36/vapi \
 	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
 	--vapidir $(PTHTASKLET_VAPIDIR) \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
@@ -199,7 +199,7 @@ test_message_routing_SOURCES = \
 
 test_message_routing_VALAFLAGS = \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
-	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.36/vapi \
 	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
 	--vapidir $(PTHTASKLET_VAPIDIR) \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
@@ -249,7 +249,7 @@ test_databases_SOURCES = \
 
 test_databases_VALAFLAGS = \
 	--vapidir $(GEE_PREFIX)/share/vala/vapi \
-	--vapidir $(JSON_PREFIX)/share/vala-0.32/vapi \
+	--vapidir $(JSON_PREFIX)/share/vala-0.36/vapi \
 	--vapidir $(TASKLETSYSTEM_VAPIDIR) \
 	--vapidir $(PTHTASKLET_VAPIDIR) \
 	--vapidir $(NTKDCOMMON_VAPIDIR) \
