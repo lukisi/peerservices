@@ -10,16 +10,12 @@ TESTS = \
 	test_serialization \
 	test_data_structs \
 	test_map_handler \
-	test_message_routing \
-	test_databases \
 	$(NULL)
 
 check_PROGRAMS = \
 	test_serialization \
 	test_data_structs \
 	test_map_handler \
-	test_message_routing \
-	test_databases \
 	$(NULL)
 
 libpeers_la_SOURCES = \
