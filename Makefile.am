@@ -26,6 +26,7 @@ libpeers_la_SOURCES = \
 	message_routing.vala \
 	databases.vala \
 	utils.vala \
+	rngen.vala \
 	$(NULL)
 
 libpeers_la_VALAFLAGS = \
@@ -144,6 +145,7 @@ test_map_handler_SOURCES = \
 	testsuites/map_handler/map_handler.vala \
 	testsuites/map_handler/serializables.vala \
 	testsuites/map_handler/utils.vala \
+	testsuites/map_handler/rngen.vala \
 	$(NULL)
 
 test_map_handler_VALAFLAGS = \

@@ -328,7 +328,7 @@ namespace Netsukuku.PeerServices.MapHandler
             while (true)
             {
                 if (iterations > 0) iterations--;
-                else timeout = Random.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
+                else timeout = PRNGen.int_range(24*60*60*1000, 2*24*60*60*1000); // 1 day to 2 days
                 // stub to broadcast, with handling of missing_arcs
                 IPeersManagerStub b_stub = get_broadcast_neighbors((missing_arc) => {
                     IPeersManagerStub u_stub = get_unicast_neighbor(missing_arc);

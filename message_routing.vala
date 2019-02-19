@@ -352,7 +352,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                     mf.lvl = x.lvl;
                     mf.pos = x.pos;
                     mf.p_id = p_id;
-                    mf.msg_id = Random.int_range(0, int.MAX);
+                    mf.msg_id = PRNGen.int_range(0, int.MAX);
                     foreach (PeerTupleGNode t in exclude_tuple_list.list)
                     {
                         int @case;
@@ -571,7 +571,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             mf.lvl = g.lvl;
             mf.pos = g.pos;
             mf.p_id = p_id;
-            mf.msg_id = Random.int_range(0, int.MAX);
+            mf.msg_id = PRNGen.int_range(0, int.MAX);
             int timeout_routing = find_timeout_routing(get_nodes_in_my_group(g.lvl+1));
             WaitingAnswer waiting_answer =
                 new WaitingAnswer

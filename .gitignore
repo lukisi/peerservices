@@ -5,6 +5,7 @@ map_handler.c
 message_routing.c
 databases.c
 utils.c
+rngen.c
 peers.h
 peers.vapi
 main.c

@@ -130,6 +130,11 @@ namespace Netsukuku.PeerServices
             tasklet = _tasklet;
         }
 
+        public static void init_rngen(IRandomNumberGenerator? rngen=null, uint32? seed=null)
+        {
+            PRNGen.init_rngen(rngen, seed);
+        }
+
         private IPeersMapPaths map_paths;
         private int levels;
         private ArrayList<int> gsizes;
