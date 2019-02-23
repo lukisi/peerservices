@@ -245,6 +245,8 @@ class PeersTester : Object
                      var ret = get_unicast_neighbor(_missing_arc);
                      print(@"        Returning $(ret.holder.name).\n");
                      return ret;
+                 },
+                 /*SignalFailingArc*/ (missing_arc) => {
                  });
         }
 

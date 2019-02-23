@@ -46,12 +46,13 @@ namespace Netsukuku.PeerServices.MapHandler
     /* GetBroadcastNeighbors: Get a stub to transmit in broadcast to all neighbors.
      * In doing that, pass a delegate function to handle "missing arc" events. That function will
      * be able use GetUnicastNeighbor to get a stub to reliably transmit in unicast to
-     * the "missing" neighbor.
+     * the "missing" neighbor. If it fails it will be able to use SignalFailingArc.
      */
     internal interface IMissingArc : Object {}
     internal delegate void MissingArcHandler(IMissingArc missing_arc);
     internal delegate IPeersManagerStub GetBroadcastNeighbors(owned MissingArcHandler fn_mah);
     internal delegate IPeersManagerStub GetUnicastNeighbor(IMissingArc missing_arc);
+    internal delegate void SignalFailingArc(IMissingArc missing_arc);
 
     internal class MapHandler : Object
     {
@@ -67,6 +68,7 @@ namespace Netsukuku.PeerServices.MapHandler
         private GetNeighborAtLevel get_neighbor_at_level;
         private GetBroadcastNeighbors get_broadcast_neighbors;
         private GetUnicastNeighbor get_unicast_neighbor;
+        private SignalFailingArc signal_failing_arc;
         public int maps_retrieved_below_level {get; private set;}
         private HashMap<int, ITaskletHandle> participation_tasklets;
         private ArrayList<HCoord> recent_published_list;
@@ -80,7 +82,8 @@ namespace Netsukuku.PeerServices.MapHandler
          owned ProduceMapsCopy produce_maps,
          owned GetNeighborAtLevel get_neighbor_at_level,
          owned GetBroadcastNeighbors get_broadcast_neighbors,
-         owned GetUnicastNeighbor get_unicast_neighbor)
+         owned GetUnicastNeighbor get_unicast_neighbor,
+         owned SignalFailingArc signal_failing_arc)
         {
             this.pos = new ArrayList<int>();
             this.pos.add_all(pos);
@@ -95,6 +98,7 @@ namespace Netsukuku.PeerServices.MapHandler
             this.get_neighbor_at_level = (owned) get_neighbor_at_level;
             this.get_broadcast_neighbors = (owned) get_broadcast_neighbors;
             this.get_unicast_neighbor = (owned) get_unicast_neighbor;
+            this.signal_failing_arc = (owned) signal_failing_arc;
             participation_tasklets = new HashMap<int, ITaskletHandle>();
             recent_published_list = new ArrayList<HCoord>((a, b) => a.equals(b));
         }
@@ -159,9 +163,11 @@ namespace Netsukuku.PeerServices.MapHandler
                     try {
                         u_stub.set_participant(p_id, tuple_gnode);
                     } catch (StubError e) {
-                        // Ignore failing arc. TODO fix emitting a signal.
+                        signal_failing_arc(missing_arc);
+                        // Ignore failing arc. Just emit a signal.
                     } catch (DeserializeError e) {
-                        // Ignore failing arc. TODO fix emitting a signal.
+                        signal_failing_arc(missing_arc);
+                        // Ignore failing arc. Just emit a signal.
                     }
                 }
             });
@@ -279,9 +285,11 @@ namespace Netsukuku.PeerServices.MapHandler
                 try {
                     u_stub.give_participant_maps(maps_below_level);
                 } catch (StubError e) {
-                    // Ignore failing arc. TODO fix emitting a signal.
+                    signal_failing_arc(missing_arc);
+                    // Ignore failing arc. Just emit a signal.
                 } catch (DeserializeError e) {
-                    // Ignore failing arc. TODO fix emitting a signal.
+                    signal_failing_arc(missing_arc);
+                    // Ignore failing arc. Just emit a signal.
                 }
             });
             try {
@@ -335,9 +343,11 @@ namespace Netsukuku.PeerServices.MapHandler
                     try {
                         u_stub.set_participant(p_id, gn);
                     } catch (StubError e) {
-                        // Ignore failing arc. TODO fix emitting a signal.
+                        signal_failing_arc(missing_arc);
+                        // Ignore failing arc. Just emit a signal.
                     } catch (DeserializeError e) {
-                        // Ignore failing arc. TODO fix emitting a signal.
+                        signal_failing_arc(missing_arc);
+                        // Ignore failing arc. Just emit a signal.
                     }
                 });
                 try {
@@ -387,9 +397,11 @@ namespace Netsukuku.PeerServices.MapHandler
                 try {
                     u_stub.set_participant(p_id, ret_gn);
                 } catch (StubError e) {
-                    // TODO
+                    signal_failing_arc(missing_arc);
+                    // Ignore failing arc. Just emit a signal.
                 } catch (DeserializeError e) {
-                    // TODO
+                    signal_failing_arc(missing_arc);
+                    // Ignore failing arc. Just emit a signal.
                 }
             });
             try {

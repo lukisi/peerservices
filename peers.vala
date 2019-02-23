@@ -157,6 +157,9 @@ namespace Netsukuku.PeerServices
         private MessageRouting.MessageRouting message_routing;
         private Databases.Databases databases;
 
+        // The hook on a particular network has completed; the module is bootstrap_complete.
+        public signal void failing_arc(IPeersArc arc);
+
         public PeersManager
         (PeersManager? old_identity,
         int guest_gnode_level,
@@ -211,6 +214,10 @@ namespace Netsukuku.PeerServices
                  },
                  /*GetUnicastNeighbor*/ (missing_arc) => {
                      return get_unicast_neighbor(missing_arc);
+                 },
+                 /*SignalFailingArc*/ (missing_arc) => {
+                     IPeersArc arc = ((MissingArcImpl)missing_arc).arc;
+                     failing_arc(arc);
                  });
             if (old_identity == null)
             {
