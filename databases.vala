@@ -397,14 +397,10 @@ namespace Netsukuku.PeerServices.Databases
             tdd.dh.not_found_keys = new ArrayList<Object>(tdd.key_equal_data);
             tdd.dh.not_exhaustive_keys = new HashMap<Object, Timer>(tdd.key_hash_data, tdd.key_equal_data);
             tdd.dh.retrieving_keys = new HashMap<Object, IChannel>(tdd.key_hash_data, tdd.key_equal_data);
-            debug("database handler is ready.\n");
-            print(@"PeerServices($(p_id)) $(string_pos(pos)): my database handler is ready.\n");
-            tasklet.ms_wait(2000);
-            print(@"PeerServices($(p_id)) $(string_pos(pos)): begin searching for records.\n");
             if (prev_id_tdd == null)
             {
+                // we're exhaustive because it's a new network.
                 tdd.dh.timer_default_not_exhaustive = null;
-                debug("we're exhaustive because it's a new network.\n");
                 return;
             }
             foreach (Object k in prev_id_tdd.ttl_db_get_all_keys())
@@ -425,6 +421,7 @@ namespace Netsukuku.PeerServices.Databases
                 }
                 // else I am not exhaustive for key `k`
             }
+            tasklet.ms_wait(2000);
             IPeersRequest r = new RequestSendKeys(tdd.ttl_db_max_records);
             PeerTupleNode tuple_n;
             PeerTupleNode respondant;
@@ -852,10 +849,8 @@ namespace Netsukuku.PeerServices.Databases
             public IFixedKeysDatabaseDescriptor? prev_id_fkdd;
             public void * func()
             {
-                debug("starting tasklet_fixed_keys_db_on_startup.\n");
                 t.tasklet_fixed_keys_db_on_startup
                     (fkdd, p_id, prev_id_fkdd);
-                debug("ending tasklet_fixed_keys_db_on_startup.\n");
                 return null;
             }
         }
@@ -869,11 +864,6 @@ namespace Netsukuku.PeerServices.Databases
             fkdd.dh.retrieving_keys = new HashMap<Object, IChannel>(fkdd.key_hash_data, fkdd.key_equal_data);
             Gee.List<Object> k_set = fkdd.get_full_key_domain();
             fkdd.dh.not_completed_keys.add_all(k_set);
-            debug("database handler is ready.\n");
-            print(@"PeerServices($(p_id)) $(string_pos(pos)): my database handler is ready.\n");
-            tasklet.ms_wait(2000);
-            print(@"PeerServices($(p_id)) $(string_pos(pos)): begin searching for records.\n");
-            bool wait_before_network_activity = false;
             foreach (Object k in k_set)
             {
                 int l = fkdd.evaluate_hash_node(k).size;
@@ -888,12 +878,17 @@ namespace Netsukuku.PeerServices.Databases
                     fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
                     fkdd.dh.not_completed_keys.remove(k);
                 }
-                else
-                {
-                    if (wait_before_network_activity) tasklet.ms_wait(200);
-                    fixed_keys_db_start_retrieve(fkdd, k);
-                    wait_before_network_activity = true;
-                }
+            }
+            tasklet.ms_wait(2000);
+            bool wait_before_network_activity = false;
+            foreach (Object k in k_set)
+            {
+                int l = fkdd.evaluate_hash_node(k).size;
+                if (guest_gnode_level >= l) continue;
+                if (new_gnode_level >= l) continue;
+                if (wait_before_network_activity) tasklet.ms_wait(200);
+                fixed_keys_db_start_retrieve(fkdd, k);
+                wait_before_network_activity = true;
             }
         }
 
