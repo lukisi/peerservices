@@ -173,7 +173,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             Gee.List<HCoord> exclude_list = new ArrayList<HCoord>((a, b) => a.equals(b));
             exclude_list.add_all(_exclude_list);
             // This function is x=Ht(x̄)
-            if (x_macron == null)
+            if (x_macron == null || x_macron.tuple.size == 0)
             {
                 // It's me or nobody.
                 // In this case, this node is certainly not a *virtual* node,
@@ -336,7 +336,8 @@ namespace Netsukuku.PeerServices.MessageRouting
                             exclude_gnode_list.add_all(get_all_gnodes_up_to_lvl(e_lvl));
                             continue; // next iteration of cicle 1.
                         }
-                        respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), target_levels);
+                        if (target_levels == 0) respondant = new PeerTupleNode(new ArrayList<int>());
+                        else respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), target_levels);
                         return response;
                     }
                     print(@"PeerServices($(p_id)) $(string_pos(pos)): destination is HCoord($(x.lvl),$(x.pos)).\n");
