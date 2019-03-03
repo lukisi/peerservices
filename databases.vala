@@ -271,13 +271,18 @@ namespace Netsukuku.PeerServices.Databases
             if (_cont.replicas.size >= _cont.q) return false;
             PeerTupleNode respondant;
             try {
+                debug(@"$(_cont.r.get_type().name()): Starting contact_peer from $(this.get_type().name()):");
+                debug(@"$(_cont.r.get_type().name()): p_id=$(_cont.p_id), to $(_cont.x_macron).");
                 resp = contact_peer
                     (_cont.p_id, _cont.x_macron, _cont.r,
                      _cont.timeout_exec, 0,
                      out respondant, _cont.exclude_tuple_list);
+                debug(@"$(_cont.r.get_type().name())(p_id=$(_cont.p_id)) to $(_cont.x_macron): saved replica in $(respondant).");
             } catch (PeersNoParticipantsInNetworkError e) {
+                debug(@"$(_cont.r.get_type().name())(p_id=$(_cont.p_id)) to $(_cont.x_macron): got PeersNoParticipantsInNetworkError: abort.");
                 return false;
             } catch (PeersDatabaseError e) {
+                debug(@"$(_cont.r.get_type().name())(p_id=$(_cont.p_id)) to $(_cont.x_macron): got PeersDatabaseError: abort.");
                 return false;
             }
             _cont.replicas.add(respondant);
@@ -994,24 +999,24 @@ namespace Netsukuku.PeerServices.Databases
                     IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, timeout_exec, 0, out respondant);
                     if (res is RequestWaitThenSendRecordResponse)
                         record = ((RequestWaitThenSendRecordResponse)res).record;
-                    debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): got record from $(respondant). Is it valid?");
+                    debug(@"RequestWaitThenSendRecord(p_id=$(fkdd.dh.p_id)) to $(h_p_k): got record from $(respondant). Is it valid?");
                     break;
                 } catch (PeersNoParticipantsInNetworkError e) {
-                    debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): got PeersNoParticipantsInNetworkError: abort.");
+                    debug(@"RequestWaitThenSendRecord(p_id=$(fkdd.dh.p_id)) to $(h_p_k): got PeersNoParticipantsInNetworkError: abort.");
                     break;
                 } catch (PeersDatabaseError e) {
-                    debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): got PeersDatabaseError: try again.");
+                    debug(@"RequestWaitThenSendRecord(p_id=$(fkdd.dh.p_id)) to $(h_p_k): got PeersDatabaseError: try again.");
                     tasklet.ms_wait(200);
                 }
             }
             if (record != null && fkdd.is_valid_record(k, record))
             {
-                debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): record is valid.");
+                debug(@"RequestWaitThenSendRecord(p_id=$(fkdd.dh.p_id)) to $(h_p_k): record is valid.");
                 fkdd.set_record_for_key(k, record);
             }
             else
             {
-                debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): use default record.");
+                debug(@"RequestWaitThenSendRecord(p_id=$(fkdd.dh.p_id)) to $(h_p_k): use default record.");
                 fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
             }
             IChannel temp_ch = fkdd.dh.retrieving_keys[k];

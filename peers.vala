@@ -834,13 +834,13 @@ namespace Netsukuku.PeerServices
                      timeout_exec,
                      -1,
                      out respondant);
-                debug(@"$(request.get_type().name())($(p_id)) to $(h_p_k): got record from $(respondant), is a $(res.get_type().name()).");
+                debug(@"$(request.get_type().name())(p_id=$(p_id)) to $(h_p_k): got record from $(respondant), is a $(res.get_type().name()).");
                 return res;
             } catch (PeersNoParticipantsInNetworkError e) {
-                debug(@"$(request.get_type().name())($(p_id)) to $(h_p_k): got PeersNoParticipantsInNetworkError.");
+                debug(@"$(request.get_type().name())(p_id=$(p_id)) to $(h_p_k): got PeersNoParticipantsInNetworkError.");
                 throw e;
             } catch (PeersDatabaseError e) {
-                debug(@"$(request.get_type().name())($(p_id)) to $(h_p_k): got PeersDatabaseError.");
+                debug(@"$(request.get_type().name())(p_id=$(p_id)) to $(h_p_k): got PeersDatabaseError.");
                 throw e;
             }
         }

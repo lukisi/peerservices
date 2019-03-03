@@ -268,8 +268,7 @@ namespace Netsukuku.PeerServices.MessageRouting
          PeerTupleGNodeContainer? _exclude_tuple_list=null)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
-            print(@"PeerServices($(p_id)) $(string_pos(pos)): contact_peer: x_macron $(x_macron.get_type().name()): '$(json_string_object(x_macron))'\n");
-            print(@"PeerServices($(p_id)) $(string_pos(pos)): contact_peer: request $(request.get_type().name()): '$(json_string_object(request))'\n");
+            debug(@"$(request.get_type().name()): contact_peer: to $(x_macron): '$(json_string_object(request))'");
             int target_levels = x_macron.tuple.size;
             if (! i_am_real_up_to(target_levels-1)) error("A virtual node cannot be a client of p2p.");
             bool redofromstart = true;
@@ -315,7 +314,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                     }
                     if (x.lvl == 0 && x.pos == pos[0])
                     {
-                        print(@"PeerServices($(p_id)) $(string_pos(pos)): respondant is myself.\n");
+                        debug(@"$(request.get_type().name()): contact_peer: respondant is myself.");
                         try {
                             IPeersRequest copied_request = (IPeersRequest)dup_object(request);
                             IPeersResponse response_to_be_copied
@@ -340,7 +339,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         else respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), target_levels);
                         return response;
                     }
-                    print(@"PeerServices($(p_id)) $(string_pos(pos)): destination is HCoord($(x.lvl),$(x.pos)).\n");
+                    debug(@"$(request.get_type().name()): contact_peer: destination is HCoord($(x.lvl),$(x.pos)).");
                     PeerMessageForwarder mf = new PeerMessageForwarder();
                     mf.inside_level = target_levels;
                     mf.n = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), x.lvl+1);
@@ -405,8 +404,8 @@ namespace Netsukuku.PeerServices.MessageRouting
                         tasklet.ms_wait(20);
                         continue;
                     }
-                    print(@"PeerServices($(p_id)) $(string_pos(pos)): sent msg $(mf.msg_id): request $(request.get_type().name()): '$(json_string_object(request))'\n");
-                    print(@"PeerServices($(p_id)) $(string_pos(pos)): timeout_routing = $(timeout_routing).\n");
+                    debug(@"$(request.get_type().name()): contact_peer: sent msg $(mf.msg_id): " +
+                    @"'$(json_string_object(request))' with timeout_routing=$(timeout_routing).");
                     int timeout = timeout_routing;
                     while (true)
                     {
@@ -417,7 +416,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 tasklet.ms_wait(20);
                                 redofromstart = true;
                                 respondant = null;
-                                print(@"PeerServices($(p_id)) $(string_pos(pos)): missing_optional_maps.\n");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): will redo_from_start beacuse missing_optional_maps.");
                                 break;
                             }
                             if (waiting_answer.exclude_gnode != null)
@@ -515,7 +514,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                             {
                                 redofromstart = true;
                                 respondant = null;
-                                print(@"PeerServices($(p_id)) $(string_pos(pos)): redo_from_start.\n");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): will redo_from_start.");
                                 break;
                             }
                             else
