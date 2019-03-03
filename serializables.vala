@@ -92,6 +92,17 @@ namespace Netsukuku.PeerServices
             }
             return true;
         }
+
+        public string to_string()
+        {
+            string ret = ""; string next = "";
+            for (int i = 0; i < tuple.size; i++)
+            {
+                ret += @"$(next)$(tuple[i])";
+                next = ",";
+            }
+            return @"[$(ret)]";
+        }
     }
 
     internal class PeerTupleGNode : Object, Json.Serializable, IPeerTupleGNode

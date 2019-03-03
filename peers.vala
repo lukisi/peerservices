@@ -820,16 +820,29 @@ namespace Netsukuku.PeerServices
         protected IPeersResponse call(Object k, IPeersRequest request, int timeout_exec)
         throws PeersNoParticipantsInNetworkError, PeersDatabaseError
         {
-            PeerTupleNode respondant;
-            debug(@"starting contact_peer for a specific request from $(get_type().name()) (Key is a $(k.get_type().name())).\n");
-            return
-            peers_manager.contact_peer
-                (p_id,
-                 new PeerTupleNode(perfect_tuple(k)),
-                 request,
-                 timeout_exec,
-                 -1,
-                 out respondant);
+            PeerTupleNode h_p_k;
+            try
+            {
+                PeerTupleNode respondant;
+                h_p_k = new PeerTupleNode(perfect_tuple(k));
+                debug(@"$(request.get_type().name()): Starting contact_peer from $(this.get_type().name()):");
+                debug(@"$(request.get_type().name()): p_id=$(p_id), k is a $(k.get_type().name()), h_p(k)=$(h_p_k).");
+                IPeersResponse res = peers_manager.contact_peer
+                    (p_id,
+                     h_p_k,
+                     request,
+                     timeout_exec,
+                     -1,
+                     out respondant);
+                debug(@"$(request.get_type().name())($(p_id)) to $(h_p_k): got record from $(respondant), is a $(res.get_type().name()).");
+                return res;
+            } catch (PeersNoParticipantsInNetworkError e) {
+                debug(@"$(request.get_type().name())($(p_id)) to $(h_p_k): got PeersNoParticipantsInNetworkError.");
+                throw e;
+            } catch (PeersDatabaseError e) {
+                debug(@"$(request.get_type().name())($(p_id)) to $(h_p_k): got PeersDatabaseError.");
+                throw e;
+            }
         }
 
         public bool am_i_servant_for(Object k)

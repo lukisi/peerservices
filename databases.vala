@@ -983,28 +983,35 @@ namespace Netsukuku.PeerServices.Databases
             Object? record = null;
             IPeersRequest r = new RequestWaitThenSendRecord(k);
             int timeout_exec = RequestWaitThenSendRecord.timeout_exec;
+            PeerTupleNode h_p_k;
             while (true)
             {
                 try {
                     PeerTupleNode respondant;
-                    PeerTupleNode h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
-                    debug(@"starting contact_peer for a request of wait_then_send_record (Key is a $(k.get_type().name())).\n");
+                    h_p_k = new PeerTupleNode(fkdd.evaluate_hash_node(k));
+                    debug(@"RequestWaitThenSendRecord: Starting contact_peer from $(this.get_type().name()):");
+                    debug(@"RequestWaitThenSendRecord: p_id=$(fkdd.dh.p_id), k is a $(k.get_type().name())), h_p(k)=$(h_p_k).");
                     IPeersResponse res = contact_peer(fkdd.dh.p_id, h_p_k, r, timeout_exec, 0, out respondant);
                     if (res is RequestWaitThenSendRecordResponse)
                         record = ((RequestWaitThenSendRecordResponse)res).record;
+                    debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): got record from $(respondant). Is it valid?");
                     break;
                 } catch (PeersNoParticipantsInNetworkError e) {
+                    debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): got PeersNoParticipantsInNetworkError: abort.");
                     break;
                 } catch (PeersDatabaseError e) {
+                    debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): got PeersDatabaseError: try again.");
                     tasklet.ms_wait(200);
                 }
             }
             if (record != null && fkdd.is_valid_record(k, record))
             {
+                debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): record is valid.");
                 fkdd.set_record_for_key(k, record);
             }
             else
             {
+                debug(@"RequestWaitThenSendRecord($(fkdd.dh.p_id)) to $(h_p_k): use default record.");
                 fkdd.set_record_for_key(k, fkdd.get_default_record_for_key(k));
             }
             IChannel temp_ch = fkdd.dh.retrieving_keys[k];
