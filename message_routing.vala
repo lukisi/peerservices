@@ -320,10 +320,14 @@ namespace Netsukuku.PeerServices.MessageRouting
                             IPeersResponse response_to_be_copied
                                 = exec_service(p_id, copied_request, new ArrayList<int>());
                             response = (IPeersResponse)dup_object(response_to_be_copied);
+                            debug(@"$(request.get_type().name()): contact_peer: " +
+                            @"got response from myself, is a $(response.get_type().name()).");
                         } catch (PeersRedoFromStartError e) {
+                            debug(@"$(request.get_type().name()): contact_peer: got PeersRedoFromStartError from myself.");
                             redofromstart = true;
                             break;
                         } catch (PeersRefuseExecutionError e) {
+                            debug(@"$(request.get_type().name()): contact_peer: got PeersRefuseExecutionError('$(e.message)') from myself.");
                             int e_lvl = extract_level_from_refuse_execution_message(e.message);
                             refuse_messages.add(e.message);
                             if (refuse_messages.size > 10)
