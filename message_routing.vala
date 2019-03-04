@@ -306,10 +306,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                         {
                             string err_msg = "";
                             foreach (string msg in refuse_messages) err_msg += @"$(msg) - ";
-                            print(@"PeerServices($(p_id)) $(string_pos(pos)): Database error: $(err_msg).\n");
+                            debug(@"$(request.get_type().name()): contact_peer: Database error: $(err_msg).");
                             throw new PeersDatabaseError.GENERIC(err_msg);
                         }
-                        print(@"PeerServices($(p_id)) $(string_pos(pos)): no [more] participants.\n");
+                        debug(@"$(request.get_type().name()): contact_peer: no [more] participants.");
                         throw new PeersNoParticipantsInNetworkError.GENERIC("");
                     }
                     if (x.lvl == 0 && x.pos == pos[0])
@@ -416,7 +416,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 tasklet.ms_wait(20);
                                 redofromstart = true;
                                 respondant = null;
-                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): will redo_from_start beacuse missing_optional_maps.");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): missing_optional_maps. Will redo_from_start.");
                                 break;
                             }
                             if (waiting_answer.exclude_gnode != null)
@@ -434,7 +434,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 }
                                 exclude_tuple_list.add(t);
                                 waiting_answer_map.unset(mf.msg_id);
-                                print(@"PeerServices($(p_id)) $(string_pos(pos)): exclude_gnode. Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): exclude_gnode. Exclude $(t).");
                                 break;
                             }
                             else if (waiting_answer.non_participant_gnode != null)
@@ -458,7 +458,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 exclude_tuple_list.add(t);
                                 non_participant_tuple_list.add(t);
                                 waiting_answer_map.unset(mf.msg_id);
-                                print(@"PeerServices($(p_id)) $(string_pos(pos)): non_participant_gnode. Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): non_participant_gnode. Exclude $(t).");
                                 break;
                             }
                             else if (respondant == null && waiting_answer.respondant_node != null)
@@ -507,14 +507,15 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 exclude_tuple_list.add(t);
                                 respondant = null;
                                 waiting_answer_map.unset(mf.msg_id);
-                                print(@"PeerServices($(p_id)) $(string_pos(pos)): refuse_message '$(waiting_answer.refuse_message)'. Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): " +
+                                @"refuse_message '$(waiting_answer.refuse_message)'. Exclude $(t).");
                                 break;
                             }
                             else if (respondant != null && waiting_answer.redo_from_start)
                             {
                                 redofromstart = true;
                                 respondant = null;
-                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): will redo_from_start.");
+                                debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): redo_from_start.");
                                 break;
                             }
                             else
@@ -537,15 +538,17 @@ namespace Netsukuku.PeerServices.MessageRouting
                             exclude_tuple_list.add(t);
                             respondant = null;
                             waiting_answer_map.unset(mf.msg_id);
-                            print(@"PeerServices($(p_id)) $(string_pos(pos)): ChannelError.$(e.code)('$(e.message)') for msg $(mf.msg_id). Exclude $(t.get_type().name()) $(json_string_object(t)).\n");
+                            debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): " +
+                            @"ChannelError.$(e.code)('$(e.message)') for msg $(mf.msg_id). Exclude $(t).");
                             break;
                         }
                     }
                     if (redofromstart) break;
-                    if (response != null) print(@"PeerServices($(p_id)) $(string_pos(pos)): got response for msg $(mf.msg_id) from $(respondant.get_type().name()) $(json_string_object(respondant)): $(response.get_type().name()): '$(json_string_object(response))'\n");
+                    if (response != null) debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): " +
+                                            @"got response from $(respondant)), is a $(response.get_type().name()).");
                     if (response != null)
                         break;
-                    else print(@"PeerServices($(p_id)) $(string_pos(pos)): could not get response for msg $(mf.msg_id).\n");
+                    else debug(@"$(request.get_type().name()): contact_peer msg $(mf.msg_id): could not get response.");
                 }
                 if (redofromstart) continue;
                 return response;

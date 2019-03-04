@@ -96,6 +96,11 @@ namespace Netsukuku.PeerServices
         public string to_string()
         {
             string ret = ""; string next = "";
+            for (int i = 0; i < level; i++)
+            {
+                ret += @"$(next)*";
+                next = ",";
+            }
             for (int i = 0; i < tuple.size; i++)
             {
                 ret += @"$(next)$(tuple[i])";
@@ -182,6 +187,22 @@ namespace Netsukuku.PeerServices
                 if (this.tuple[i] >= gsizes[level+i]) return false;
             }
             return true;
+        }
+
+        public string to_string()
+        {
+            string ret = ""; string next = "";
+            for (int i = 0; i < level; i++)
+            {
+                ret += @"$(next)*";
+                next = ",";
+            }
+            for (int i = 0; i < tuple.size; i++)
+            {
+                ret += @"$(next)$(tuple[i])";
+                next = ",";
+            }
+            return @"[$(ret)]";
         }
     }
 
