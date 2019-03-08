@@ -649,6 +649,33 @@ namespace Netsukuku.PeerServices.MessageRouting
             }
         }
 
+        private delegate void SendOperation() throws StubError, DeserializeError;
+        private void send_with_try_again(string doing, SendOperation op) throws StubError, DeserializeError
+        {
+            /*eg doing = @"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_missing_optional_maps to msg_id $(mf.msg_id)"*/
+            bool once_more = true;
+            int wait_next = 10;
+            int wait_total = 0;
+            while (once_more)
+            {
+                once_more = false;
+                try {
+                    op();
+                } catch (StubError e) {
+                    // This could be due to the routing rule not been added yet. So
+                    //  let's wait a bit and try again a few times.
+                    if (wait_total < min_timeout) {
+                        debug(@"$(doing): failed getting back to originator. Will try again in $(wait_next) msec.");
+                        tasklet.ms_wait(wait_next);
+                        once_more = true;
+                    } else {
+                        debug(@"$(doing): permanently failed getting back to originator.");
+                        throw e;
+                    }
+                }
+            }
+        }
+
         /* After calling this method the user SHOULD use `mf.non_participant_tuple_list`
          * (if the service is optional) and update it's maps.
          */
@@ -664,54 +691,32 @@ namespace Netsukuku.PeerServices.MessageRouting
             {
                 if (optional && (mf.x_macron != null && maps_retrieved_below_level < mf.x_macron.tuple.size))
                 {
-                    bool once_more = true; int wait_next = 5;
-                    while (once_more)
-                    {
-                        once_more = false;
-                        IPeersManagerStub nstub
-                            = get_client_internally(mf.n);
-                        try {
-                            nstub.set_missing_optional_maps(mf.msg_id);
-                        } catch (StubError e) {
-                            // This could be due to the routing rule not been added yet. So
-                            //  let's wait a bit and try again a few times.
-                            if (wait_next < min_timeout) {
-                                wait_next = wait_next * 10;
-                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
-                                tasklet.ms_wait(wait_next); once_more = true;
-                            } else {
-                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_missing_optional_maps to msg_id $(mf.msg_id).\n");
-                            }
-                        } catch (DeserializeError e) {
-                            // ignore
-                        }
-                    } // while (once_more)
+                    IPeersManagerStub nstub = get_client_internally(mf.n);
+                    try {
+                        send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_missing_optional_maps to msg_id $(mf.msg_id)",
+                            () => {
+                                nstub.set_missing_optional_maps(mf.msg_id);
+                            });
+                    } catch (StubError e) {
+                        // Already logged. Do nothing more.
+                    } catch (DeserializeError e) {
+                        // Ignore.
+                    }
                 }
                 else if (optional && (! my_gnode_participates(mf.p_id, mf.lvl)))
                 {
-                    bool once_more = true; int wait_next = 5;
-                    while (once_more)
-                    {
-                        once_more = false;
-                        IPeersManagerStub nstub
-                            = get_client_internally(mf.n);
-                        PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
-                        try {
-                            nstub.set_non_participant(mf.msg_id, gn);
-                        } catch (StubError e) {
-                            // This could be due to the routing rule not been added yet. So
-                            //  let's wait a bit and try again a few times.
-                            if (wait_next < min_timeout) {
-                                wait_next = wait_next * 10;
-                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
-                                tasklet.ms_wait(wait_next); once_more = true;
-                            } else {
-                                print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_non_participant to msg_id $(mf.msg_id).\n");
-                            }
-                        } catch (DeserializeError e) {
-                            // ignore
-                        }
-                    } // while (once_more)
+                    IPeersManagerStub nstub = get_client_internally(mf.n);
+                    PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
+                    try {
+                        send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_non_participant to msg_id $(mf.msg_id)",
+                            () => {
+                                nstub.set_non_participant(mf.msg_id, gn);
+                            });
+                    } catch (StubError e) {
+                        // Already logged. Do nothing more.
+                    } catch (DeserializeError e) {
+                        // Ignore.
+                    }
                 }
                 else
                 {
@@ -733,91 +738,95 @@ namespace Netsukuku.PeerServices.MessageRouting
                         HCoord? x = approximate(mf.x_macron, exclude_gnode_list);
                         if (x == null)
                         {
-                            bool once_more = true; int wait_next = 5;
-                            while (once_more)
-                            {
-                                once_more = false;
-                                IPeersManagerStub nstub
-                                    = get_client_internally(mf.n);
-                                PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
-                                try {
-                                    nstub.set_failure(mf.msg_id, gn);
-                                } catch (StubError e) {
-                                    // This could be due to the routing rule not been added yet. So
-                                    //  let's wait a bit and try again a few times.
-                                    if (wait_next < min_timeout) {
-                                        wait_next = wait_next * 10;
-                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
-                                        tasklet.ms_wait(wait_next); once_more = true;
-                                    } else {
-                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_failure to msg_id $(mf.msg_id).\n");
-                                    }
-                                } catch (DeserializeError e) {
-                                    // ignore
-                                }
-                            } // while (once_more)
-                            break;
+                            IPeersManagerStub nstub = get_client_internally(mf.n);
+                            PeerTupleGNode gn = Utils.make_tuple_gnode(pos, new HCoord(mf.lvl, mf.pos), mf.n.tuple.size);
+                            try {
+                                send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_failure to msg_id $(mf.msg_id)",
+                                    () => {
+                                        nstub.set_failure(mf.msg_id, gn);
+                                    });
+                            } catch (StubError e) {
+                                // Already logged. Do nothing more.
+                            } catch (DeserializeError e) {
+                                // Ignore.
+                            }
+                            break; // Not delivered, but aborted.
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
-                            bool once_more = true; int wait_next = 5;
-                            while (once_more)
+                            IPeersManagerStub nstub = get_client_internally(mf.n);
+                            PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
+                            IPeersRequest request = null;
+                            try {
+                                send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending get_request to msg_id $(mf.msg_id)",
+                                    () => {
+                                        try {
+                                            request = nstub.get_request(mf.msg_id, tuple_respondant);
+                                        } catch (PeersUnknownMessageError e) {
+                                            // Ignore.
+                                        } catch (PeersInvalidRequest e) {
+                                            // Ignore.
+                                        }
+                                    });
+                            } catch (StubError e) {
+                                // Already logged. Do nothing more.
+                            } catch (DeserializeError e) {
+                                // Ignore.
+                            }
+                            if (request != null)
                             {
-                                once_more = false;
-                                IPeersManagerStub nstub
-                                    = get_client_internally(mf.n);
-                                PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
                                 try {
-                                    IPeersRequest request
-                                        = nstub.get_request(mf.msg_id, tuple_respondant);
+                                    IPeersResponse resp = exec_service(mf.p_id, request, mf.n.tuple);
+                                    // Refresh stub.
+                                    nstub = get_client_internally(mf.n);
                                     try {
-                                        IPeersResponse resp = exec_service(mf.p_id, request, mf.n.tuple);
-                                        nstub.set_response(mf.msg_id, resp, tuple_respondant);
-                                    } catch (PeersRedoFromStartError e) {
-                                        try {
-                                            nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
-                                        } catch (StubError e) {
-                                            // ignore
-                                        } catch (DeserializeError e) {
-                                            // ignore
-                                        }
-                                    } catch (PeersRefuseExecutionError e) {
-                                        int e_lvl = extract_level_from_refuse_execution_message(e.message);
-                                        try {
-                                            string err_message = "";
-                                            if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
-                                                    err_message = "WRITE_OUT_OF_MEMORY: ";
-                                            if (e is PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE)
-                                                    err_message = "READ_NOT_FOUND_NOT_EXHAUSTIVE: ";
-                                            if (e is PeersRefuseExecutionError.GENERIC)
-                                                    err_message = "GENERIC: ";
-                                            err_message += e.message;
-                                            nstub.set_refuse_message(mf.msg_id, err_message, e_lvl, tuple_respondant);
-                                        } catch (StubError e) {
-                                            // ignore
-                                        } catch (DeserializeError e) {
-                                            // ignore
-                                        }
+                                        send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_response to msg_id $(mf.msg_id)",
+                                            () => {
+                                                nstub.set_response(mf.msg_id, resp, tuple_respondant);
+                                            });
+                                    } catch (StubError e) {
+                                        // Already logged. Do nothing more.
+                                    } catch (DeserializeError e) {
+                                        // Ignore.
                                     }
-                                } catch (PeersUnknownMessageError e) {
-                                    // ignore
-                                } catch (PeersInvalidRequest e) {
-                                    // ignore
-                                } catch (StubError e) {
-                                    // This could be due to the routing rule not been added yet. So
-                                    //  let's wait a bit and try again a few times.
-                                    if (wait_next < min_timeout) {
-                                        wait_next = wait_next * 10;
-                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
-                                        tasklet.ms_wait(wait_next); once_more = true;
-                                    } else {
-                                        print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending get_request to msg_id $(mf.msg_id).\n");
+                                } catch (PeersRedoFromStartError e) {
+                                    // Refresh stub.
+                                    nstub = get_client_internally(mf.n);
+                                    try {
+                                        send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_redo_from_start to msg_id $(mf.msg_id)",
+                                            () => {
+                                                nstub.set_redo_from_start(mf.msg_id, tuple_respondant);
+                                            });
+                                    } catch (StubError e) {
+                                        // Already logged. Do nothing more.
+                                    } catch (DeserializeError e) {
+                                        // Ignore.
                                     }
-                                } catch (DeserializeError e) {
-                                    // ignore
+                                } catch (PeersRefuseExecutionError e) {
+                                    int e_lvl = extract_level_from_refuse_execution_message(e.message);
+                                    string err_message = "";
+                                    if (e is PeersRefuseExecutionError.WRITE_OUT_OF_MEMORY)
+                                            err_message = "WRITE_OUT_OF_MEMORY: ";
+                                    if (e is PeersRefuseExecutionError.READ_NOT_FOUND_NOT_EXHAUSTIVE)
+                                            err_message = "READ_NOT_FOUND_NOT_EXHAUSTIVE: ";
+                                    if (e is PeersRefuseExecutionError.GENERIC)
+                                            err_message = "GENERIC: ";
+                                    err_message += e.message;
+                                    // Refresh stub.
+                                    nstub = get_client_internally(mf.n);
+                                    try {
+                                        send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_refuse_message to msg_id $(mf.msg_id)",
+                                            () => {
+                                                nstub.set_refuse_message(mf.msg_id, err_message, e_lvl, tuple_respondant);
+                                            });
+                                    } catch (StubError e) {
+                                        // Already logged. Do nothing more.
+                                    } catch (DeserializeError e) {
+                                        // Ignore.
+                                    }
                                 }
-                            } // while (once_more)
-                            break;
+                            }
+                            break; // Not delivered, but executed.
                         }
                         else
                         {
@@ -867,29 +876,18 @@ namespace Netsukuku.PeerServices.MessageRouting
                                     assert_not_reached();
                                 }
                                 delivered = true;
-                                bool once_more = true; int wait_next = 5;
-                                while (once_more)
-                                {
-                                    once_more = false;
-                                    IPeersManagerStub nstub
-                                        = get_client_internally(mf.n);
-                                    PeerTupleGNode gn = Utils.make_tuple_gnode(pos, x, mf.n.tuple.size);
-                                    try {
-                                        nstub.set_next_destination(mf.msg_id, gn);
-                                    } catch (StubError e) {
-                                        // This could be due to the routing rule not been added yet. So
-                                        //  let's wait a bit and try again a few times.
-                                        if (wait_next < min_timeout) {
-                                            wait_next = wait_next * 10;
-                                            print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed getting back to originator. Will try again in $(wait_next) msec.\n");
-                                            tasklet.ms_wait(wait_next); once_more = true;
-                                        } else {
-                                            print(@"PeerServices($(mf.p_id)) $(string_pos(pos)): failed sending set_next_destination to msg_id $(mf.msg_id).\n");
-                                        }
-                                    } catch (DeserializeError e) {
-                                        // ignore
-                                    }
-                                } // while (once_more)
+                                IPeersManagerStub nstub = get_client_internally(mf.n);
+                                PeerTupleGNode gn = Utils.make_tuple_gnode(pos, x, mf.n.tuple.size);
+                                try {
+                                    send_with_try_again(@"PeerServices($(mf.p_id)) $(string_pos(pos)): sending set_next_destination to msg_id $(mf.msg_id)",
+                                        () => {
+                                            nstub.set_next_destination(mf.msg_id, gn);
+                                        });
+                                } catch (StubError e) {
+                                    // Already logged. Do nothing more.
+                                } catch (DeserializeError e) {
+                                    // Ignore.
+                                }
                                 break;
                             }
                         }
