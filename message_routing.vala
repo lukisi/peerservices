@@ -282,7 +282,7 @@ namespace Netsukuku.PeerServices.MessageRouting
             while (redofromstart)
             {
                 redofromstart = false;
-                if (!i_am_real_up_to(levels)) client_not_main_id(request);
+                if (!i_am_real_up_to(levels-1)) client_not_main_id(request);
                 ArrayList<string> refuse_messages = new ArrayList<string>();
                 respondant = null;
                 var exclude_gnode_list = new ArrayList<HCoord>();
@@ -307,7 +307,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                 IPeersResponse? response = null;
                 while (true)
                 {
-                    if (!i_am_real_up_to(levels)) client_not_main_id(request);
+                    if (!i_am_real_up_to(levels-1)) client_not_main_id(request);
                     HCoord? x = approximate(x_macron, exclude_gnode_list);
                     if (x == null)
                     {
@@ -422,7 +422,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                     int timeout = timeout_routing;
                     while (true)
                     {
-                        if (!i_am_real_up_to(levels)) client_not_main_id(request);
+                        if (!i_am_real_up_to(levels-1)) client_not_main_id(request);
                         try {
                             waiting_answer.ch.recv_with_timeout(timeout);
                             if (waiting_answer.missing_optional_maps)
@@ -537,7 +537,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                                 // A new destination (min_target) is found, nothing to do.
                             }
                         } catch (ChannelError e) {
-                            if (!i_am_real_up_to(levels)) client_not_main_id(request);
+                            if (!i_am_real_up_to(levels-1)) client_not_main_id(request);
                             // TIMEOUT_EXPIRED
                             PeerTupleGNode t =
                                 Utils.rebase_tuple_gnode
@@ -788,7 +788,7 @@ namespace Netsukuku.PeerServices.MessageRouting
                         }
                         else if (x.lvl == 0 && x.pos == pos[0])
                         {
-                            if (!i_am_real_up_to(levels)) server_not_main_id(mf);
+                            if (!i_am_real_up_to(levels-1)) server_not_main_id(mf);
                             IPeersManagerStub nstub = get_client_internally(mf.n);
                             PeerTupleNode tuple_respondant = Utils.make_tuple_node(pos, new HCoord(0, pos[0]), mf.n.tuple.size);
                             IPeersRequest request = null;
@@ -810,10 +810,10 @@ namespace Netsukuku.PeerServices.MessageRouting
                             }
                             if (request != null)
                             {
-                                if (!i_am_real_up_to(levels)) server_not_main_id(mf);
+                                if (!i_am_real_up_to(levels-1)) server_not_main_id(mf);
                                 try {
                                     IPeersResponse resp = exec_service(mf.p_id, request, mf.n.tuple);
-                                    if (!i_am_real_up_to(levels)) server_not_main_id(mf);
+                                    if (!i_am_real_up_to(levels-1)) server_not_main_id(mf);
                                     // Refresh stub.
                                     nstub = get_client_internally(mf.n);
                                     try {
