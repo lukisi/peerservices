@@ -240,13 +240,13 @@ namespace Netsukuku.PeerServices.MessageRouting
             return true;
         }
 
-        private const int min_timeout = 5000;
+        private const int min_timeout = 500;
         private int find_timeout_routing(int nodes)
         {
             // number of msec to wait for a routing between a group of $(nodes) nodes.
-            int ret = 2000;
-            if (nodes > 100) ret = 20000;
-            if (nodes > 1000) ret = 200000;
+            int ret = 200;
+            if (nodes > 100) ret = 2000;
+            if (nodes > 1000) ret = 20000;
             // TODO explore values
             // Consider a minimum threshold for the same reasons for which a reply
             //  (see remotable method forward_msg) could result in a StubError a few times: that
